@@ -196,3 +196,90 @@ tbody tr:hover { background: var(--bg); }
   margin-right: 5px;
   vertical-align: middle;
 }
+
+/* Subtabs */
+.subtabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0 0;
+  background: var(--white);
+  margin-bottom: 1.5rem;
+}
+
+.subtab {
+  padding: 0.65rem 1.1rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: 'DM Sans', sans-serif;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  margin-bottom: -1px;
+}
+
+.subtab:hover { color: var(--text); }
+
+.subtab.active {
+  color: var(--brand);
+  font-weight: 500;
+  border-bottom-color: var(--brand);
+}
+
+.subpage { display: none; }
+.subpage.active { display: block; }
+
+/* Search bar for country mapping */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.search-wrap { position: relative; flex: 1; max-width: 320px; }
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.9rem 0.55rem 2rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem;
+  color: var(--text);
+  background: var(--bg);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search-input:focus { border-color: var(--brand); background: var(--white); }
+
+.filter-select {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.75rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem;
+  color: var(--text);
+  background: var(--white);
+  cursor: pointer;
+  outline: none;
+}
+
+.filter-select:focus { border-color: var(--brand); }
+
+/* Country mapping table */
+.targeted-yes { color: var(--brand); font-weight: 500; }
+.targeted-no  { color: var(--text-muted); }
