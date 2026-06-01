@@ -44,6 +44,10 @@
       <div class="nav-item" data-section="purposes"><span class="nav-icon">◇</span>Booking Purposes</div>
       <div class="nav-item" data-section="markets"><span class="nav-icon">⊕</span>Markets</div>
     </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Hotel Setup</div>
+      <div class="nav-item" data-section="rooms"><span class="nav-icon">⊡</span>Rooms</div>
+    </div>
     <div class="nav-section" id="nav-admin">
       <div class="nav-section-label">Admin</div>
       <div class="nav-item" data-section="company"><span class="nav-icon">⬡</span>Company</div>
@@ -246,6 +250,50 @@
       </div>
     </div>
 
+    <!-- ROOMS -->
+    <div class="section" id="section-rooms">
+      <div class="section-header">
+        <h2>Rooms</h2>
+        <p>Room inventory and categories per property.</p>
+      </div>
+      <div class="subtabs">
+        <button class="subtab active" onclick="showSubtab('rooms','categories')" id="subtab-rooms-categories">Room Categories</button>
+        <button class="subtab" onclick="showSubtab('rooms','list')" id="subtab-rooms-list">Rooms</button>
+      </div>
+
+      <!-- Room Categories subpage -->
+      <div class="subpage active" id="subpage-rooms-categories">
+        <div class="action-bar">
+          <h3 id="room-categories-count"></h3>
+          <button class="btn btn-primary" id="btn-add-room-category">+ Add category</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Name</th><th>Status</th><th></th></tr></thead>
+            <tbody id="room-categories-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Rooms subpage -->
+      <div class="subpage" id="subpage-rooms-list">
+        <div class="action-bar" style="margin-bottom:0.75rem">
+          <div style="display:flex;align-items:center;gap:0.75rem">
+            <label style="font-size:0.8rem;color:var(--text-muted);font-weight:500">Property:</label>
+            <select class="filter-select" id="rooms-property-filter" onchange="loadRoomsList()">
+            </select>
+          </div>
+          <button class="btn btn-primary" id="btn-add-room">+ Add room</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Beds</th><th>Status</th><th></th></tr></thead>
+            <tbody id="rooms-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- CHANNELS -->
     <div class="section" id="section-channels">
       <div class="section-header">
@@ -386,6 +434,39 @@
   </div>
 </div>
 
+<!-- Modal: Add room category -->
+<div class="modal-overlay" id="modal-room-category">
+  <div class="modal">
+    <h3>Add room category</h3>
+    <div class="alert error" id="room-cat-error"></div>
+    <div class="field"><label>Code</label><input type="text" id="rcat-code" placeholder="e.g. deluxe"></div>
+    <div class="field"><label>Name</label><input type="text" id="rcat-name" placeholder="e.g. Deluxe"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-room-category')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-room-category">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add room -->
+<div class="modal-overlay" id="modal-room">
+  <div class="modal">
+    <h3>Add room</h3>
+    <div class="alert error" id="room-error"></div>
+    <div class="field"><label>Room code</label><input type="text" id="room-code" placeholder="e.g. 105"></div>
+    <div class="field"><label>Room name</label><input type="text" id="room-name" placeholder="e.g. 105 - Patio"></div>
+    <div class="field">
+      <label>Category</label>
+      <select id="room-category-id"><option value="">— Select category —</option></select>
+    </div>
+    <div class="field"><label>Beds per room</label><input type="number" id="room-beds" value="2" min="1" max="10"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-room')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-room">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Add market group -->
 <div class="modal-overlay" id="modal-group">
   <div class="modal">
@@ -441,6 +522,7 @@
 <script src="js/segments.js"></script>
 <script src="js/booking_purposes.js"></script>
 <script src="js/markets.js"></script>
+<script src="js/rooms.js"></script>
 <script src="js/countries.js"></script>
 <script>
   let currentProfile = null;
@@ -494,7 +576,7 @@
       item.classList.add('active');
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
-      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, countries: loadCountries, users: loadUsers, company: loadCompany };
+      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, rooms: loadRooms, countries: loadCountries, users: loadUsers, company: loadCompany };
       loaders[s]?.();
     });
   });
@@ -855,6 +937,116 @@
     document.getElementById(`subtab-${section}-${tab}`).classList.add('active');
     document.getElementById(`subpage-${section}-${tab}`).classList.add('active');
   }
+
+  // ── ROOMS ─────────────────────────────────────────────────────────
+  let allRoomCategories = [];
+
+  async function loadRooms() {
+    await loadRoomCategories();
+    await populatePropertyFilter();
+    await loadRoomsList();
+  }
+
+  async function populatePropertyFilter() {
+    const { data } = await Properties.getByCompany(currentCompany.id);
+    const sel = document.getElementById('rooms-property-filter');
+    sel.innerHTML = (data || []).map(p =>
+      `<option value="${p.property_id}">${p.property_name} (${p.property_id})</option>`
+    ).join('');
+  }
+
+  async function loadRoomCategories() {
+    UI.tableLoading('room-categories-tbody', 4);
+    const { data } = await Rooms.getCategories(currentCompany.id);
+    allRoomCategories = data || [];
+    document.getElementById('room-categories-count').textContent = `${allRoomCategories.length} categories`;
+    document.getElementById('room-categories-tbody').innerHTML = allRoomCategories.map(c => `
+      <tr>
+        <td>${UI.mono(c.category_code)}</td>
+        <td>${c.category_name}</td>
+        <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleRoomCategory('${c.id}','${c.status}')">
+          ${c.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function toggleRoomCategory(id, status) {
+    await Rooms.toggleCategory(id, status);
+    loadRoomCategories();
+  }
+
+  document.getElementById('btn-add-room-category').addEventListener('click', () => UI.openModal('modal-room-category'));
+
+  document.getElementById('btn-save-room-category').addEventListener('click', async () => {
+    const category_code = document.getElementById('rcat-code').value.trim().toLowerCase().replace(/\s+/g,'-');
+    const category_name = document.getElementById('rcat-name').value.trim();
+    UI.hideAlert('room-cat-error');
+    if (!category_code || !category_name) { UI.showAlert('room-cat-error', 'Code and name are required.'); return; }
+    UI.setLoading('btn-save-room-category', true, 'Save');
+    const { error } = await Rooms.createCategory(currentCompany.id, { category_code, category_name });
+    UI.setLoading('btn-save-room-category', false, 'Save');
+    if (error) { UI.showAlert('room-cat-error', error.message); return; }
+    UI.closeModal('modal-room-category');
+    document.getElementById('rcat-code').value = '';
+    document.getElementById('rcat-name').value = '';
+    loadRoomCategories();
+  });
+
+  async function loadRoomsList() {
+    const propertyId = document.getElementById('rooms-property-filter').value;
+    if (!propertyId) return;
+    UI.tableLoading('rooms-tbody', 6);
+    const { data } = await Rooms.getByProperty(currentCompany.id, propertyId);
+    const rooms = data || [];
+    document.getElementById('rooms-tbody').innerHTML = rooms.map(r => `
+      <tr>
+        <td>${UI.mono(r.room_code)}</td>
+        <td>${r.room_name}</td>
+        <td>${r.room_categories?.category_name ?? '—'}</td>
+        <td>${r.beds_per_room}</td>
+        <td>${UI.statusBadge(r.status === 'active')}</td>
+        <td>${isAdmin ? `
+          <button class="btn btn-secondary btn-sm" onclick="toggleRoom('${r.id}','${r.status}')">
+            ${r.status === 'active' ? 'Disable' : 'Enable'}
+          </button>` : ''}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="6"><div class="empty-state">No rooms for this property.</div></td></tr>';
+  }
+
+  async function toggleRoom(id, status) {
+    await Rooms.toggleRoom(id, status);
+    loadRoomsList();
+  }
+
+  document.getElementById('btn-add-room').addEventListener('click', () => {
+    // Populate category dropdown from loaded categories
+    const sel = document.getElementById('room-category-id');
+    sel.innerHTML = '<option value="">— Select category —</option>' +
+      allRoomCategories.filter(c => c.status === 'active').map(c =>
+        `<option value="${c.id}">${c.category_name}</option>`
+      ).join('');
+    UI.hideAlert('room-error');
+    UI.openModal('modal-room');
+  });
+
+  document.getElementById('btn-save-room').addEventListener('click', async () => {
+    const propertyId  = document.getElementById('rooms-property-filter').value;
+    const room_code   = document.getElementById('room-code').value.trim();
+    const room_name   = document.getElementById('room-name').value.trim();
+    const category_id = document.getElementById('room-category-id').value || null;
+    const beds_per_room = parseInt(document.getElementById('room-beds').value) || 1;
+    UI.hideAlert('room-error');
+    if (!room_code || !room_name) { UI.showAlert('room-error', 'Code and name are required.'); return; }
+    UI.setLoading('btn-save-room', true, 'Save');
+    const { error } = await Rooms.create(currentCompany.id, propertyId, { room_code, room_name, category_id, beds_per_room });
+    UI.setLoading('btn-save-room', false, 'Save');
+    if (error) { UI.showAlert('room-error', error.message); return; }
+    UI.closeModal('modal-room');
+    document.getElementById('room-code').value = '';
+    document.getElementById('room-name').value = '';
+    loadRoomsList();
+  });
 
   // ── MARKETS ───────────────────────────────────────────────────────
   let allCountries = [];
