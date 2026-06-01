@@ -43,6 +43,12 @@
 <script src="js/supabase.js"></script>
 <script src="js/auth.js"></script>
 <script>
+  function showError(msg) {
+    const el = document.getElementById('alert-error');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+
   // Redirect if already logged in
   Auth.getSession().then(session => {
     if (session) Auth.redirectAfterLogin(session.user.id);
@@ -52,41 +58,40 @@
     const email    = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
     const btn      = document.getElementById('btn-login');
-    const errEl    = document.getElementById('alert-error');
 
-    errEl.classList.remove('show');
+    document.getElementById('alert-error').classList.remove('show');
 
     if (!email || !password) {
-      UI_inline_showAlert('alert-error', 'Please enter your email and password.');
+      showError('Please enter your email and password.');
       return;
     }
 
     btn.disabled    = true;
     btn.textContent = 'Signing in...';
 
-    const { data, error } = await Auth.login(email, password);
+    try {
+      const { data, error } = await Auth.login(email, password);
 
-    if (error) {
-      document.getElementById('alert-error').textContent = error.message;
-      document.getElementById('alert-error').classList.add('show');
+      if (error) {
+        showError(error.message);
+        btn.disabled    = false;
+        btn.textContent = 'Sign in';
+        return;
+      }
+
+      await Auth.redirectAfterLogin(data.user.id);
+
+    } catch(e) {
+      console.error('Login exception:', e);
+      showError('An unexpected error occurred. Check console for details.');
       btn.disabled    = false;
       btn.textContent = 'Sign in';
-      return;
     }
-
-    await Auth.redirectAfterLogin(data.user.id);
   });
 
-  // Enter key
   document.getElementById('password').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('btn-login').click();
   });
-
-  function UI_inline_showAlert(id, msg) {
-    const el = document.getElementById(id);
-    el.textContent = msg;
-    el.classList.add('show');
-  }
 </script>
 </body>
 </html>
