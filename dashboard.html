@@ -43,6 +43,7 @@
     </div>
     <div class="nav-section" id="nav-admin">
       <div class="nav-section-label">Admin</div>
+      <div class="nav-item" data-section="company"><span class="nav-icon">⬡</span>Company</div>
       <div class="nav-item" data-section="users"><span class="nav-icon">◎</span>Users</div>
     </div>
   </div>
@@ -98,6 +99,33 @@
       <div class="table-wrap">
         <div class="table-header"><h3>Parameters</h3></div>
         <div id="params-list"></div>
+      </div>
+    </div>
+
+    <!-- COMPANY -->
+    <div class="section" id="section-company">
+      <div class="section-header">
+        <h2>Company</h2>
+        <p>Edit company details.</p>
+      </div>
+      <div class="table-wrap" style="max-width:520px">
+        <div class="table-header"><h3>Details</h3></div>
+        <div style="padding:1.25rem">
+          <div class="alert error" id="company-error"></div>
+          <div class="alert success" id="company-success"></div>
+          <div class="field"><label>Company name</label><input type="text" id="company-name"></div>
+          <div class="field"><label>Slug</label><input type="text" id="company-slug"></div>
+          <div class="field">
+            <label>Status</label>
+            <select id="company-active">
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+          <div style="margin-top:0.5rem">
+            <button class="btn btn-primary" id="btn-save-company">Save changes</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -299,7 +327,7 @@
       item.classList.add('active');
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
-      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, users: loadUsers };
+      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, users: loadUsers, company: loadCompany };
       loaders[s]?.();
     });
   });
@@ -566,6 +594,40 @@
     await Properties.toggleActive(id, active);
     loadProperties();
   }
+
+  // ── COMPANY EDIT ──────────────────────────────────────────────────
+  async function loadCompany() {
+    document.getElementById('company-name').value   = currentCompany.name;
+    document.getElementById('company-slug').value   = currentCompany.slug;
+    document.getElementById('company-active').value = currentCompany.active ? 'true' : 'false';
+    UI.hideAlert('company-error');
+    UI.hideAlert('company-success');
+  }
+
+  document.getElementById('btn-save-company').addEventListener('click', async () => {
+    const name   = document.getElementById('company-name').value.trim();
+    const slug   = document.getElementById('company-slug').value.trim();
+    const active = document.getElementById('company-active').value === 'true';
+
+    UI.hideAlert('company-error');
+    UI.hideAlert('company-success');
+
+    if (!name || !slug) { UI.showAlert('company-error', 'Name and slug are required.'); return; }
+
+    UI.setLoading('btn-save-company', true, 'Save changes');
+    const { data, error } = await Companies.update(currentCompany.id, { name, slug, active });
+    UI.setLoading('btn-save-company', false, 'Save changes');
+
+    if (error) { UI.showAlert('company-error', error.message); return; }
+
+    // Update local state + topbar
+    currentCompany = data;
+    document.getElementById('company-pill').textContent = data.name;
+    document.title = `BeyonData — ${data.name}`;
+    sessionStorage.setItem('selected_company_name', data.name);
+
+    UI.showAlert('company-success', 'Company updated successfully.', 'success');
+  });
 
   // ── GLOBAL ────────────────────────────────────────────────────────
   document.getElementById('btn-signout').addEventListener('click', () => Auth.logout());
