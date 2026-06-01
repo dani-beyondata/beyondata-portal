@@ -1,47 +1,42 @@
-// auth.js — login, logout, session management, role-based redirects
+// companies.js — company CRUD operations
 
-const Auth = (() => {
+const Companies = (() => {
 
-  async function getSession() {
-    const { data: { session } } = await sb.auth.getSession();
-    return session;
+  async function getAll() {
+    const { data, error } = await sb
+      .from('companies')
+      .select('*, properties(count)')
+      .order('name');
+    return { data, error };
   }
 
-  async function getProfile(userId) {
-    const { data } = await sb
-      .from('profiles')
-      .select('*, companies(*)')
-      .eq('id', userId)
+  async function getById(id) {
+    const { data, error } = await sb
+      .from('companies')
+      .select('*')
+      .eq('id', id)
       .single();
-    return data;
+    return { data, error };
   }
 
-  async function login(email, password) {
-    return await sb.auth.signInWithPassword({ email, password });
+  async function create(name, slug) {
+    const { data, error } = await sb
+      .from('companies')
+      .insert({ name, slug, active: true })
+      .select()
+      .single();
+    return { data, error };
   }
 
-  async function logout() {
-    await sb.auth.signOut();
-    sessionStorage.clear();
-    window.location.href = 'index.html';
+  async function update(id, fields) {
+    const { data, error } = await sb
+      .from('companies')
+      .update({ ...fields, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    return { data, error };
   }
 
-  async function requireAuth() {
-    const session = await getSession();
-    if (!session) { window.location.href = 'index.html'; return null; }
-    return session;
-  }
-
-  async function redirectAfterLogin(userId) {
-    const profile = await getProfile(userId);
-    if (!profile) return null;
-    if (profile.role === 'system_admin') {
-      window.location.href = 'company-select.html';
-    } else {
-      window.location.href = 'dashboard.html';
-    }
-    return profile;
-  }
-
-  return { getSession, getProfile, login, logout, requireAuth, redirectAfterLogin };
+  return { getAll, getById, create, update };
 })();

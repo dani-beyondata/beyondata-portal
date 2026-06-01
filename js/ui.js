@@ -1,188 +1,80 @@
-/* layout.css — topbar, sidebar, main layout */
+// ui.js — shared UI helpers: modals, alerts, badges, loading states
 
-/* Top bar */
-.topbar {
-  background: var(--white);
-  border-bottom: 1px solid var(--border);
-  padding: 0 1.5rem;
-  height: var(--topbar-h);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  z-index: 50;
-}
+const UI = (() => {
 
-.topbar-left  { display: flex; align-items: center; gap: 1rem; }
-.topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+  function showAlert(elId, message, type = 'error') {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = message;
+    el.className = `alert ${type} show`;
+  }
 
-.brand-name {
-  font-size: 1.15rem;
-  font-weight: 600;
-  color: var(--brand);
-  letter-spacing: -0.02em;
-}
+  function hideAlert(elId) {
+    const el = document.getElementById(elId);
+    if (el) el.classList.remove('show');
+  }
 
-.brand-name span { color: var(--text); }
+  function openModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('show');
+  }
 
-.company-pill {
-  font-size: 0.8rem;
-  background: var(--brand-light);
-  color: var(--brand);
-  padding: 0.2rem 0.75rem;
-  border-radius: 20px;
-  font-weight: 500;
-}
+  function closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('show');
+    // Clear any alerts inside
+    el?.querySelectorAll('.alert').forEach(a => a.classList.remove('show'));
+  }
 
-.user-label {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
+  function setLoading(btnId, loading, defaultText) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Saving...' : defaultText;
+  }
 
-.role-pill {
-  font-family: 'DM Mono', monospace;
-  font-size: 0.68rem;
-  background: #ede9fe;
-  color: #7c3aed;
-  padding: 0.2rem 0.6rem;
-  border-radius: 20px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
+  function badge(text, type) {
+    return `<span class="badge badge-${type}">${text}</span>`;
+  }
 
-/* Page layout */
-.layout {
-  display: flex;
-  margin-top: var(--topbar-h);
-  min-height: calc(100vh - var(--topbar-h));
-}
+  function statusBadge(active) {
+    return badge(active ? 'Active' : 'Inactive', active ? 'active' : 'inactive');
+  }
 
-/* Sidebar */
-.sidebar {
-  width: var(--sidebar-w);
-  background: var(--white);
-  border-right: 1px solid var(--border);
-  padding: 1.5rem 0;
-  position: fixed;
-  top: var(--topbar-h);
-  left: 0;
-  bottom: 0;
-  overflow-y: auto;
-}
+  function roleBadge(role) {
+    const map = {
+      system_admin: ['System Admin', 'system'],
+      company_admin: ['Admin', 'admin'],
+      company_user: ['User', 'user']
+    };
+    const [label, type] = map[role] || ['Unknown', 'inactive'];
+    return badge(label, type);
+  }
 
-.nav-section { margin-bottom: 1.5rem; }
+  function sourceBadge(source) {
+    return badge(source, source === 'api' ? 'api' : 'upload');
+  }
 
-.nav-section-label {
-  font-family: 'DM Mono', monospace;
-  font-size: 0.62rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  padding: 0 1.25rem;
-  margin-bottom: 0.35rem;
-}
+  function tableLoading(tbodyId, cols) {
+    const tbody = document.getElementById(tbodyId);
+    if (tbody) tbody.innerHTML = `<tr><td colspan="${cols}" class="td-center td-muted">Loading...</td></tr>`;
+  }
 
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.55rem 1.25rem;
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.12s;
-  border-left: 2px solid transparent;
-  user-select: none;
-}
+  function tableEmpty(tbodyId, cols, message = 'No data yet.') {
+    const tbody = document.getElementById(tbodyId);
+    if (tbody) tbody.innerHTML = `<tr><td colspan="${cols}"><div class="empty-state">${message}</div></td></tr>`;
+  }
 
-.nav-item:hover { color: var(--text); background: var(--bg); }
+  function mono(text) {
+    return `<code class="mono">${text}</code>`;
+  }
 
-.nav-item.active {
-  color: var(--brand);
-  background: var(--brand-light);
-  border-left-color: var(--brand);
-  font-weight: 500;
-}
+  return {
+    showAlert, hideAlert, openModal, closeModal,
+    setLoading, badge, statusBadge, roleBadge, sourceBadge,
+    tableLoading, tableEmpty, mono
+  };
+})();
 
-.nav-icon { font-size: 1rem; width: 18px; text-align: center; }
-
-/* Main content area */
-.content {
-  margin-left: var(--sidebar-w);
-  flex: 1;
-  padding: 2rem;
-  max-width: calc(100vw - var(--sidebar-w));
-}
-
-/* Section visibility */
-.section { display: none; }
-.section.active { display: block; }
-
-/* Section header */
-.section-header { margin-bottom: 1.75rem; }
-
-.section-header h2 {
-  font-size: 1.3rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.section-header p {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  margin-top: 0.25rem;
-}
-
-/* Action bar above tables */
-.action-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-}
-
-.action-bar h3 {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-/* Login page centering */
-.login-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-}
-
-.login-wrap { width: 100%; max-width: 420px; padding: 2rem; }
-
-.login-brand { text-align: center; margin-bottom: 2.5rem; }
-
-.login-brand .brand-name { font-size: 1.75rem; }
-
-.login-brand .brand-sub {
-  font-family: 'DM Mono', monospace;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-top: 0.3rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.login-footer {
-  text-align: center;
-  margin-top: 1.5rem;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-/* Company select page */
-.companies-page { max-width: 960px; margin: 3rem auto; padding: 0 2rem; }
-
-.page-header { margin-bottom: 2rem; }
-.page-header h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; }
-.page-header p  { color: var(--text-muted); margin-top: 0.3rem; font-size: 0.9rem; }
+// Make closeModal global for inline onclick handlers
+function closeModal(id) { UI.closeModal(id); }

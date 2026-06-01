@@ -1,48 +1,37 @@
-// users.js — user management operations
+// channels.js — channel catalog CRUD operations
 
-const Users = (() => {
+const Channels = (() => {
 
   async function getByCompany(companyId) {
     const { data, error } = await sb
-      .from('profiles')
-      .select('id, full_name, role, active, created_at')
+      .from('channels')
+      .select('*')
       .eq('company_id', companyId)
-      .order('created_at');
+      .order('channel_code');
     return { data, error };
   }
 
-  async function create(companyId, email, password, fullName, role) {
-    // Step 1: create auth user
-    const { data: authData, error: authError } = await sb.auth.signUp({ email, password });
-    if (authError) return { data: null, error: authError };
-
-    // Step 2: create profile
-    const { data, error } = await sb.from('profiles').insert({
-      id: authData.user.id,
-      company_id: companyId,
-      role,
-      full_name: fullName,
-      active: true
-    }).select().single();
-
-    return { data, error };
-  }
-
-  async function toggleActive(id, currentActive) {
+  async function create(companyId, fields) {
     const { data, error } = await sb
-      .from('profiles')
-      .update({ active: !currentActive, updated_at: new Date().toISOString() })
+      .from('channels')
+      .insert({ ...fields, company_id: companyId, status: 'active' })
+      .select()
+      .single();
+    return { data, error };
+  }
+
+  async function update(id, fields) {
+    const { data, error } = await sb
+      .from('channels')
+      .update({ ...fields, updated_at: new Date().toISOString() })
       .eq('id', id);
     return { data, error };
   }
 
-  async function updateRole(id, role) {
-    const { data, error } = await sb
-      .from('profiles')
-      .update({ role, updated_at: new Date().toISOString() })
-      .eq('id', id);
-    return { data, error };
+  async function toggleStatus(id, currentStatus) {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    return await update(id, { status: newStatus });
   }
 
-  return { getByCompany, create, toggleActive, updateRole };
+  return { getByCompany, create, update, toggleStatus };
 })();
