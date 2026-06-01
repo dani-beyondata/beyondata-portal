@@ -439,6 +439,7 @@ tbody tr:hover { background: var(--bg); }
 .cal-day.closed .day-num { color: var(--error); }
 .cal-day.today { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-light); }
 .cal-day.pending { border-color: var(--warning) !important; background: #fffbeb; }
+.cal-day.selected { border-color: var(--brand) !important; box-shadow: 0 0 0 2px var(--brand-light); }
 
 .day-num { font-size: 0.85rem; font-weight: 500; color: var(--text); }
 .day-status { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
