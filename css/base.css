@@ -3,22 +3,22 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --brand:        #5A80B5;
-  --brand-dark:   #3d5f8f;
-  --brand-light:  #e8eef7;
-  --text:         #1a1f2e;
+  --brand:        #3D65A8;
+  --brand-dark:   #2a4d87;
+  --brand-light:  #dce8f7;
+  --text:         #111827;
   --text-muted:   #6b7280;
-  --border:       #e2e6ed;
-  --bg:           #f7f8fc;
+  --border:       #d1d9e4;
+  --bg:           #f4f6fb;
   --white:        #ffffff;
-  --error:        #e05252;
-  --success:      #3da37a;
+  --error:        #dc2626;
+  --success:      #16a34a;
   --warning:      #ca8a04;
   --sidebar-w:    220px;
   --topbar-h:     56px;
-  --radius:       8px;
-  --radius-lg:    12px;
-  --shadow:       0 4px 24px rgba(90, 128, 181, 0.08);
+  --radius:       7px;
+  --radius-lg:    10px;
+  --shadow:       0 2px 16px rgba(61, 101, 168, 0.10);
 }
 
 body {
