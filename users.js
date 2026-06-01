@@ -1,0 +1,198 @@
+/* components.css — cards, tables, stats, params, toggles */
+
+/* Cards */
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.card-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.5rem;
+}
+
+.card-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.card-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+/* Company cards */
+.companies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.company-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.company-card:hover {
+  border-color: var(--brand);
+  box-shadow: 0 4px 20px rgba(90, 128, 181, 0.12);
+  transform: translateY(-2px);
+}
+
+.company-initial {
+  width: 44px;
+  height: 44px;
+  background: var(--brand-light);
+  color: var(--brand);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.company-card-name { font-size: 1rem; font-weight: 500; margin-bottom: 0.2rem; }
+.company-card-slug { font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--text-muted); }
+
+.company-card-meta {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 1.5rem;
+}
+
+.meta-item { font-size: 0.78rem; color: var(--text-muted); }
+.meta-item strong { color: var(--text); font-weight: 500; display: block; font-size: 0.85rem; }
+
+.add-company-card {
+  background: var(--white);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  gap: 0.5rem;
+}
+
+.add-company-card:hover { border-color: var(--brand); color: var(--brand); }
+.add-icon { font-size: 1.5rem; }
+
+/* Tables */
+.table-wrap {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.table-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.table-header h3 { font-size: 0.9rem; font-weight: 500; }
+
+table { width: 100%; border-collapse: collapse; }
+
+thead th {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0.75rem 1.25rem;
+  text-align: left;
+  font-weight: 500;
+  background: var(--bg);
+}
+
+tbody td {
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+}
+
+tbody tr:hover { background: var(--bg); }
+
+/* Params / Settings */
+.param-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.param-row:first-child { border-top: none; }
+.param-info h4 { font-size: 0.9rem; font-weight: 500; }
+.param-info p  { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem; }
+
+/* Toggle buttons */
+.toggle-wrap { display: flex; gap: 0.4rem; }
+
+.toggle-btn {
+  padding: 0.35rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.15s;
+}
+
+.toggle-btn.active {
+  background: var(--brand);
+  color: white;
+  border-color: var(--brand);
+}
+
+.toggle-btn:disabled { cursor: default; opacity: 0.7; }
+
+/* Status dot */
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-right: 5px;
+  vertical-align: middle;
+}
