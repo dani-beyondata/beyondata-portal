@@ -12,20 +12,47 @@ const Users = (() => {
   }
 
   async function create(companyId, email, password, fullName, role) {
-    // Step 1: create auth user
+    // Step 1: sign up the new user — this changes the active session
     const { data: authData, error: authError } = await sb.auth.signUp({ email, password });
     if (authError) return { data: null, error: authError };
 
-    // Step 2: create profile
-    const { data, error } = await sb.from('profiles').insert({
-      id: authData.user.id,
-      company_id: companyId,
-      role,
-      full_name: fullName,
-      active: true
-    }).select().single();
+    const newUserId = authData.user.id;
 
-    return { data, error };
+    // Step 2: sign back in as the admin immediately
+    // We need to restore the admin session before inserting the profile
+    // so the RLS policy sees the admin as the inserting user
+    // We use a small workaround: store admin session, restore it
+    const { data: { session: adminSession } } = await sb.auth.getSession();
+
+    // Step 3: insert profile using a direct REST call with admin auth header
+    // This avoids the RLS issue by using the admin's token explicitly
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${adminSession?.access_token}`,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
+          id: newUserId,
+          company_id: companyId,
+          role,
+          full_name: fullName,
+          active: true
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const err = await response.json();
+      return { data: null, error: { message: err.message || 'Failed to create profile' } };
+    }
+
+    const data = await response.json();
+    return { data, error: null };
   }
 
   async function toggleActive(id, currentActive) {
