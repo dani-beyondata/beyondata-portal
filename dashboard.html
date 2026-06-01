@@ -332,13 +332,29 @@
         </div>
 
         <div class="bulk-bar">
-          <span class="bulk-label">Bulk:</span>
+          <span class="bulk-label">Month:</span>
           <button class="btn btn-secondary btn-sm" onclick="bulkAvailMonth('open')">✓ Open all</button>
           <button class="btn btn-danger btn-sm" onclick="bulkAvailMonth('closed')">✗ Close all</button>
           <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
-          <span style="font-size:0.78rem;color:var(--text-muted)">Set rooms:</span>
-          <input type="number" class="rooms-input" id="bulk-rooms-val" value="12" min="0" max="999">
-          <button class="btn btn-secondary btn-sm" onclick="bulkAvailRooms()">Apply to month</button>
+          <span style="font-size:0.78rem;color:var(--text-muted)">Rooms:</span>
+          <input type="number" class="rooms-input" id="bulk-rooms-val" placeholder="—" min="0" max="999">
+          <span style="font-size:0.78rem;color:var(--text-muted)">Beds:</span>
+          <input type="number" class="rooms-input" id="bulk-beds-val" placeholder="—" min="0" max="999">
+          <button class="btn btn-secondary btn-sm" onclick="bulkAvailMonth(null)">Apply to month</button>
+        </div>
+        <div class="bulk-bar" id="selection-bar" style="display:none;background:var(--brand-light);border-color:var(--brand)">
+          <span class="bulk-label" style="color:var(--brand)">Selected:</span>
+          <span id="selection-count" style="font-size:0.8rem;color:var(--brand);font-weight:500">0 days</span>
+          <button class="btn btn-secondary btn-sm" onclick="clearSelection()">Clear</button>
+          <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
+          <button class="btn btn-secondary btn-sm" onclick="bulkSelection('open')">✓ Open</button>
+          <button class="btn btn-danger btn-sm" onclick="bulkSelection('closed')">✗ Close</button>
+          <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
+          <span style="font-size:0.78rem;color:var(--text-muted)">Rooms:</span>
+          <input type="number" class="rooms-input" id="sel-rooms-val" placeholder="—" min="0" max="999">
+          <span style="font-size:0.78rem;color:var(--text-muted)">Beds:</span>
+          <input type="number" class="rooms-input" id="sel-beds-val" placeholder="—" min="0" max="999">
+          <button class="btn btn-primary btn-sm" onclick="bulkSelection(null)">Apply to selection</button>
         </div>
 
         <div class="cal-grid" id="avail-cal-grid"></div>
@@ -1004,38 +1020,54 @@
   }
 
   // ── AVAILABILITY CALENDAR ─────────────────────────────────────────
-  let availYear  = new Date().getFullYear();
-  let availMonth = new Date().getMonth() + 1; // 1-based
-  let availData  = {};   // { 'YYYY-MM-DD': { status, number_of_rooms, number_of_beds } }
-  let availPending = {}; // pending changes
+  let availYear    = new Date().getFullYear();
+  let availMonth   = new Date().getMonth() + 1;
+  let availData    = {};
+  let availPending = {};
+  let availSelected = new Set(); // selected dates for bulk
 
   const MONTH_NAMES = ['January','February','March','April','May','June',
     'July','August','September','October','November','December'];
-  const DAY_NAMES   = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
   async function loadAvailability() {
     const propertyId = document.getElementById('avail-property-filter').value;
     if (!propertyId) return;
-    availPending = {};
+    availPending  = {};
+    availSelected = new Set();
     document.getElementById('avail-save-bar').style.display = 'none';
+    document.getElementById('selection-bar').style.display  = 'none';
     await fetchAndRenderMonth();
   }
 
   async function fetchAndRenderMonth() {
     const propertyId = document.getElementById('avail-property-filter').value;
     if (!propertyId) return;
-
     const { data } = await Availability.getMonth(currentCompany.id, propertyId, availYear, availMonth);
     availData = {};
     (data || []).forEach(r => { availData[r.date] = r; });
     renderAvailCalendar();
   }
 
+  function getDay(dateStr) {
+    const pending = availPending[dateStr];
+    const stored  = availData[dateStr];
+    return {
+      status:          pending?.status          ?? stored?.status          ?? 'open',
+      number_of_rooms: pending?.number_of_rooms ?? stored?.number_of_rooms ?? 0,
+      number_of_beds:  pending?.number_of_beds  ?? stored?.number_of_beds  ?? 0,
+    };
+  }
+
+  function setDay(dateStr, fields) {
+    const current = getDay(dateStr);
+    availPending[dateStr] = { ...current, ...fields };
+    markAvailChanged();
+  }
+
   function renderAvailCalendar() {
-    // Header label
     document.getElementById('avail-month-label').textContent = `${MONTH_NAMES[availMonth-1]} ${availYear}`;
 
-    // Year selector
     const yrSel = document.getElementById('avail-year-select');
     const curYr = new Date().getFullYear();
     if (!yrSel.options.length) {
@@ -1048,11 +1080,9 @@
     }
     yrSel.value = availYear;
 
-    // Calendar grid
     const grid = document.getElementById('avail-cal-grid');
     grid.innerHTML = '';
 
-    // Day headers Mon-Sun
     DAY_NAMES.forEach(d => {
       const h = document.createElement('div');
       h.className = 'cal-header-cell';
@@ -1060,71 +1090,122 @@
       grid.appendChild(h);
     });
 
-    const firstDay = new Date(availYear, availMonth - 1, 1);
+    const firstDay  = new Date(availYear, availMonth - 1, 1);
     const totalDays = new Date(availYear, availMonth, 0).getDate();
-    const today = new Date().toISOString().slice(0,10);
+    const today     = new Date().toISOString().slice(0,10);
+    const offset    = (firstDay.getDay() + 6) % 7;
 
-    // Monday = 0 offset
-    let startOffset = (firstDay.getDay() + 6) % 7;
-    for (let i = 0; i < startOffset; i++) {
-      const empty = document.createElement('div');
-      empty.className = 'cal-day empty';
-      grid.appendChild(empty);
+    for (let i = 0; i < offset; i++) {
+      const e = document.createElement('div');
+      e.className = 'cal-day empty';
+      grid.appendChild(e);
     }
 
-    let openCount = 0, closedCount = 0, totalBeds = 0, bedDays = 0;
+    let openCount = 0, closedCount = 0, totalBeds = 0, totalRooms = 0, openDays = 0;
 
     for (let d = 1; d <= totalDays; d++) {
       const dateStr = `${availYear}-${String(availMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const pending = availPending[dateStr];
-      const stored  = availData[dateStr];
-      const status  = pending?.status  ?? stored?.status  ?? 'open';
-      const rooms   = pending?.number_of_rooms ?? stored?.number_of_rooms ?? 0;
-      const beds    = pending?.number_of_beds  ?? stored?.number_of_beds  ?? 0;
+      const day     = getDay(dateStr);
+      const isPending  = !!availPending[dateStr];
+      const isSelected = availSelected.has(dateStr);
 
-      if (status === 'open') { openCount++; totalBeds += beds; bedDays++; }
-      else closedCount++;
+      if (day.status === 'open') {
+        openCount++; totalBeds += day.number_of_beds;
+        totalRooms += day.number_of_rooms; openDays++;
+      } else closedCount++;
 
       const cell = document.createElement('div');
-      cell.className = `cal-day${status === 'closed' ? ' closed' : ''}${dateStr === today ? ' today' : ''}${pending ? ' pending' : ''}`;
+      let cls = 'cal-day';
+      if (day.status === 'closed') cls += ' closed';
+      if (dateStr === today)       cls += ' today';
+      if (isPending)               cls += ' pending';
+      if (isSelected)              cls += ' selected';
+      cell.className = cls;
+
       cell.innerHTML = `
-        <div class="day-num">${d}</div>
-        <div class="day-status ${status === 'open' ? 'day-open' : 'day-closed'}">${status}</div>
-        <div class="day-rooms-wrap">
-          🛏<input type="number" class="day-rooms-input" value="${beds}" min="0"
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div class="day-num">${d}</div>
+          ${isSelected ? '<div style="width:8px;height:8px;border-radius:50%;background:var(--brand);margin-top:2px"></div>' : ''}
+        </div>
+        <div class="day-status ${day.status === 'open' ? 'day-open' : 'day-closed'}">${day.status}</div>
+        <div class="day-rooms-wrap" title="Rooms">
+          🚪<input type="number" class="day-rooms-input" value="${day.number_of_rooms}" min="0"
             onclick="event.stopPropagation()"
-            onchange="setAvailBeds('${dateStr}', this.value, '${status}')">
+            onchange="setDay('${dateStr}',{number_of_rooms:parseInt(this.value)||0})">
+        </div>
+        <div class="day-rooms-wrap" title="Beds">
+          🛏<input type="number" class="day-rooms-input" value="${day.number_of_beds}" min="0"
+            onclick="event.stopPropagation()"
+            onchange="setDay('${dateStr}',{number_of_beds:parseInt(this.value)||0})">
         </div>
       `;
-      cell.addEventListener('click', () => toggleAvailDay(dateStr));
+
+      // Left-click = toggle status, Shift+click = select for bulk
+      cell.addEventListener('click', (e) => {
+        if (e.shiftKey) {
+          toggleAvailSelect(dateStr);
+        } else {
+          setDay(dateStr, { status: day.status === 'open' ? 'closed' : 'open' });
+          renderAvailCalendar();
+        }
+      });
+
       grid.appendChild(cell);
     }
 
-    // Stats
     document.getElementById('avail-stat-open').textContent   = openCount;
     document.getElementById('avail-stat-closed').textContent = closedCount;
-    document.getElementById('avail-stat-beds').textContent   = bedDays > 0 ? Math.round(totalBeds / bedDays) : 0;
+    document.getElementById('avail-stat-beds').textContent   = openDays > 0 ? Math.round(totalBeds/openDays) : 0;
   }
 
-  function toggleAvailDay(dateStr) {
-    const pending = availPending[dateStr];
-    const stored  = availData[dateStr];
-    const current = pending?.status ?? stored?.status ?? 'open';
-    const newStatus = current === 'open' ? 'closed' : 'open';
-    const rooms = pending?.number_of_rooms ?? stored?.number_of_rooms ?? 0;
-    const beds  = pending?.number_of_beds  ?? stored?.number_of_beds  ?? 0;
-    availPending[dateStr] = { status: newStatus, number_of_rooms: rooms, number_of_beds: beds };
+  function toggleAvailSelect(dateStr) {
+    if (availSelected.has(dateStr)) availSelected.delete(dateStr);
+    else availSelected.add(dateStr);
+    updateSelectionBar();
+    renderAvailCalendar();
+  }
+
+  function clearSelection() {
+    availSelected.clear();
+    updateSelectionBar();
+    renderAvailCalendar();
+  }
+
+  function updateSelectionBar() {
+    const bar = document.getElementById('selection-bar');
+    const count = availSelected.size;
+    bar.style.display = count > 0 ? 'flex' : 'none';
+    document.getElementById('selection-count').textContent = `${count} day${count !== 1 ? 's' : ''}`;
+  }
+
+  function bulkSelection(status) {
+    const rooms = parseInt(document.getElementById('sel-rooms-val').value);
+    const beds  = parseInt(document.getElementById('sel-beds-val').value);
+    availSelected.forEach(dateStr => {
+      const update = {};
+      if (status) update.status = status;
+      if (!isNaN(rooms)) update.number_of_rooms = rooms;
+      if (!isNaN(beds))  update.number_of_beds  = beds;
+      setDay(dateStr, update);
+    });
     markAvailChanged();
     renderAvailCalendar();
   }
 
-  function setAvailBeds(dateStr, value, currentStatus) {
-    const beds  = parseInt(value) || 0;
-    const pending = availPending[dateStr];
-    const stored  = availData[dateStr];
-    const rooms = pending?.number_of_rooms ?? stored?.number_of_rooms ?? 0;
-    availPending[dateStr] = { status: pending?.status ?? currentStatus, number_of_rooms: rooms, number_of_beds: beds };
+  function bulkAvailMonth(status) {
+    const rooms = parseInt(document.getElementById('bulk-rooms-val').value);
+    const beds  = parseInt(document.getElementById('bulk-beds-val').value);
+    const totalDays = new Date(availYear, availMonth, 0).getDate();
+    for (let d = 1; d <= totalDays; d++) {
+      const dateStr = `${availYear}-${String(availMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const update = {};
+      if (status) update.status = status;
+      if (!isNaN(rooms)) update.number_of_rooms = rooms;
+      if (!isNaN(beds))  update.number_of_beds  = beds;
+      setDay(dateStr, update);
+    }
     markAvailChanged();
+    renderAvailCalendar();
   }
 
   function markAvailChanged() {
@@ -1136,63 +1217,32 @@
     availMonth += delta;
     if (availMonth > 12) { availMonth = 1; availYear++; }
     if (availMonth < 1)  { availMonth = 12; availYear--; }
+    availSelected.clear();
+    updateSelectionBar();
     fetchAndRenderMonth();
   }
 
   function changeAvailYear(year) {
     availYear = parseInt(year);
+    availSelected.clear();
+    updateSelectionBar();
     fetchAndRenderMonth();
-  }
-
-  function bulkAvailMonth(status) {
-    const totalDays = new Date(availYear, availMonth, 0).getDate();
-    for (let d = 1; d <= totalDays; d++) {
-      const dateStr = `${availYear}-${String(availMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const pending = availPending[dateStr];
-      const stored  = availData[dateStr];
-      const rooms   = pending?.number_of_rooms ?? stored?.number_of_rooms ?? 0;
-      const beds    = pending?.number_of_beds  ?? stored?.number_of_beds  ?? 0;
-      availPending[dateStr] = { status, number_of_rooms: rooms, number_of_beds: beds };
-    }
-    markAvailChanged();
-    renderAvailCalendar();
-  }
-
-  function bulkAvailRooms() {
-    const beds = parseInt(document.getElementById('bulk-rooms-val').value) || 0;
-    const totalDays = new Date(availYear, availMonth, 0).getDate();
-    for (let d = 1; d <= totalDays; d++) {
-      const dateStr = `${availYear}-${String(availMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const pending = availPending[dateStr];
-      const stored  = availData[dateStr];
-      const status  = pending?.status ?? stored?.status ?? 'open';
-      const rooms   = pending?.number_of_rooms ?? stored?.number_of_rooms ?? 0;
-      availPending[dateStr] = { status, number_of_rooms: rooms, number_of_beds: beds };
-    }
-    markAvailChanged();
-    renderAvailCalendar();
   }
 
   async function saveAvailability() {
     const propertyId = document.getElementById('avail-property-filter').value;
     const rows = Object.entries(availPending).map(([date, fields]) => ({
-      company_id:  currentCompany.id,
-      property_id: propertyId,
-      date,
-      ...fields,
+      company_id: currentCompany.id, property_id: propertyId, date, ...fields,
       updated_at: new Date().toISOString()
     }));
-
     const btn = document.querySelector('#avail-save-bar button');
     if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
-
     const { error } = await Availability.upsertMany(rows);
-
     if (btn) { btn.disabled = false; btn.textContent = 'Save changes'; }
-
-    if (error) { alert('Error saving: ' + error.message); return; }
-
+    if (error) { alert('Error: ' + error.message); return; }
     availPending = {};
+    availSelected.clear();
+    updateSelectionBar();
     document.getElementById('avail-save-bar').style.display = 'none';
     await fetchAndRenderMonth();
   }
