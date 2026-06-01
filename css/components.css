@@ -114,6 +114,10 @@
   border-radius: var(--radius-lg);
   overflow: hidden;
   margin-bottom: 1.5rem;
+  display: inline-block;
+  min-width: 400px;
+  max-width: 100%;
+  width: 100%;
 }
 
 .table-header {
@@ -130,24 +134,26 @@ table { width: 100%; border-collapse: collapse; }
 
 thead th {
   font-family: 'DM Mono', monospace;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-  padding: 0.75rem 1.25rem;
+  padding: 0.5rem 1rem;
   text-align: left;
   font-weight: 500;
   background: var(--bg);
+  border-bottom: 1px solid var(--border);
 }
 
 tbody td {
-  padding: 0.75rem 1.25rem;
-  font-size: 0.875rem;
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
   border-top: 1px solid var(--border);
   color: var(--text);
 }
 
-tbody tr:hover { background: var(--bg); }
+tbody tr:nth-child(even) { background: #f9fafd; }
+tbody tr:hover { background: var(--brand-light) !important; }
 
 /* Params / Settings */
 .param-row {
