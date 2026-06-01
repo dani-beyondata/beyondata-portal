@@ -2,8 +2,8 @@
 
 /* Top bar */
 .topbar {
-  background: var(--white);
-  border-bottom: 1px solid var(--border);
+  background: #1e3a5f;
+  border-bottom: none;
   padding: 0 1.5rem;
   height: var(--topbar-h);
   display: flex;
@@ -12,44 +12,50 @@
   position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 50;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .topbar-left  { display: flex; align-items: center; gap: 1rem; }
 .topbar-right { display: flex; align-items: center; gap: 0.75rem; }
 
 .brand-name {
-  font-size: 1.15rem;
-  font-weight: 600;
-  color: var(--brand);
-  letter-spacing: -0.02em;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.95);
+  letter-spacing: 0.05em;
 }
 
-.brand-name span { color: var(--text); }
+.brand-name span {
+  color: rgba(255,255,255,0.55);
+  font-weight: 400;
+}
 
 .company-pill {
-  font-size: 0.8rem;
-  background: var(--brand-light);
-  color: var(--brand);
+  font-size: 0.78rem;
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
   padding: 0.2rem 0.75rem;
   border-radius: 20px;
   font-weight: 500;
+  border: 1px solid rgba(255,255,255,0.18);
 }
 
 .user-label {
-  font-size: 0.85rem;
-  color: var(--text-muted);
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.65);
 }
 
 .role-pill {
   font-family: 'DM Mono', monospace;
-  font-size: 0.68rem;
-  background: #ede9fe;
-  color: #7c3aed;
+  font-size: 0.65rem;
+  background: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.8);
   padding: 0.2rem 0.6rem;
   border-radius: 20px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  border: 1px solid rgba(255,255,255,0.2);
 }
 
 /* Page layout */
@@ -103,8 +109,8 @@
 .nav-item.active {
   color: var(--brand);
   background: var(--brand-light);
-  border-left-color: var(--brand);
-  font-weight: 500;
+  border-left: 3px solid var(--brand);
+  font-weight: 600;
 }
 
 .nav-icon { font-size: 1rem; width: 18px; text-align: center; }
@@ -162,7 +168,15 @@
 
 .login-brand { text-align: center; margin-bottom: 2.5rem; }
 
-.login-brand .brand-name { font-size: 1.75rem; }
+.login-brand .brand-name {
+  font-size: 1.75rem;
+  color: var(--brand);
+  letter-spacing: 0.06em;
+}
+.login-brand .brand-name span {
+  color: var(--text-muted);
+  font-weight: 400;
+}
 
 .login-brand .brand-sub {
   font-family: 'DM Mono', monospace;
