@@ -40,6 +40,8 @@
     <div class="nav-section">
       <div class="nav-section-label">Catalogs</div>
       <div class="nav-item" data-section="channels"><span class="nav-icon">⊹</span>Channels</div>
+      <div class="nav-item" data-section="segments"><span class="nav-icon">◑</span>Segments</div>
+      <div class="nav-item" data-section="purposes"><span class="nav-icon">◇</span>Booking Purposes</div>
     </div>
     <div class="nav-section" id="nav-admin">
       <div class="nav-section-label">Admin</div>
@@ -126,6 +128,42 @@
             <button class="btn btn-primary" id="btn-save-company">Save changes</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- SEGMENTS -->
+    <div class="section" id="section-segments">
+      <div class="section-header">
+        <h2>Segments</h2>
+        <p>Guest and reservation segments.</p>
+      </div>
+      <div class="action-bar">
+        <h3 id="segments-count"></h3>
+        <button class="btn btn-primary" id="btn-add-segment">+ Add segment</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Code</th><th>Name</th><th>Status</th><th></th></tr></thead>
+          <tbody id="segments-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- BOOKING PURPOSES -->
+    <div class="section" id="section-purposes">
+      <div class="section-header">
+        <h2>Booking Purposes</h2>
+        <p>Reason for stay classification.</p>
+      </div>
+      <div class="action-bar">
+        <h3 id="purposes-count"></h3>
+        <button class="btn btn-primary" id="btn-add-purpose">+ Add purpose</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Code</th><th>Name</th><th>Status</th><th></th></tr></thead>
+          <tbody id="purposes-tbody"></tbody>
+        </table>
       </div>
     </div>
 
@@ -218,6 +256,34 @@
   </div>
 </div>
 
+<!-- Modal: Add segment -->
+<div class="modal-overlay" id="modal-segment">
+  <div class="modal">
+    <h3>Add segment</h3>
+    <div class="alert error" id="segment-error"></div>
+    <div class="field"><label>Code</label><input type="number" id="seg-code" placeholder="11"></div>
+    <div class="field"><label>Name</label><input type="text" id="seg-name" placeholder="e.g. Wholesale"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-segment')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-segment">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add booking purpose -->
+<div class="modal-overlay" id="modal-purpose">
+  <div class="modal">
+    <h3>Add booking purpose</h3>
+    <div class="alert error" id="purpose-error"></div>
+    <div class="field"><label>Code</label><input type="number" id="pur-code" placeholder="6"></div>
+    <div class="field"><label>Name</label><input type="text" id="pur-name" placeholder="e.g. Sports Group"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-purpose')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-purpose">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Add user -->
 <div class="modal-overlay" id="modal-user">
   <div class="modal">
@@ -279,6 +345,8 @@
 <script src="js/channels.js"></script>
 <script src="js/users.js"></script>
 <script src="js/params.js"></script>
+<script src="js/segments.js"></script>
+<script src="js/booking_purposes.js"></script>
 <script>
   let currentProfile = null;
   let currentCompany = null;
@@ -327,7 +395,7 @@
       item.classList.add('active');
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
-      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, users: loadUsers, company: loadCompany };
+      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, users: loadUsers, company: loadCompany };
       loaders[s]?.();
     });
   });
@@ -594,6 +662,92 @@
     await Properties.toggleActive(id, active);
     loadProperties();
   }
+
+  // ── SEGMENTS ──────────────────────────────────────────────────────
+  async function loadSegments() {
+    UI.tableLoading('segments-tbody', 4);
+    const { data, error } = await Segments.getByCompany(currentCompany.id);
+    if (error || !data?.length) {
+      UI.tableEmpty('segments-tbody', 4, 'No segments yet.');
+      document.getElementById('segments-count').textContent = '0 segments';
+      return;
+    }
+    document.getElementById('segments-count').textContent = `${data.length} segments`;
+    document.getElementById('segments-tbody').innerHTML = data.map(s => `
+      <tr>
+        <td>${UI.mono(s.segment_code)}</td>
+        <td>${s.segment_name}</td>
+        <td>${UI.badge(s.status, s.status === 'active' ? 'active' : 'inactive')}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleSegment('${s.id}','${s.status}')">
+          ${s.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function toggleSegment(id, status) {
+    await Segments.toggleStatus(id, status);
+    loadSegments();
+  }
+
+  document.getElementById('btn-add-segment').addEventListener('click', () => UI.openModal('modal-segment'));
+
+  document.getElementById('btn-save-segment').addEventListener('click', async () => {
+    const segment_code = parseInt(document.getElementById('seg-code').value);
+    const segment_name = document.getElementById('seg-name').value.trim();
+    UI.hideAlert('segment-error');
+    if (!segment_code || !segment_name) { UI.showAlert('segment-error', 'Code and name are required.'); return; }
+    UI.setLoading('btn-save-segment', true, 'Save');
+    const { error } = await Segments.create(currentCompany.id, { segment_code, segment_name });
+    UI.setLoading('btn-save-segment', false, 'Save');
+    if (error) { UI.showAlert('segment-error', error.message); return; }
+    UI.closeModal('modal-segment');
+    document.getElementById('seg-code').value = '';
+    document.getElementById('seg-name').value = '';
+    loadSegments();
+  });
+
+  // ── BOOKING PURPOSES ──────────────────────────────────────────────
+  async function loadPurposes() {
+    UI.tableLoading('purposes-tbody', 4);
+    const { data, error } = await BookingPurposes.getByCompany(currentCompany.id);
+    if (error || !data?.length) {
+      UI.tableEmpty('purposes-tbody', 4, 'No booking purposes yet.');
+      document.getElementById('purposes-count').textContent = '0 purposes';
+      return;
+    }
+    document.getElementById('purposes-count').textContent = `${data.length} purposes`;
+    document.getElementById('purposes-tbody').innerHTML = data.map(p => `
+      <tr>
+        <td>${UI.mono(p.purpose_code)}</td>
+        <td>${p.purpose_name}</td>
+        <td>${UI.badge(p.status, p.status === 'active' ? 'active' : 'inactive')}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="togglePurpose('${p.id}','${p.status}')">
+          ${p.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function togglePurpose(id, status) {
+    await BookingPurposes.toggleStatus(id, status);
+    loadPurposes();
+  }
+
+  document.getElementById('btn-add-purpose').addEventListener('click', () => UI.openModal('modal-purpose'));
+
+  document.getElementById('btn-save-purpose').addEventListener('click', async () => {
+    const purpose_code = parseInt(document.getElementById('pur-code').value);
+    const purpose_name = document.getElementById('pur-name').value.trim();
+    UI.hideAlert('purpose-error');
+    if (!purpose_code || !purpose_name) { UI.showAlert('purpose-error', 'Code and name are required.'); return; }
+    UI.setLoading('btn-save-purpose', true, 'Save');
+    const { error } = await BookingPurposes.create(currentCompany.id, { purpose_code, purpose_name });
+    UI.setLoading('btn-save-purpose', false, 'Save');
+    if (error) { UI.showAlert('purpose-error', error.message); return; }
+    UI.closeModal('modal-purpose');
+    document.getElementById('pur-code').value = '';
+    document.getElementById('pur-name').value = '';
+    loadPurposes();
+  });
 
   // ── COMPANY EDIT ──────────────────────────────────────────────────
   async function loadCompany() {
