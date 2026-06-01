@@ -8,16 +8,20 @@ const Auth = (() => {
   }
 
   async function getProfile(userId) {
-    const { data } = await sb
+    const { data, error } = await sb
       .from('profiles')
       .select('*, companies(*)')
       .eq('id', userId)
       .single();
+    if (error) console.error('getProfile error:', error);
     return data;
   }
 
   async function login(email, password) {
-    return await sb.auth.signInWithPassword({ email, password });
+    console.log('Attempting login for:', email);
+    const result = await sb.auth.signInWithPassword({ email, password });
+    console.log('Login result:', result.error ? result.error.message : 'success');
+    return result;
   }
 
   async function logout() {
@@ -34,6 +38,7 @@ const Auth = (() => {
 
   async function redirectAfterLogin(userId) {
     const profile = await getProfile(userId);
+    console.log('Profile loaded:', profile);
     if (!profile) return null;
     if (profile.role === 'system_admin') {
       window.location.href = 'company-select.html';
