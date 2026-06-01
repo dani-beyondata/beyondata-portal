@@ -82,7 +82,7 @@
         <table>
           <thead><tr>
             <th>Property ID</th><th>Name</th><th>City</th>
-            <th>Rooms</th><th>Beds</th><th>Source</th><th>Status</th>
+            <th>Rooms</th><th>Beds</th><th>Source</th><th>Status</th><th></th>
           </tr></thead>
           <tbody id="properties-tbody"></tbody>
         </table>
@@ -162,6 +162,30 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-property')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-property">Save</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal: Edit property -->
+<div class="modal-overlay" id="modal-edit-property">
+  <div class="modal">
+    <h3>Edit property</h3>
+    <div class="alert error" id="edit-prop-error"></div>
+    <input type="hidden" id="edit-prop-uuid">
+    <div class="field"><label>Property ID</label><input type="text" id="edit-prop-id" disabled style="opacity:0.6;cursor:not-allowed"></div>
+    <div class="field"><label>Name</label><input type="text" id="edit-prop-name"></div>
+    <div class="field"><label>City</label><input type="text" id="edit-prop-city"></div>
+    <div class="field"><label>Country code</label><input type="text" id="edit-prop-country" maxlength="2" style="text-transform:uppercase"></div>
+    <div class="field"><label>Total rooms</label><input type="number" id="edit-prop-rooms" min="0"></div>
+    <div class="field"><label>Total beds</label><input type="number" id="edit-prop-beds" min="0"></div>
+    <div class="field">
+      <label>Data source</label>
+      <select id="edit-prop-source"><option value="api">API</option><option value="upload">File upload</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-property')">Cancel</button>
+      <button class="btn btn-primary" id="btn-update-property">Save changes</button>
     </div>
   </div>
 </div>
@@ -319,6 +343,15 @@
         <td>${p.total_beds ?? '—'}</td>
         <td>${UI.sourceBadge(p.data_source)}</td>
         <td>${UI.statusBadge(p.active)}</td>
+        <td style="white-space:nowrap">
+          ${isAdmin ? `
+            <button class="btn btn-secondary btn-sm" onclick='openEditProperty(${JSON.stringify(p)})'>Edit</button>
+            <button class="btn btn-sm ${p.active ? 'btn-danger' : 'btn-secondary'}" 
+              onclick="toggleProperty('${p.id}',${p.active})" style="margin-left:4px">
+              ${p.active ? 'Disable' : 'Enable'}
+            </button>
+          ` : ''}
+        </td>
       </tr>
     `).join('');
   }
@@ -489,6 +522,49 @@
     loadUsers();
     loadOverview();
   });
+
+  // ── PROPERTY EDIT/TOGGLE ──────────────────────────────────────────
+  function openEditProperty(p) {
+    document.getElementById('edit-prop-uuid').value    = p.id;
+    document.getElementById('edit-prop-id').value      = p.property_id;
+    document.getElementById('edit-prop-name').value    = p.property_name;
+    document.getElementById('edit-prop-city').value    = p.city || '';
+    document.getElementById('edit-prop-country').value = p.country || '';
+    document.getElementById('edit-prop-rooms').value   = p.total_rooms || '';
+    document.getElementById('edit-prop-beds').value    = p.total_beds || '';
+    document.getElementById('edit-prop-source').value  = p.data_source;
+    UI.hideAlert('edit-prop-error');
+    UI.openModal('modal-edit-property');
+  }
+
+  document.getElementById('btn-update-property').addEventListener('click', async () => {
+    const id = document.getElementById('edit-prop-uuid').value;
+    const fields = {
+      property_name: document.getElementById('edit-prop-name').value.trim(),
+      city:          document.getElementById('edit-prop-city').value.trim(),
+      country:       document.getElementById('edit-prop-country').value.trim().toUpperCase(),
+      total_rooms:   parseInt(document.getElementById('edit-prop-rooms').value) || null,
+      total_beds:    parseInt(document.getElementById('edit-prop-beds').value) || null,
+      data_source:   document.getElementById('edit-prop-source').value,
+    };
+
+    UI.hideAlert('edit-prop-error');
+    if (!fields.property_name) { UI.showAlert('edit-prop-error', 'Name is required.'); return; }
+
+    UI.setLoading('btn-update-property', true, 'Save changes');
+    const { error } = await Properties.update(id, fields);
+    UI.setLoading('btn-update-property', false, 'Save changes');
+
+    if (error) { UI.showAlert('edit-prop-error', error.message); return; }
+
+    UI.closeModal('modal-edit-property');
+    loadProperties();
+  });
+
+  async function toggleProperty(id, active) {
+    await Properties.toggleActive(id, active);
+    loadProperties();
+  }
 
   // ── GLOBAL ────────────────────────────────────────────────────────
   document.getElementById('btn-signout').addEventListener('click', () => Auth.logout());
