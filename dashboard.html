@@ -67,15 +67,32 @@
         <h2 id="overview-title">Overview</h2>
         <p>Company summary and key information.</p>
       </div>
-      <div class="cards-grid">
+
+      <!-- General -->
+      <div style="margin-bottom:0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">General</div>
+      <div class="cards-grid" style="margin-bottom:1.5rem">
         <div class="card"><div class="card-label">Properties</div><div class="card-value" id="stat-properties">—</div></div>
         <div class="card"><div class="card-label">Users</div><div class="card-value" id="stat-users">—</div></div>
+        <div class="card"><div class="card-label">Occupancy Mode</div><div class="card-value" id="stat-occ-mode">—</div><div class="card-sub">Current setting</div></div>
+      </div>
+
+      <!-- Catalogs -->
+      <div style="margin-bottom:0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">Catalogs</div>
+      <div class="cards-grid" style="margin-bottom:1.5rem">
         <div class="card"><div class="card-label">Channels</div><div class="card-value" id="stat-channels">—</div></div>
-        <div class="card">
-          <div class="card-label">Occupancy Mode</div>
-          <div class="card-value" id="stat-occ-mode">—</div>
-          <div class="card-sub">Current setting</div>
-        </div>
+        <div class="card"><div class="card-label">Segments</div><div class="card-value" id="stat-segments">—</div></div>
+        <div class="card"><div class="card-label">Booking Purposes</div><div class="card-value" id="stat-purposes">—</div></div>
+        <div class="card"><div class="card-label">Extras</div><div class="card-value" id="stat-extras">—</div></div>
+        <div class="card"><div class="card-label">Market Groups</div><div class="card-value" id="stat-market-groups">—</div></div>
+        <div class="card"><div class="card-label">Country Mappings</div><div class="card-value" id="stat-country-mappings">—</div><div class="card-sub">Assigned to a group</div></div>
+      </div>
+
+      <!-- Hotel Setup -->
+      <div style="margin-bottom:0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">Hotel Setup</div>
+      <div class="cards-grid" style="margin-bottom:1.5rem">
+        <div class="card"><div class="card-label">Room Categories</div><div class="card-value" id="stat-room-categories">—</div></div>
+        <div class="card"><div class="card-label">Total Rooms</div><div class="card-value" id="stat-rooms">—</div><div class="card-sub">Across all properties</div></div>
+        <div class="card"><div class="card-label">Open Days This Month</div><div class="card-value" id="stat-open-days">—</div><div class="card-sub" id="stat-open-days-sub"></div></div>
       </div>
     </div>
 
@@ -731,17 +748,52 @@
     document.getElementById('overview-title').textContent = currentCompany.name;
     const cid = currentCompany.id;
 
-    const [propRes, userRes, chRes, paramRes] = await Promise.all([
-      sb.from('properties').select('id', { count: 'exact' }).eq('company_id', cid),
-      sb.from('profiles').select('id', { count: 'exact' }).eq('company_id', cid),
-      sb.from('channels').select('id', { count: 'exact' }).eq('company_id', cid),
-      Params.getAll(cid)
+    // Fire all queries in parallel
+    const [
+      propRes, userRes, chRes, segRes, purRes, extRes,
+      mktRes, mapRes, rcatRes, roomRes, paramRes, availRes
+    ] = await Promise.all([
+      sb.from('properties').select('id', { count: 'exact', head: true }).eq('company_id', cid),
+      sb.from('profiles').select('id', { count: 'exact', head: true }).eq('company_id', cid),
+      sb.from('channels').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      sb.from('segments').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      sb.from('booking_purposes').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      sb.from('extras_catalog').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      sb.from('market_groups').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      sb.from('country_mapping').select('id', { count: 'exact', head: true }).eq('company_id', cid).not('market_group_id','is',null),
+      sb.from('room_categories').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      sb.from('rooms').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      Params.getAll(cid),
+      // Open days this month across all properties
+      sb.from('availability_calendar')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', cid)
+        .eq('status', 'open')
+        .gte('date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10))
+        .lte('date', new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).toISOString().slice(0,10))
     ]);
 
+    // General
     document.getElementById('stat-properties').textContent = propRes.count ?? 0;
     document.getElementById('stat-users').textContent      = userRes.count ?? 0;
-    document.getElementById('stat-channels').textContent   = chRes.count ?? 0;
     document.getElementById('stat-occ-mode').textContent   = paramRes.data?.occupancy_mode ?? '—';
+
+    // Catalogs
+    document.getElementById('stat-channels').textContent        = chRes.count ?? 0;
+    document.getElementById('stat-segments').textContent        = segRes.count ?? 0;
+    document.getElementById('stat-purposes').textContent        = purRes.count ?? 0;
+    document.getElementById('stat-extras').textContent          = extRes.count ?? 0;
+    document.getElementById('stat-market-groups').textContent   = mktRes.count ?? 0;
+    document.getElementById('stat-country-mappings').textContent = mapRes.count ?? 0;
+
+    // Hotel Setup
+    document.getElementById('stat-room-categories').textContent = rcatRes.count ?? 0;
+    document.getElementById('stat-rooms').textContent           = roomRes.count ?? 0;
+
+    const now = new Date();
+    const monthName = now.toLocaleString('en', { month: 'long' });
+    document.getElementById('stat-open-days').textContent     = availRes.count ?? 0;
+    document.getElementById('stat-open-days-sub').textContent = `${monthName} ${now.getFullYear()}`;
   }
 
   // ── PROPERTIES ────────────────────────────────────────────────────
