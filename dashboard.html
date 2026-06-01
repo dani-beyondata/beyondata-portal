@@ -215,10 +215,14 @@
             <option value="true">Targeted only</option>
             <option value="false">Not targeted</option>
           </select>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:0.75rem">
+            <span id="mapping-changes-label" style="font-size:0.8rem;color:var(--text-muted);display:none">Unsaved changes</span>
+            <button class="btn btn-primary btn-sm" id="btn-save-mapping-all" style="display:none" onclick="saveAllMappings()">Save changes</button>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Code</th><th>Country</th><th>Continent</th><th>Targeted</th><th>Market Group</th><th></th></tr></thead>
+            <thead><tr><th>Code</th><th>Country</th><th>Continent</th><th>Targeted <span style="font-size:0.7rem;font-weight:400;color:var(--text-muted)">(click to toggle)</span></th><th>Market Group</th></tr></thead>
             <tbody id="mapping-tbody"></tbody>
           </table>
         </div>
@@ -392,31 +396,6 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-group')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-group">Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Edit country mapping -->
-<div class="modal-overlay" id="modal-mapping">
-  <div class="modal">
-    <h3>Edit country mapping</h3>
-    <div class="alert error" id="mapping-error"></div>
-    <input type="hidden" id="map-country-code">
-    <div class="field"><label>Country</label><input type="text" id="map-country-name" disabled style="opacity:0.6"></div>
-    <div class="field">
-      <label>Targeted</label>
-      <select id="map-targeted">
-        <option value="true">Yes</option>
-        <option value="false">No</option>
-      </select>
-    </div>
-    <div class="field">
-      <label>Market Group</label>
-      <select id="map-group-id"><option value="">— None —</option></select>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('modal-mapping')">Cancel</button>
-      <button class="btn btn-primary" id="btn-save-mapping">Save</button>
     </div>
   </div>
 </div>
@@ -936,25 +915,82 @@
     renderMapping(allCountries);
   }
 
+  // pendingChanges: { country_code: { targeted, market_group_id } }
+  let pendingChanges = {};
+
+  function markChanged(countryCode, field, value) {
+    if (!pendingChanges[countryCode]) {
+      const mappingByCode = {};
+      allMapping.forEach(m => mappingByCode[m.country_code] = m);
+      const existing = mappingByCode[countryCode] || {};
+      pendingChanges[countryCode] = {
+        targeted:        existing.targeted ?? false,
+        market_group_id: existing.market_group_id ?? null
+      };
+    }
+    pendingChanges[countryCode][field] = value;
+    const hasChanges = Object.keys(pendingChanges).length > 0;
+    document.getElementById('mapping-changes-label').style.display = hasChanges ? 'inline' : 'none';
+    document.getElementById('btn-save-mapping-all').style.display  = hasChanges ? 'inline-flex' : 'none';
+  }
+
   function renderMapping(countries) {
     const mappingByCode = {};
     allMapping.forEach(m => mappingByCode[m.country_code] = m);
 
+    // Build group options HTML once
+    const groupOptions = allGroups
+      .filter(g => g.status === 'active')
+      .map(g => `<option value="${g.id}">${g.group_name}</option>`)
+      .join('');
+
     document.getElementById('mapping-tbody').innerHTML = countries.map(c => {
-      const m = mappingByCode[c.country_code];
-      const targeted = m?.targeted ?? false;
-      const groupName = m?.market_groups?.group_name ?? '—';
+      const m        = mappingByCode[c.country_code];
+      const pending  = pendingChanges[c.country_code];
+      const targeted = pending?.targeted ?? m?.targeted ?? false;
+      const groupId  = pending?.market_group_id ?? m?.market_group_id ?? '';
+
+      const groupSelect = isAdmin ? `
+        <select class="filter-select" style="font-size:0.8rem;padding:0.3rem 0.5rem"
+          onchange="markChanged('${c.country_code}','market_group_id',this.value||null)">
+          <option value="">— None —</option>
+          ${allGroups.filter(g=>g.status==='active').map(g=>
+            `<option value="${g.id}" ${groupId===g.id?'selected':''}>${g.group_name}</option>`
+          ).join('')}
+        </select>` : (m?.market_groups?.group_name ?? '—');
+
+      const targetedCell = isAdmin ? `
+        <td style="cursor:pointer" onclick="toggleTargeted('${c.country_code}')" title="Click to toggle">
+          <span class="${targeted ? 'targeted-yes' : 'targeted-no'}"
+            id="targeted-${c.country_code}">
+            ${targeted ? '✓ Yes' : 'No'}
+          </span>
+        </td>` : `<td class="${targeted?'targeted-yes':'targeted-no'}">${targeted?'✓ Yes':'No'}</td>`;
+
       return `
         <tr>
           <td>${UI.mono(c.country_code)}</td>
           <td>${c.country_name}</td>
-          <td>${c.continent || '—'}</td>
-          <td class="${targeted ? 'targeted-yes' : 'targeted-no'}">${targeted ? '✓ Yes' : 'No'}</td>
-          <td>${groupName}</td>
-          <td>${isAdmin ? `<button class="btn btn-secondary btn-sm"
-            onclick='openEditMapping(${JSON.stringify(c)})'>Edit</button>` : ''}</td>
+          <td>${c.continent||'—'}</td>
+          ${targetedCell}
+          <td>${groupSelect}</td>
         </tr>`;
     }).join('');
+  }
+
+  function toggleTargeted(countryCode) {
+    const mappingByCode = {};
+    allMapping.forEach(m => mappingByCode[m.country_code] = m);
+    const pending  = pendingChanges[countryCode];
+    const current  = pending?.targeted ?? mappingByCode[countryCode]?.targeted ?? false;
+    const newValue = !current;
+    markChanged(countryCode, 'targeted', newValue);
+    // update UI immediately
+    const el = document.getElementById(`targeted-${countryCode}`);
+    if (el) {
+      el.textContent  = newValue ? '✓ Yes' : 'No';
+      el.className    = newValue ? 'targeted-yes' : 'targeted-no';
+    }
   }
 
   function filterCountryMapping() {
@@ -975,45 +1011,31 @@
     renderMapping(filtered);
   }
 
-  function openEditMapping(country) {
-    document.getElementById('map-country-code').value  = country.country_code;
-    document.getElementById('map-country-name').value  = `${country.country_code} — ${country.country_name}`;
+  async function saveAllMappings() {
+    const btn = document.getElementById('btn-save-mapping-all');
+    btn.disabled    = true;
+    btn.textContent = 'Saving...';
 
-    const mappingByCode = {};
-    allMapping.forEach(m => mappingByCode[m.country_code] = m);
-    const existing = mappingByCode[country.country_code];
+    const promises = Object.entries(pendingChanges).map(([countryCode, changes]) =>
+      Markets.upsertMapping(currentCompany.id, countryCode, changes.targeted, changes.market_group_id)
+    );
 
-    document.getElementById('map-targeted').value = existing?.targeted ? 'true' : 'false';
+    const results = await Promise.all(promises);
+    const errors  = results.filter(r => r.error);
 
-    // populate group dropdown
-    const sel = document.getElementById('map-group-id');
-    sel.innerHTML = '<option value="">— None —</option>';
-    allGroups.filter(g => g.status === 'active').forEach(g => {
-      const opt = document.createElement('option');
-      opt.value = g.id;
-      opt.textContent = g.group_name;
-      if (existing?.market_group_id === g.id) opt.selected = true;
-      sel.appendChild(opt);
-    });
+    btn.disabled    = false;
+    btn.textContent = 'Save changes';
 
-    UI.hideAlert('mapping-error');
-    UI.openModal('modal-mapping');
+    if (errors.length) {
+      alert(`${errors.length} error(s) saving. Please try again.`);
+      return;
+    }
+
+    pendingChanges = {};
+    document.getElementById('mapping-changes-label').style.display = 'none';
+    btn.style.display = 'none';
+    await loadCountryMapping();
   }
-
-  document.getElementById('btn-save-mapping').addEventListener('click', async () => {
-    const countryCode   = document.getElementById('map-country-code').value;
-    const targeted      = document.getElementById('map-targeted').value === 'true';
-    const marketGroupId = document.getElementById('map-group-id').value || null;
-
-    UI.setLoading('btn-save-mapping', true, 'Save');
-    const { error } = await Markets.upsertMapping(currentCompany.id, countryCode, targeted, marketGroupId);
-    UI.setLoading('btn-save-mapping', false, 'Save');
-
-    if (error) { UI.showAlert('mapping-error', error.message); return; }
-
-    UI.closeModal('modal-mapping');
-    loadCountryMapping();
-  });
 
   // ── COUNTRIES (system admin only) ─────────────────────────────────
   async function loadCountries() {
