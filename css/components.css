@@ -509,3 +509,34 @@ tbody tr:hover { background: var(--bg); }
   font-size: 0.875rem;
   color: var(--warning);
 }
+
+/* Clickable cards */
+.card-link {
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.card-link:hover {
+  border-color: var(--brand);
+  box-shadow: 0 4px 16px rgba(90, 128, 181, 0.1);
+  transform: translateY(-1px);
+}
+
+.card-link:hover .card-label {
+  color: var(--brand);
+}
+
+.card-link::after {
+  content: '→';
+  position: absolute;
+  bottom: 0.75rem;
+  right: 0.9rem;
+  font-size: 0.75rem;
+  color: var(--border);
+  transition: color 0.15s;
+}
+
+.card-link:hover::after {
+  color: var(--brand);
+}
