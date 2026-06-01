@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BeyonData — Companies</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/modals.css">
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="brand-name">Beyon<span>Data</span></div>
+    <span class="role-pill">System Admin</span>
+  </div>
+  <div class="topbar-right">
+    <span class="user-label" id="user-label"></span>
+    <button class="btn btn-secondary btn-sm" id="btn-signout">Sign out</button>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="companies-page" style="margin-top:calc(56px + 2rem)">
+  <div class="page-header">
+    <h1>Select a company</h1>
+    <p>Choose a client to access their portal dashboard.</p>
+  </div>
+  <div class="companies-grid" id="companies-grid">
+    <div class="text-muted text-sm" style="padding:1rem">Loading companies...</div>
+  </div>
+</div>
+
+<!-- Modal: new company -->
+<div class="modal-overlay" id="modal-new-company">
+  <div class="modal">
+    <h3>Add new company</h3>
+    <div class="alert error" id="modal-error"></div>
+    <div class="field">
+      <label>Company name</label>
+      <input type="text" id="new-name" placeholder="e.g. The Central House">
+    </div>
+    <div class="field">
+      <label>Slug</label>
+      <input type="text" id="new-slug" placeholder="e.g. tch">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-new-company')">Cancel</button>
+      <button class="btn btn-primary" id="btn-create-company">Create</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/companies.js"></script>
+<script>
+  async function init() {
+    const session = await Auth.requireAuth();
+    if (!session) return;
+
+    const profile = await Auth.getProfile(session.user.id);
+    if (!profile || profile.role !== 'system_admin') {
+      window.location.href = 'dashboard.html';
+      return;
+    }
+
+    document.getElementById('user-label').textContent = profile.full_name || session.user.email;
+    loadCompanies();
+  }
+
+  async function loadCompanies() {
+    const grid = document.getElementById('companies-grid');
+    const { data, error } = await Companies.getAll();
+
+    if (error) {
+      grid.innerHTML = `<div class="text-muted text-sm">Error: ${error.message}</div>`;
+      return;
+    }
+
+    grid.innerHTML = '';
+
+    (data || []).forEach(c => {
+      const propCount = c.properties?.[0]?.count ?? 0;
+      const card = document.createElement('div');
+      card.className = 'company-card';
+      card.innerHTML = `
+        <div class="company-initial">${c.name.charAt(0).toUpperCase()}</div>
+        <div class="company-card-name">${c.name}</div>
+        <div class="company-card-slug">${c.slug}</div>
+        <div class="company-card-meta">
+          <div class="meta-item"><strong>${propCount}</strong>Properties</div>
+          <div class="meta-item"><strong><span class="status-dot"></span>${c.active ? 'Active' : 'Inactive'}</strong>Status</div>
+        </div>
+      `;
+      card.addEventListener('click', () => {
+        sessionStorage.setItem('selected_company_id',   c.id);
+        sessionStorage.setItem('selected_company_name', c.name);
+        window.location.href = 'dashboard.html';
+      });
+      grid.appendChild(card);
+    });
+
+    // Add new company card
+    const addCard = document.createElement('div');
+    addCard.className = 'add-company-card';
+    addCard.innerHTML = `<div class="add-icon">+</div><div>Add new company</div>`;
+    addCard.addEventListener('click', () => UI.openModal('modal-new-company'));
+    grid.appendChild(addCard);
+  }
+
+  // Auto-slug from name
+  document.getElementById('new-name').addEventListener('input', e => {
+    document.getElementById('new-slug').value = e.target.value
+      .toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  });
+
+  document.getElementById('btn-create-company').addEventListener('click', async () => {
+    const name = document.getElementById('new-name').value.trim();
+    const slug = document.getElementById('new-slug').value.trim();
+    UI.hideAlert('modal-error');
+
+    if (!name || !slug) { UI.showAlert('modal-error', 'Name and slug are required.'); return; }
+
+    UI.setLoading('btn-create-company', true, 'Create');
+    const { error } = await Companies.create(name, slug);
+    UI.setLoading('btn-create-company', false, 'Create');
+
+    if (error) { UI.showAlert('modal-error', error.message); return; }
+
+    UI.closeModal('modal-new-company');
+    document.getElementById('new-name').value = '';
+    document.getElementById('new-slug').value = '';
+    loadCompanies();
+  });
+
+  document.getElementById('btn-signout').addEventListener('click', () => Auth.logout());
+
+  init();
+</script>
+</body>
+</html>
