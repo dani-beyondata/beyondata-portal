@@ -71,28 +71,28 @@
       <!-- General -->
       <div style="margin-bottom:0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">General</div>
       <div class="cards-grid" style="margin-bottom:1.5rem">
-        <div class="card"><div class="card-label">Properties</div><div class="card-value" id="stat-properties">—</div></div>
-        <div class="card"><div class="card-label">Users</div><div class="card-value" id="stat-users">—</div></div>
-        <div class="card"><div class="card-label">Occupancy Mode</div><div class="card-value" id="stat-occ-mode">—</div><div class="card-sub">Current setting</div></div>
+        <div class="card card-link" onclick="navTo('properties')"><div class="card-label">Properties</div><div class="card-value" id="stat-properties">—</div></div>
+        <div class="card card-link" onclick="navTo('users')"><div class="card-label">Users</div><div class="card-value" id="stat-users">—</div></div>
+        <div class="card card-link" onclick="navTo('settings')"><div class="card-label">Occupancy Mode</div><div class="card-value" id="stat-occ-mode">—</div><div class="card-sub">Current setting</div></div>
       </div>
 
       <!-- Catalogs -->
       <div style="margin-bottom:0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">Catalogs</div>
       <div class="cards-grid" style="margin-bottom:1.5rem">
-        <div class="card"><div class="card-label">Channels</div><div class="card-value" id="stat-channels">—</div></div>
-        <div class="card"><div class="card-label">Segments</div><div class="card-value" id="stat-segments">—</div></div>
-        <div class="card"><div class="card-label">Booking Purposes</div><div class="card-value" id="stat-purposes">—</div></div>
-        <div class="card"><div class="card-label">Extras</div><div class="card-value" id="stat-extras">—</div></div>
-        <div class="card"><div class="card-label">Market Groups</div><div class="card-value" id="stat-market-groups">—</div></div>
-        <div class="card"><div class="card-label">Country Mappings</div><div class="card-value" id="stat-country-mappings">—</div><div class="card-sub">Assigned to a group</div></div>
+        <div class="card card-link" onclick="navTo('channels')"><div class="card-label">Channels</div><div class="card-value" id="stat-channels">—</div></div>
+        <div class="card card-link" onclick="navTo('segments')"><div class="card-label">Segments</div><div class="card-value" id="stat-segments">—</div></div>
+        <div class="card card-link" onclick="navTo('purposes')"><div class="card-label">Booking Purposes</div><div class="card-value" id="stat-purposes">—</div></div>
+        <div class="card card-link" onclick="navTo('extras')"><div class="card-label">Extras</div><div class="card-value" id="stat-extras">—</div></div>
+        <div class="card card-link" onclick="navTo('markets')"><div class="card-label">Market Groups</div><div class="card-value" id="stat-market-groups">—</div></div>
+        <div class="card card-link" onclick="navTo('markets')"><div class="card-label">Country Mappings</div><div class="card-value" id="stat-country-mappings">—</div><div class="card-sub">Assigned to a group</div></div>
       </div>
 
       <!-- Hotel Setup -->
       <div style="margin-bottom:0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">Hotel Setup</div>
       <div class="cards-grid" style="margin-bottom:1.5rem">
-        <div class="card"><div class="card-label">Room Categories</div><div class="card-value" id="stat-room-categories">—</div></div>
-        <div class="card"><div class="card-label">Total Rooms</div><div class="card-value" id="stat-rooms">—</div><div class="card-sub">Across all properties</div></div>
-        <div class="card"><div class="card-label">Open Days This Month</div><div class="card-value" id="stat-open-days">—</div><div class="card-sub" id="stat-open-days-sub"></div></div>
+        <div class="card card-link" onclick="navTo('rooms')"><div class="card-label">Room Categories</div><div class="card-value" id="stat-room-categories">—</div></div>
+        <div class="card card-link" onclick="navTo('rooms')"><div class="card-label">Total Rooms</div><div class="card-value" id="stat-rooms">—</div><div class="card-sub">Across all properties</div></div>
+        <div class="card card-link" onclick="navTo('availability')"><div class="card-label">Open Days This Month</div><div class="card-value" id="stat-open-days">—</div><div class="card-sub" id="stat-open-days-sub"></div></div>
       </div>
     </div>
 
@@ -1813,6 +1813,19 @@
 
     UI.showAlert('company-success', 'Company updated successfully.', 'success');
   });
+
+  // ── NAV HELPER ────────────────────────────────────────────────────
+  function navTo(section) {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    const navItem = document.querySelector(`.nav-item[data-section="${section}"]`);
+    if (navItem) navItem.classList.add('active');
+    const sectionEl = document.getElementById(`section-${section}`);
+    if (sectionEl) sectionEl.classList.add('active');
+    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany };
+    loaders[section]?.();
+    window.scrollTo(0, 0);
+  }
 
   // ── GLOBAL ────────────────────────────────────────────────────────
   document.getElementById('btn-signout').addEventListener('click', () => Auth.logout());
