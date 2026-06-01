@@ -81,7 +81,7 @@
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>Property ID</th><th>Name</th><th>City</th>
+            <th>Property ID</th><th>Name</th><th>City</th><th>Country</th>
             <th>Rooms</th><th>Beds</th><th>Source</th><th>Status</th><th></th>
           </tr></thead>
           <tbody id="properties-tbody"></tbody>
@@ -324,11 +324,11 @@
 
   // ── PROPERTIES ────────────────────────────────────────────────────
   async function loadProperties() {
-    UI.tableLoading('properties-tbody', 7);
+    UI.tableLoading('properties-tbody', 8);
     const { data, error } = await Properties.getByCompany(currentCompany.id);
 
     if (error || !data?.length) {
-      UI.tableEmpty('properties-tbody', 7, 'No properties yet.');
+      UI.tableEmpty('properties-tbody', 8, 'No properties yet.');
       document.getElementById('prop-count').textContent = '0 properties';
       return;
     }
@@ -339,6 +339,7 @@
         <td>${UI.mono(p.property_id)}</td>
         <td>${p.property_name}</td>
         <td>${p.city || '—'}</td>
+        <td>${p.country || '—'}</td>
         <td>${p.total_rooms ?? '—'}</td>
         <td>${p.total_beds ?? '—'}</td>
         <td>${UI.sourceBadge(p.data_source)}</td>
