@@ -42,11 +42,13 @@
       <div class="nav-item" data-section="channels"><span class="nav-icon">⊹</span>Channels</div>
       <div class="nav-item" data-section="segments"><span class="nav-icon">◑</span>Segments</div>
       <div class="nav-item" data-section="purposes"><span class="nav-icon">◇</span>Booking Purposes</div>
+      <div class="nav-item" data-section="markets"><span class="nav-icon">⊕</span>Markets</div>
     </div>
     <div class="nav-section" id="nav-admin">
       <div class="nav-section-label">Admin</div>
       <div class="nav-item" data-section="company"><span class="nav-icon">⬡</span>Company</div>
       <div class="nav-item" data-section="users"><span class="nav-icon">◎</span>Users</div>
+      <div class="nav-item" data-section="countries" id="nav-countries"><span class="nav-icon">🌍</span>Countries</div>
     </div>
   </div>
 
@@ -163,6 +165,79 @@
         <table>
           <thead><tr><th>Code</th><th>Name</th><th>Status</th><th></th></tr></thead>
           <tbody id="purposes-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MARKETS -->
+    <div class="section" id="section-markets">
+      <div class="section-header">
+        <h2>Markets</h2>
+        <p>Define market groups and map countries to them.</p>
+      </div>
+      <div class="subtabs" id="markets-subtabs">
+        <button class="subtab active" onclick="showSubtab('markets','groups')" id="subtab-markets-groups">Market Groups</button>
+        <button class="subtab" onclick="showSubtab('markets','mapping')" id="subtab-markets-mapping">Country Mapping</button>
+      </div>
+
+      <!-- Market Groups subpage -->
+      <div class="subpage active" id="subpage-markets-groups">
+        <div class="action-bar">
+          <h3 id="groups-count"></h3>
+          <button class="btn btn-primary" id="btn-add-group">+ Add group</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Group Name</th><th>Status</th><th></th></tr></thead>
+            <tbody id="groups-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Country Mapping subpage -->
+      <div class="subpage" id="subpage-markets-mapping">
+        <div class="search-bar">
+          <div class="search-wrap">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" class="search-input" placeholder="Search country..." id="country-search" oninput="filterCountryMapping()">
+          </div>
+          <select class="filter-select" id="continent-filter" onchange="filterCountryMapping()">
+            <option value="">All continents</option>
+            <option>Europe</option>
+            <option>Asia</option>
+            <option>North America</option>
+            <option>South America</option>
+            <option>Africa</option>
+            <option>Oceania</option>
+          </select>
+          <select class="filter-select" id="targeted-filter" onchange="filterCountryMapping()">
+            <option value="">All countries</option>
+            <option value="true">Targeted only</option>
+            <option value="false">Not targeted</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Country</th><th>Continent</th><th>Targeted</th><th>Market Group</th><th></th></tr></thead>
+            <tbody id="mapping-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- COUNTRIES (system admin only) -->
+    <div class="section" id="section-countries">
+      <div class="section-header">
+        <h2>Countries</h2>
+        <p>System-wide country catalog. Only visible to system admin.</p>
+      </div>
+      <div class="action-bar">
+        <h3 id="countries-count"></h3>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Code</th><th>Name</th><th>Continent</th></tr></thead>
+          <tbody id="countries-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -307,6 +382,45 @@
   </div>
 </div>
 
+<!-- Modal: Add market group -->
+<div class="modal-overlay" id="modal-group">
+  <div class="modal">
+    <h3>Add market group</h3>
+    <div class="alert error" id="group-error"></div>
+    <div class="field"><label>Code</label><input type="number" id="grp-code" placeholder="9"></div>
+    <div class="field"><label>Group name</label><input type="text" id="grp-name" placeholder="e.g. Middle East"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-group')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-group">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit country mapping -->
+<div class="modal-overlay" id="modal-mapping">
+  <div class="modal">
+    <h3>Edit country mapping</h3>
+    <div class="alert error" id="mapping-error"></div>
+    <input type="hidden" id="map-country-code">
+    <div class="field"><label>Country</label><input type="text" id="map-country-name" disabled style="opacity:0.6"></div>
+    <div class="field">
+      <label>Targeted</label>
+      <select id="map-targeted">
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Market Group</label>
+      <select id="map-group-id"><option value="">— None —</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-mapping')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-mapping">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Add channel -->
 <div class="modal-overlay" id="modal-channel">
   <div class="modal">
@@ -347,6 +461,8 @@
 <script src="js/params.js"></script>
 <script src="js/segments.js"></script>
 <script src="js/booking_purposes.js"></script>
+<script src="js/markets.js"></script>
+<script src="js/countries.js"></script>
 <script>
   let currentProfile = null;
   let currentCompany = null;
@@ -379,6 +495,10 @@
     if (currentProfile.role === 'company_user') {
       document.getElementById('nav-admin').style.display = 'none';
     }
+    if (currentProfile.role !== 'system_admin') {
+      const navCountries = document.getElementById('nav-countries');
+      if (navCountries) navCountries.style.display = 'none';
+    }
 
     document.getElementById('company-pill').textContent = currentCompany.name;
     document.getElementById('user-label').textContent   = currentProfile.full_name || session.user.email;
@@ -395,7 +515,7 @@
       item.classList.add('active');
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
-      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, users: loadUsers, company: loadCompany };
+      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, countries: loadCountries, users: loadUsers, company: loadCompany };
       loaders[s]?.();
     });
   });
@@ -748,6 +868,170 @@
     document.getElementById('pur-name').value = '';
     loadPurposes();
   });
+
+  // ── SUBTAB HELPER ─────────────────────────────────────────────────
+  function showSubtab(section, tab) {
+    document.querySelectorAll(`#section-${section} .subtab`).forEach(t => t.classList.remove('active'));
+    document.querySelectorAll(`#section-${section} .subpage`).forEach(p => p.classList.remove('active'));
+    document.getElementById(`subtab-${section}-${tab}`).classList.add('active');
+    document.getElementById(`subpage-${section}-${tab}`).classList.add('active');
+  }
+
+  // ── MARKETS ───────────────────────────────────────────────────────
+  let allCountries = [];
+  let allGroups = [];
+  let allMapping = [];
+
+  async function loadMarkets() {
+    await loadGroups();
+    await loadCountryMapping();
+  }
+
+  async function loadGroups() {
+    UI.tableLoading('groups-tbody', 4);
+    const { data } = await Markets.getGroups(currentCompany.id);
+    allGroups = data || [];
+    document.getElementById('groups-count').textContent = `${allGroups.length} groups`;
+    document.getElementById('groups-tbody').innerHTML = allGroups.map(g => `
+      <tr>
+        <td>${UI.mono(g.group_code)}</td>
+        <td>${g.group_name}</td>
+        <td>${UI.badge(g.status, g.status === 'active' ? 'active' : 'inactive')}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleGroup('${g.id}','${g.status}')">
+          ${g.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function toggleGroup(id, status) {
+    await Markets.toggleGroup(id, status);
+    loadGroups();
+  }
+
+  document.getElementById('btn-add-group').addEventListener('click', () => UI.openModal('modal-group'));
+
+  document.getElementById('btn-save-group').addEventListener('click', async () => {
+    const group_code = parseInt(document.getElementById('grp-code').value);
+    const group_name = document.getElementById('grp-name').value.trim();
+    UI.hideAlert('group-error');
+    if (!group_code || !group_name) { UI.showAlert('group-error', 'Code and name are required.'); return; }
+    UI.setLoading('btn-save-group', true, 'Save');
+    const { error } = await Markets.createGroup(currentCompany.id, { group_code, group_name });
+    UI.setLoading('btn-save-group', false, 'Save');
+    if (error) { UI.showAlert('group-error', error.message); return; }
+    UI.closeModal('modal-group');
+    document.getElementById('grp-code').value = '';
+    document.getElementById('grp-name').value = '';
+    loadGroups();
+  });
+
+  async function loadCountryMapping() {
+    UI.tableLoading('mapping-tbody', 6);
+    const [countriesRes, mappingRes] = await Promise.all([
+      Markets.getCountries(),
+      Markets.getMapping(currentCompany.id)
+    ]);
+    allCountries = countriesRes.data || [];
+    allMapping   = mappingRes.data || [];
+    renderMapping(allCountries);
+  }
+
+  function renderMapping(countries) {
+    const mappingByCode = {};
+    allMapping.forEach(m => mappingByCode[m.country_code] = m);
+
+    document.getElementById('mapping-tbody').innerHTML = countries.map(c => {
+      const m = mappingByCode[c.country_code];
+      const targeted = m?.targeted ?? false;
+      const groupName = m?.market_groups?.group_name ?? '—';
+      return `
+        <tr>
+          <td>${UI.mono(c.country_code)}</td>
+          <td>${c.country_name}</td>
+          <td>${c.continent || '—'}</td>
+          <td class="${targeted ? 'targeted-yes' : 'targeted-no'}">${targeted ? '✓ Yes' : 'No'}</td>
+          <td>${groupName}</td>
+          <td>${isAdmin ? `<button class="btn btn-secondary btn-sm"
+            onclick='openEditMapping(${JSON.stringify(c)})'>Edit</button>` : ''}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  function filterCountryMapping() {
+    const search    = document.getElementById('country-search').value.toLowerCase();
+    const continent = document.getElementById('continent-filter').value;
+    const targeted  = document.getElementById('targeted-filter').value;
+    const mappingByCode = {};
+    allMapping.forEach(m => mappingByCode[m.country_code] = m);
+
+    const filtered = allCountries.filter(c => {
+      const m = mappingByCode[c.country_code];
+      if (search && !c.country_name.toLowerCase().includes(search) && !c.country_code.toLowerCase().includes(search)) return false;
+      if (continent && c.continent !== continent) return false;
+      if (targeted === 'true'  && !(m?.targeted)) return false;
+      if (targeted === 'false' && m?.targeted) return false;
+      return true;
+    });
+    renderMapping(filtered);
+  }
+
+  function openEditMapping(country) {
+    document.getElementById('map-country-code').value  = country.country_code;
+    document.getElementById('map-country-name').value  = `${country.country_code} — ${country.country_name}`;
+
+    const mappingByCode = {};
+    allMapping.forEach(m => mappingByCode[m.country_code] = m);
+    const existing = mappingByCode[country.country_code];
+
+    document.getElementById('map-targeted').value = existing?.targeted ? 'true' : 'false';
+
+    // populate group dropdown
+    const sel = document.getElementById('map-group-id');
+    sel.innerHTML = '<option value="">— None —</option>';
+    allGroups.filter(g => g.status === 'active').forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.id;
+      opt.textContent = g.group_name;
+      if (existing?.market_group_id === g.id) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    UI.hideAlert('mapping-error');
+    UI.openModal('modal-mapping');
+  }
+
+  document.getElementById('btn-save-mapping').addEventListener('click', async () => {
+    const countryCode   = document.getElementById('map-country-code').value;
+    const targeted      = document.getElementById('map-targeted').value === 'true';
+    const marketGroupId = document.getElementById('map-group-id').value || null;
+
+    UI.setLoading('btn-save-mapping', true, 'Save');
+    const { error } = await Markets.upsertMapping(currentCompany.id, countryCode, targeted, marketGroupId);
+    UI.setLoading('btn-save-mapping', false, 'Save');
+
+    if (error) { UI.showAlert('mapping-error', error.message); return; }
+
+    UI.closeModal('modal-mapping');
+    loadCountryMapping();
+  });
+
+  // ── COUNTRIES (system admin only) ─────────────────────────────────
+  async function loadCountries() {
+    if (currentProfile.role !== 'system_admin') {
+      document.getElementById('section-countries').innerHTML = '<div class="empty-state">Access restricted to system admin.</div>';
+      return;
+    }
+    UI.tableLoading('countries-tbody', 3);
+    const { data } = await Countries.getAll();
+    document.getElementById('countries-count').textContent = `${data?.length ?? 0} countries`;
+    document.getElementById('countries-tbody').innerHTML = (data || []).map(c => `
+      <tr>
+        <td>${UI.mono(c.country_code)}</td>
+        <td>${c.country_name}</td>
+        <td>${c.continent || '—'}</td>
+      </tr>
+    `).join('');
+  }
 
   // ── COMPANY EDIT ──────────────────────────────────────────────────
   async function loadCompany() {
