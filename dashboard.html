@@ -874,6 +874,7 @@
   // ── NAVIGATION ────────────────────────────────────────────────────
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
+      if (!currentCompany) return;
       document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       item.classList.add('active');
