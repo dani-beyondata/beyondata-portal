@@ -1206,6 +1206,11 @@
     document.querySelectorAll(`#section-${section} .subpage`).forEach(p => p.classList.remove('active'));
     document.getElementById(`subtab-${section}-${tab}`).classList.add('active');
     document.getElementById(`subpage-${section}-${tab}`).classList.add('active');
+    if (section === 'rooms') {
+      if (tab === 'categories') loadRoomCategories();
+      if (tab === 'list')       loadRoomsList();
+      if (tab === 'attributes') loadRoomAttributes();
+    }
   }
 
   // ── EXTRAS CATALOG ────────────────────────────────────────────────
