@@ -1740,7 +1740,8 @@
     UI.openModal('modal-edit-room');
   }
 
-  document.getElementById('btn-update-room').addEventListener('click', async () => {
+  const _btnUpdateRoom = document.getElementById('btn-update-room');
+  if (_btnUpdateRoom) _btnUpdateRoom.addEventListener('click', async () => {
     const id          = document.getElementById('edit-room-id').value;
     const room_name   = document.getElementById('edit-room-name').value.trim();
     const category_id = document.getElementById('edit-room-category-id').value || null;
