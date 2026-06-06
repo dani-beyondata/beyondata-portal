@@ -344,7 +344,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Beds</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Beds</th><th>Floor</th><th>Shared</th><th>Female</th><th>Status</th><th></th></tr></thead>
             <tbody id="rooms-tbody"></tbody>
           </table>
         </div>
@@ -637,6 +637,42 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-group')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-group">Save</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal: Edit room -->
+<div class="modal-overlay" id="modal-edit-room">
+  <div class="modal">
+    <h3>Edit room</h3>
+    <div class="alert error" id="edit-room-error"></div>
+    <input type="hidden" id="edit-room-id">
+    <div class="field"><label>Room code</label><input type="text" id="edit-room-code" disabled style="opacity:0.6;cursor:not-allowed"></div>
+    <div class="field"><label>Room name</label><input type="text" id="edit-room-name"></div>
+    <div class="field">
+      <label>Category</label>
+      <select id="edit-room-category-id"></select>
+    </div>
+    <div class="field"><label>Beds per room</label><input type="number" id="edit-room-beds" min="1" max="20"></div>
+    <div class="field"><label>Floor</label><input type="text" id="edit-room-floor" placeholder="e.g. 1, Ground, Basement"></div>
+    <div class="field">
+      <label>Shared (guests from different reservations)</label>
+      <div class="toggle-wrap">
+        <button class="toggle-btn" id="edit-room-shared-yes" onclick="setRoomToggle('shared',true)">Yes</button>
+        <button class="toggle-btn" id="edit-room-shared-no"  onclick="setRoomToggle('shared',false)">No</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Female only</label>
+      <div class="toggle-wrap">
+        <button class="toggle-btn" id="edit-room-female-yes" onclick="setRoomToggle('female',true)">Yes</button>
+        <button class="toggle-btn" id="edit-room-female-no"  onclick="setRoomToggle('female',false)">No</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-room')">Cancel</button>
+      <button class="btn btn-primary" id="btn-update-room">Save changes</button>
     </div>
   </div>
 </div>
@@ -1551,6 +1587,59 @@
     await Rooms.toggleRoom(id, status);
     loadRoomsList();
   }
+
+  let _roomIsShared = false;
+  let _roomIsFemale = false;
+
+  function setRoomToggle(field, value) {
+    if (field === 'shared') {
+      _roomIsShared = value;
+      document.getElementById('edit-room-shared-yes').classList.toggle('active', value);
+      document.getElementById('edit-room-shared-no').classList.toggle('active', !value);
+    } else {
+      _roomIsFemale = value;
+      document.getElementById('edit-room-female-yes').classList.toggle('active', value);
+      document.getElementById('edit-room-female-no').classList.toggle('active', !value);
+    }
+  }
+
+  function openEditRoom(r) {
+    document.getElementById('edit-room-id').value    = r.id;
+    document.getElementById('edit-room-code').value  = r.room_code;
+    document.getElementById('edit-room-name').value  = r.room_name;
+    document.getElementById('edit-room-beds').value  = r.beds_per_room;
+    document.getElementById('edit-room-floor').value = r.floor || '';
+
+    const sel = document.getElementById('edit-room-category-id');
+    sel.innerHTML = '<option value="">— Select —</option>' +
+      allRoomCategories.map(c =>
+        `<option value="${c.id}" ${r.category_id === c.id ? 'selected' : ''}>${c.category_name}</option>`
+      ).join('');
+
+    setRoomToggle('shared', r.is_shared   || false);
+    setRoomToggle('female', r.only_female || false);
+    UI.hideAlert('edit-room-error');
+    UI.openModal('modal-edit-room');
+  }
+
+  document.getElementById('btn-update-room').addEventListener('click', async () => {
+    const id          = document.getElementById('edit-room-id').value;
+    const room_name   = document.getElementById('edit-room-name').value.trim();
+    const category_id = document.getElementById('edit-room-category-id').value || null;
+    const beds_per_room = parseInt(document.getElementById('edit-room-beds').value) || 1;
+    const floor       = document.getElementById('edit-room-floor').value.trim() || null;
+    UI.hideAlert('edit-room-error');
+    if (!room_name) { UI.showAlert('edit-room-error', 'Room name is required.'); return; }
+    UI.setLoading('btn-update-room', true, 'Save changes');
+    const { error } = await Rooms.update(id, {
+      room_name, category_id, beds_per_room, floor,
+      is_shared: _roomIsShared, only_female: _roomIsFemale
+    });
+    UI.setLoading('btn-update-room', false, 'Save changes');
+    if (error) { UI.showAlert('edit-room-error', error.message); return; }
+    UI.closeModal('modal-edit-room');
+    loadRoomsList();
+  });
 
   document.getElementById('btn-add-room').addEventListener('click', () => {
     // Populate category dropdown from loaded categories
