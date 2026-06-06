@@ -316,6 +316,8 @@
       <div class="subtabs">
         <button class="subtab active" onclick="showSubtab('rooms','categories')" id="subtab-rooms-categories">Room Categories</button>
         <button class="subtab" onclick="showSubtab('rooms','list')" id="subtab-rooms-list">Rooms</button>
+        <button class="subtab" onclick="showSubtab('rooms','attributes')" id="subtab-rooms-attributes">Room Attributes</button>
+        <button class="subtab" onclick="showSubtab('rooms','calendar')" id="subtab-rooms-calendar">Room Calendar</button>
       </div>
 
       <!-- Room Categories subpage -->
@@ -344,7 +346,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Beds</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Beds</th><th>Floor</th><th>Shared</th><th>Female only</th><th>Status</th><th></th></tr></thead>
             <tbody id="rooms-tbody"></tbody>
           </table>
         </div>
@@ -428,6 +430,68 @@
           <span style="font-size:0.75rem;color:var(--text-muted);margin-left:0.5rem">Click day to toggle · Edit room count inline</span>
         </div>
       </div>
+
+      <!-- Room Attributes subpage -->
+      <div class="subpage" id="subpage-rooms-attributes">
+        <div class="action-bar">
+          <h3 id="room-attr-count"></h3>
+          <button class="btn btn-primary" id="btn-add-room-attr">+ Add attribute</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Name</th><th>Description</th><th>Status</th><th></th></tr></thead>
+            <tbody id="room-attr-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Room Calendar subpage -->
+      <div class="subpage" id="subpage-rooms-calendar">
+
+        <!-- Controls -->
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <label style="font-size:0.8rem;color:var(--text-muted);font-weight:500">Property:</label>
+            <select class="filter-select" id="rcal-property-filter" onchange="loadRoomCalendar()"></select>
+          </div>
+          <div class="cal-nav">
+            <button class="cal-nav-btn" onclick="changeRoomCalMonth(-1)">←</button>
+            <div class="cal-month-label" id="rcal-month-label" style="font-size:0.95rem;min-width:140px"></div>
+            <button class="cal-nav-btn" onclick="changeRoomCalMonth(1)">→</button>
+          </div>
+          <select class="cal-year-select" id="rcal-year-select" onchange="changeRoomCalYear(this.value)"></select>
+          <div id="rcal-save-bar" style="display:none;margin-left:auto">
+            <div class="save-bar">
+              <span>⚠ Cambios sin guardar</span>
+              <button class="btn btn-primary btn-sm" style="margin-left:1rem" onclick="saveRoomCalendar()">Guardar cambios</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Capacity summary bar -->
+        <div class="bulk-bar" id="rcal-summary-bar" style="margin-bottom:0.5rem;font-size:0.8rem">
+          <span class="bulk-label">Hoy:</span>
+          <span id="rcal-today-beds" style="color:var(--text)">— camas configuradas</span>
+          <span style="color:var(--text-muted)">de un máximo de</span>
+          <span id="rcal-today-max" style="color:var(--brand);font-weight:600">— </span>
+          <span style="color:var(--text-muted)">según availability calendar</span>
+        </div>
+
+        <!-- Grid container -->
+        <div style="overflow-x:auto">
+          <div id="rcal-grid-wrap"></div>
+        </div>
+
+        <!-- Legend -->
+        <div class="cal-legend" style="margin-top:0.75rem">
+          <div class="cal-legend-item"><span class="cal-legend-box" style="background:var(--white);border-color:var(--border)"></span>Abierta</div>
+          <div class="cal-legend-item"><span class="cal-legend-box" style="background:#fff5f5;border-color:#fecaca"></span>Cerrada</div>
+          <div class="cal-legend-item"><span class="cal-legend-box" style="background:#fffbeb;border-color:#fde68a"></span>Sin guardar</div>
+          <div class="cal-legend-item"><span class="cal-legend-box" style="background:#fff0f0;border-color:#fca5a5"></span>Supera máximo</div>
+          <span style="font-size:0.75rem;color:var(--text-muted);margin-left:0.5rem">Click en celda → editar camas y atributos · Click en cabecera de habitación → editar toda la fila</span>
+        </div>
+      </div>
+
     </div>
 
     <!-- CHANNELS -->
@@ -608,6 +672,80 @@
   </div>
 </div>
 
+<!-- Modal: Add room attribute type -->
+<div class="modal-overlay" id="modal-room-attr">
+  <div class="modal">
+    <h3>Add room attribute</h3>
+    <div class="alert error" id="room-attr-error"></div>
+    <div class="field"><label>Code</label><input type="text" id="rattr-code" placeholder="e.g. ONLY_FEMALE" style="text-transform:uppercase"></div>
+    <div class="field"><label>Name</label><input type="text" id="rattr-name" placeholder="e.g. Solo femenino"></div>
+    <div class="field"><label>Description (optional)</label><input type="text" id="rattr-desc" placeholder="Brief description"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-room-attr')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-room-attr">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit room capacity cell -->
+<div class="modal-overlay" id="modal-rcal-cell">
+  <div class="modal">
+    <h3 id="rcal-cell-title">Edit day</h3>
+    <div class="alert error" id="rcal-cell-error"></div>
+    <input type="hidden" id="rcal-cell-room-id">
+    <input type="hidden" id="rcal-cell-date">
+    <div class="field">
+      <label>Status</label>
+      <div class="toggle-wrap">
+        <button class="toggle-btn" id="rcal-status-open"  onclick="setRcalStatus('open')">Open</button>
+        <button class="toggle-btn" id="rcal-status-closed" onclick="setRcalStatus('closed')">Closed</button>
+      </div>
+    </div>
+    <div class="field" id="rcal-beds-field">
+      <label>Beds available</label>
+      <input type="number" id="rcal-cell-beds" min="0" max="999">
+    </div>
+    <div class="field" id="rcal-attr-field">
+      <label>Attributes</label>
+      <div id="rcal-attr-checkboxes" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.3rem"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-rcal-cell')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-rcal-cell">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit room row (all days in month) -->
+<div class="modal-overlay" id="modal-rcal-row">
+  <div class="modal">
+    <h3 id="rcal-row-title">Edit entire row</h3>
+    <div class="alert error" id="rcal-row-error"></div>
+    <input type="hidden" id="rcal-row-room-id">
+    <div class="field">
+      <label>Status for all days</label>
+      <select id="rcal-row-status">
+        <option value="">— No change —</option>
+        <option value="open">Open all</option>
+        <option value="closed">Close all</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Beds available (all days)</label>
+      <input type="number" id="rcal-row-beds" min="0" max="999" placeholder="Leave blank to keep existing">
+    </div>
+    <div class="field">
+      <label>Attributes (all days)</label>
+      <div id="rcal-row-attr-checkboxes" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.3rem"></div>
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.3rem">Leave all unchecked to keep existing attributes</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-rcal-row')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-rcal-row">Apply to month</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Add room -->
 <div class="modal-overlay" id="modal-room">
   <div class="modal">
@@ -683,6 +821,7 @@
 <script src="js/booking_purposes.js"></script>
 <script src="js/markets.js"></script>
 <script src="js/rooms.js"></script>
+<script src="js/room_calendar.js"></script>
 <script src="js/availability.js"></script>
 <script src="js/extras_catalog.js"></script>
 <script src="js/countries.js"></script>
@@ -1133,6 +1272,13 @@
     document.querySelectorAll(`#section-${section} .subpage`).forEach(p => p.classList.remove('active'));
     document.getElementById(`subtab-${section}-${tab}`).classList.add('active');
     document.getElementById(`subpage-${section}-${tab}`).classList.add('active');
+    // Sub-loaders
+    if (section === 'rooms') {
+      if (tab === 'categories') loadRoomCategories();
+      if (tab === 'list')       loadRoomsList();
+      if (tab === 'attributes') loadRoomAttributes();
+      if (tab === 'calendar')   initRoomCalendar();
+    }
   }
 
   // ── EXTRAS CATALOG ────────────────────────────────────────────────
@@ -1538,13 +1684,16 @@
         <td>${r.room_name}</td>
         <td>${r.room_categories?.category_name ?? '—'}</td>
         <td>${r.beds_per_room}</td>
+        <td>${r.floor || '—'}</td>
+        <td>${r.is_shared ? UI.badge('Yes','active') : UI.badge('No','inactive')}</td>
+        <td>${r.only_female ? UI.badge('Yes','admin') : UI.badge('No','inactive')}</td>
         <td>${UI.statusBadge(r.status === 'active')}</td>
         <td>${isAdmin ? `
           <button class="btn btn-secondary btn-sm" onclick="toggleRoom('${r.id}','${r.status}')">
             ${r.status === 'active' ? 'Disable' : 'Enable'}
           </button>` : ''}</td>
       </tr>
-    `).join('') || '<tr><td colspan="6"><div class="empty-state">No rooms for this property.</div></td></tr>';
+    `).join('') || '<tr><td colspan="9"><div class="empty-state">No rooms for this property.</div></td></tr>';
   }
 
   async function toggleRoom(id, status) {
@@ -1579,6 +1728,48 @@
     document.getElementById('room-code').value = '';
     document.getElementById('room-name').value = '';
     loadRoomsList();
+  });
+
+  // ── ROOM ATTRIBUTES ───────────────────────────────────────────────
+  async function loadRoomAttributes() {
+    UI.tableLoading('room-attr-tbody', 5);
+    const { data } = await Rooms.getAttributeTypes(currentCompany.id);
+    const attrs = data || [];
+    document.getElementById('room-attr-count').textContent = `${attrs.length} attributes`;
+    document.getElementById('room-attr-tbody').innerHTML = attrs.map(a => `
+      <tr>
+        <td>${UI.mono(a.attribute_code)}</td>
+        <td>${a.attribute_name}</td>
+        <td style="color:var(--text-muted);font-size:0.82rem">${a.description || '—'}</td>
+        <td>${UI.badge(a.status, a.status === 'active' ? 'active' : 'inactive')}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleRoomAttr('${a.id}','${a.status}')">
+          ${a.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="5"><div class="empty-state">No attributes yet.</div></td></tr>';
+  }
+
+  async function toggleRoomAttr(id, status) {
+    await Rooms.toggleAttributeType(id, status);
+    loadRoomAttributes();
+  }
+
+  document.getElementById('btn-add-room-attr').addEventListener('click', () => UI.openModal('modal-room-attr'));
+
+  document.getElementById('btn-save-room-attr').addEventListener('click', async () => {
+    const attribute_code = document.getElementById('rattr-code').value.trim().toUpperCase().replace(/\s+/g,'_');
+    const attribute_name = document.getElementById('rattr-name').value.trim();
+    const description    = document.getElementById('rattr-desc').value.trim() || null;
+    UI.hideAlert('room-attr-error');
+    if (!attribute_code || !attribute_name) { UI.showAlert('room-attr-error', 'Code and name are required.'); return; }
+    UI.setLoading('btn-save-room-attr', true, 'Save');
+    const { error } = await Rooms.createAttributeType(currentCompany.id, { attribute_code, attribute_name, description });
+    UI.setLoading('btn-save-room-attr', false, 'Save');
+    if (error) { UI.showAlert('room-attr-error', error.message); return; }
+    UI.closeModal('modal-room-attr');
+    document.getElementById('rattr-code').value = '';
+    document.getElementById('rattr-name').value = '';
+    document.getElementById('rattr-desc').value = '';
+    loadRoomAttributes();
   });
 
   // ── MARKETS ───────────────────────────────────────────────────────
