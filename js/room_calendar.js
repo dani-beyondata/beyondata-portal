@@ -40,6 +40,7 @@ const RoomCalendar = (() => {
     markChanged();
 
     // Load in parallel
+    console.log('RoomCalendar.init - companyId:', companyId, 'propertyId:', propertyId);
     const [roomsRes, attrRes, capRes, availRes] = await Promise.all([
       Rooms.getByProperty(companyId, propertyId),
       Rooms.getAttributeTypes(companyId),
@@ -52,6 +53,9 @@ const RoomCalendar = (() => {
         .lte('date', `${year}-${String(month).padStart(2,'0')}-${String(new Date(year,month,0).getDate()).padStart(2,'0')}`)
     ]);
 
+    console.log('roomsRes:', roomsRes.error || roomsRes.data?.length + ' rooms');
+    console.log('attrRes:', attrRes.error || attrRes.data?.length + ' attrs');
+    console.log('capRes:', capRes.error || capRes.data?.length + ' cap rows');
     rooms     = (roomsRes.data || []).filter(r => r.status === 'active');
     attrTypes = (attrRes.data  || []).filter(a => a.status === 'active');
 
