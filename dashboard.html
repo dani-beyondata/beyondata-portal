@@ -1550,7 +1550,8 @@
     // Room rows
     rcalRooms.forEach(room => {
       html += '<tr>';
-      html += '<td onclick="rcalOpenRow('' + room.id + '','' + room.room_name + '')" ' +
+      html += '<td data-rid="' + room.id + '" data-rname="' + room.room_name.replace(/"/g,"&quot;") + '" ' +
+              'onclick="rcalOpenRowEl(this)" ' +
               'style="padding:4px 8px;background:var(--white);border:1px solid var(--border);' +
               'font-weight:500;cursor:pointer;position:sticky;left:0;z-index:1;' +
               'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:' + NW + 'px" ' +
@@ -1670,6 +1671,15 @@
     rcalRender(availMax, lastDay);
     rcalLoad();
   });
+
+  function rcalOpenRowEl(el) {
+    rcalOpenRow(el.dataset.rid, el.dataset.rname);
+  }
+
+  function rcalOpenCellEl(el) {
+    rcalOpenCell(el.dataset.rid, el.dataset.date,
+      el.closest('tr').querySelector('td:first-child').dataset.rname || '');
+  }
 
   function rcalOpenRow(roomId, roomName) {
     document.getElementById('rcal-row-room-id').value = roomId;
