@@ -1565,7 +1565,7 @@
   async function loadRoomsList() {
     const propertyId = document.getElementById('rooms-property-filter').value;
     if (!propertyId) return;
-    UI.tableLoading('rooms-tbody', 6);
+    UI.tableLoading('rooms-tbody', 9);
     const { data } = await Rooms.getByProperty(currentCompany.id, propertyId);
     const rooms = data || [];
     document.getElementById('rooms-tbody').innerHTML = rooms.map(r => `
@@ -1574,13 +1574,18 @@
         <td>${r.room_name}</td>
         <td>${r.room_categories?.category_name ?? '—'}</td>
         <td>${r.beds_per_room}</td>
+        <td>${r.floor || '—'}</td>
+        <td>${r.is_shared ? UI.badge('Yes','active') : UI.badge('No','inactive')}</td>
+        <td>${r.only_female ? UI.badge('Yes','admin') : UI.badge('No','inactive')}</td>
         <td>${UI.statusBadge(r.status === 'active')}</td>
-        <td>${isAdmin ? `
-          <button class="btn btn-secondary btn-sm" onclick="toggleRoom('${r.id}','${r.status}')">
+        <td style="white-space:nowrap">${isAdmin ? `
+          <button class="btn btn-secondary btn-sm" onclick='openEditRoom(${JSON.stringify(r)})'>Edit</button>
+          <button class="btn btn-sm ${r.status === 'active' ? 'btn-danger' : 'btn-secondary'}" style="margin-left:4px"
+            onclick="toggleRoom('${r.id}','${r.status}')">
             ${r.status === 'active' ? 'Disable' : 'Enable'}
           </button>` : ''}</td>
       </tr>
-    `).join('') || '<tr><td colspan="6"><div class="empty-state">No rooms for this property.</div></td></tr>';
+    `).join('') || '<tr><td colspan="9"><div class="empty-state">No rooms for this property.</div></td></tr>';
   }
 
   async function toggleRoom(id, status) {
