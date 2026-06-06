@@ -672,6 +672,38 @@
   </div>
 </div>
 
+<!-- Modal: Edit room -->
+<div class="modal-overlay" id="modal-edit-room">
+  <div class="modal">
+    <h3>Edit room</h3>
+    <div class="alert error" id="edit-room-error"></div>
+    <input type="hidden" id="edit-room-id">
+    <div class="field"><label>Room code</label><input type="text" id="edit-room-code" disabled style="opacity:0.6;cursor:not-allowed"></div>
+    <div class="field"><label>Room name</label><input type="text" id="edit-room-name"></div>
+    <div class="field"><label>Category</label><select id="edit-room-category-id"></select></div>
+    <div class="field"><label>Beds per room</label><input type="number" id="edit-room-beds" min="1" max="20"></div>
+    <div class="field"><label>Floor</label><input type="text" id="edit-room-floor" placeholder="e.g. 1, Ground, Basement"></div>
+    <div class="field">
+      <label>Shared (guests from different reservations)</label>
+      <div class="toggle-wrap">
+        <button class="toggle-btn" id="edit-room-shared-yes" onclick="setRoomToggle('shared',true)">Yes</button>
+        <button class="toggle-btn" id="edit-room-shared-no"  onclick="setRoomToggle('shared',false)">No</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Female only</label>
+      <div class="toggle-wrap">
+        <button class="toggle-btn" id="edit-room-female-yes" onclick="setRoomToggle('female',true)">Yes</button>
+        <button class="toggle-btn" id="edit-room-female-no"  onclick="setRoomToggle('female',false)">No</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-room')">Cancel</button>
+      <button class="btn btn-primary" id="btn-update-room">Save changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Add room attribute type -->
 <div class="modal-overlay" id="modal-room-attr">
   <div class="modal">
