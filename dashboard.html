@@ -1828,7 +1828,12 @@
   // ── ROOM ATTRIBUTES ───────────────────────────────────────────────
   async function loadRoomAttributes() {
     UI.tableLoading('room-attr-tbody', 5);
-    const { data } = await Rooms.getAttributeTypes(currentCompany.id);
+    const { data, error } = await Rooms.getAttributeTypes(currentCompany.id);
+    if (error) {
+      console.error('loadRoomAttributes error:', error);
+      document.getElementById('room-attr-tbody').innerHTML = `<tr><td colspan="5" style="padding:1rem;color:var(--error)">Error: ${error.message}</td></tr>`;
+      return;
+    }
     const attrs = data || [];
     document.getElementById('room-attr-count').textContent = `${attrs.length} attributes`;
     document.getElementById('room-attr-tbody').innerHTML = attrs.map(a => `
