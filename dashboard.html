@@ -354,7 +354,16 @@
 
       <!-- Room Attributes subpage -->
       <div class="subpage" id="subpage-rooms-attributes">
-        <div class="empty-state" style="padding:3rem">Room Attributes — coming soon</div>
+        <div class="action-bar">
+          <h3 id="room-attr-count"></h3>
+          <button class="btn btn-primary" id="btn-add-room-attr">+ Add attribute</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Name</th><th>Description</th><th>Status</th><th></th></tr></thead>
+            <tbody id="room-attr-tbody"></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Room Calendar subpage -->
@@ -686,6 +695,21 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-edit-room')">Cancel</button>
       <button class="btn btn-primary" id="btn-update-room">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add room attribute -->
+<div class="modal-overlay" id="modal-room-attr">
+  <div class="modal">
+    <h3>Add room attribute</h3>
+    <div class="alert error" id="room-attr-error"></div>
+    <div class="field"><label>Code</label><input type="text" id="rattr-code" placeholder="e.g. ONLY_FEMALE" style="text-transform:uppercase"></div>
+    <div class="field"><label>Name</label><input type="text" id="rattr-name" placeholder="e.g. Solo femenino"></div>
+    <div class="field"><label>Description (optional)</label><input type="text" id="rattr-desc" placeholder="Brief description"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-room-attr')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-room-attr">Save</button>
     </div>
   </div>
 </div>
@@ -1600,6 +1624,60 @@
       </tr>
     `).join('') || '<tr><td colspan="9"><div class="empty-state">No rooms for this property.</div></td></tr>';
   }
+
+  async function loadRoomAttributes() {
+    UI.tableLoading('room-attr-tbody', 5);
+    const { data, error } = await Rooms.getAttributeTypes(currentCompany.id);
+    if (error) {
+      UI.tableEmpty('room-attr-tbody', 5, 'Error loading: ' + error.message);
+      return;
+    }
+    const attrs = data || [];
+    document.getElementById('room-attr-count').textContent = attrs.length + ' attributes';
+    document.getElementById('room-attr-tbody').innerHTML = attrs.map(a => `
+      <tr>
+        <td>${UI.mono(a.attribute_code)}</td>
+        <td>${a.attribute_name}</td>
+        <td style="color:var(--text-muted);font-size:0.82rem">${a.description || '—'}</td>
+        <td>${UI.badge(a.status, a.status === 'active' ? 'active' : 'inactive')}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm"
+          onclick="toggleRoomAttr('${a.id}','${a.status}')">
+          ${a.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="5"><div class="empty-state">No attributes yet.</div></td></tr>';
+  }
+
+  async function toggleRoomAttr(id, status) {
+    const newStatus = status === 'active' ? 'inactive' : 'active';
+    await sb.from('room_attribute_types')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    loadRoomAttributes();
+  }
+
+  document.getElementById('btn-add-room-attr').addEventListener('click', () => UI.openModal('modal-room-attr'));
+
+  document.getElementById('btn-save-room-attr').addEventListener('click', async () => {
+    const attribute_code = document.getElementById('rattr-code').value.trim().toUpperCase().replace(/\s+/g,'_');
+    const attribute_name = document.getElementById('rattr-name').value.trim();
+    const description    = document.getElementById('rattr-desc').value.trim() || null;
+    UI.hideAlert('room-attr-error');
+    if (!attribute_code || !attribute_name) {
+      UI.showAlert('room-attr-error', 'Code and name are required.');
+      return;
+    }
+    UI.setLoading('btn-save-room-attr', true, 'Save');
+    const { error } = await sb.from('room_attribute_types').insert({
+      company_id: currentCompany.id, attribute_code, attribute_name, description, status: 'active'
+    });
+    UI.setLoading('btn-save-room-attr', false, 'Save');
+    if (error) { UI.showAlert('room-attr-error', error.message); return; }
+    UI.closeModal('modal-room-attr');
+    document.getElementById('rattr-code').value = '';
+    document.getElementById('rattr-name').value = '';
+    document.getElementById('rattr-desc').value = '';
+    loadRoomAttributes();
+  });
 
   async function toggleRoom(id, status) {
     await Rooms.toggleRoom(id, status);
