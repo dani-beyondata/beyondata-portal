@@ -368,7 +368,42 @@
 
       <!-- Room Calendar subpage -->
       <div class="subpage" id="subpage-rooms-calendar">
-        <div class="empty-state" style="padding:3rem">Room Calendar — coming soon</div>
+
+        <!-- Controls row -->
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem">
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <label style="font-size:0.8rem;color:var(--text-muted);font-weight:500">Property:</label>
+            <select class="filter-select" id="rcal-property" onchange="rcalLoad()"></select>
+          </div>
+          <div class="cal-nav">
+            <button class="cal-nav-btn" onclick="rcalChangeMonth(-1)">&#8592;</button>
+            <div class="cal-month-label" id="rcal-month-label" style="font-size:0.9rem;min-width:130px;text-align:center"></div>
+            <button class="cal-nav-btn" onclick="rcalChangeMonth(1)">&#8594;</button>
+          </div>
+          <select class="cal-year-select" id="rcal-year" onchange="rcalChangeYear(this.value)"></select>
+          <div id="rcal-save-bar" style="display:none;margin-left:auto">
+            <div class="save-bar">
+              <span>&#9888; Cambios sin guardar</span>
+              <button class="btn btn-primary btn-sm" style="margin-left:1rem" id="btn-rcal-save">Guardar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grid -->
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--white)">
+          <div id="rcal-grid"></div>
+        </div>
+
+        <!-- Legend -->
+        <div class="cal-legend" style="margin-top:0.75rem">
+          <div class="cal-legend-item"><span class="cal-legend-box" style="background:var(--white);border-color:var(--border)"></span>Open</div>
+          <div class="cal-legend-item"><span class="cal-legend-box" style="background:#fff5f5;border-color:#fecaca"></span>Closed</div>
+          <div class="cal-legend-item"><span class="cal-legend-box" style="background:#fffbeb;border-color:#fde68a"></span>Unsaved</div>
+          <div class="cal-legend-item"><span class="cal-legend-box" style="background:#fff0f0;border-color:#fca5a5"></span>Over limit</div>
+          <span style="font-size:0.75rem;color:var(--text-muted);margin-left:0.5rem">
+            Click cell &#8594; edit &#160;|&#160; Click room name &#8594; edit whole row
+          </span>
+        </div>
       </div>
 
     </div>
@@ -710,6 +745,64 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-room-attr')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-room-attr">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Room calendar cell edit -->
+<div class="modal-overlay" id="modal-rcal-cell">
+  <div class="modal">
+    <h3 id="rcal-cell-title">Edit day</h3>
+    <div class="alert error" id="rcal-cell-error"></div>
+    <input type="hidden" id="rcal-cell-room-id">
+    <input type="hidden" id="rcal-cell-date">
+    <div class="field">
+      <label>Status</label>
+      <div class="toggle-wrap">
+        <button class="toggle-btn" id="rcal-status-open"   onclick="rcalSetStatus('open')">Open</button>
+        <button class="toggle-btn" id="rcal-status-closed" onclick="rcalSetStatus('closed')">Closed</button>
+      </div>
+    </div>
+    <div class="field" id="rcal-beds-wrap">
+      <label>Beds available</label>
+      <input type="number" id="rcal-cell-beds" min="0" max="999" style="width:100px">
+    </div>
+    <div class="field">
+      <label>Attributes</label>
+      <div id="rcal-cell-attrs" style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.3rem"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-rcal-cell')">Cancel</button>
+      <button class="btn btn-primary" id="btn-rcal-cell-save">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Room calendar row edit -->
+<div class="modal-overlay" id="modal-rcal-row">
+  <div class="modal">
+    <h3 id="rcal-row-title">Edit entire row</h3>
+    <input type="hidden" id="rcal-row-room-id">
+    <div class="field">
+      <label>Status (all days this month)</label>
+      <select id="rcal-row-status">
+        <option value="">— No change —</option>
+        <option value="open">Open all</option>
+        <option value="closed">Close all</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Beds available (all days)</label>
+      <input type="number" id="rcal-row-beds" min="0" max="999" placeholder="Leave blank to keep existing" style="width:160px">
+    </div>
+    <div class="field">
+      <label>Attributes (all days)</label>
+      <div id="rcal-row-attrs" style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.3rem"></div>
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.3rem">Leave all unchecked to keep existing</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-rcal-row')">Cancel</button>
+      <button class="btn btn-primary" id="btn-rcal-row-save">Apply to month</button>
     </div>
   </div>
 </div>
@@ -1210,6 +1303,7 @@
       if (tab === 'categories') loadRoomCategories();
       if (tab === 'list')       loadRoomsList();
       if (tab === 'attributes') loadRoomAttributes();
+      if (tab === 'calendar')   rcalInit();
     }
   }
 
