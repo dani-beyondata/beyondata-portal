@@ -1272,13 +1272,14 @@
     document.querySelectorAll(`#section-${section} .subpage`).forEach(p => p.classList.remove('active'));
     document.getElementById(`subtab-${section}-${tab}`).classList.add('active');
     document.getElementById(`subpage-${section}-${tab}`).classList.add('active');
-    // Sub-loaders
+    // Sub-loaders for rooms
     if (section === 'rooms') {
       if (tab === 'categories') loadRoomCategories();
       if (tab === 'list')       loadRoomsList();
       if (tab === 'attributes') loadRoomAttributes();
-      if (tab === 'calendar')   initRoomCalendar();
+      if (tab === 'calendar')   { initRoomCalendar(); }
     }
+  }
   }
 
   // ── EXTRAS CATALOG ────────────────────────────────────────────────
@@ -1688,8 +1689,10 @@
         <td>${r.is_shared ? UI.badge('Yes','active') : UI.badge('No','inactive')}</td>
         <td>${r.only_female ? UI.badge('Yes','admin') : UI.badge('No','inactive')}</td>
         <td>${UI.statusBadge(r.status === 'active')}</td>
-        <td>${isAdmin ? `
-          <button class="btn btn-secondary btn-sm" onclick="toggleRoom('${r.id}','${r.status}')">
+        <td style="white-space:nowrap">${isAdmin ? `
+          <button class="btn btn-secondary btn-sm" onclick='openEditRoom(${JSON.stringify(r)})'>Edit</button>
+          <button class="btn btn-sm ${r.status === 'active' ? 'btn-danger' : 'btn-secondary'}" 
+            onclick="toggleRoom('${r.id}','${r.status}')" style="margin-left:4px">
             ${r.status === 'active' ? 'Disable' : 'Enable'}
           </button>` : ''}</td>
       </tr>
@@ -1700,6 +1703,63 @@
     await Rooms.toggleRoom(id, status);
     loadRoomsList();
   }
+
+  let _editRoomIsShared  = false;
+  let _editRoomIsFemale  = false;
+
+  function setRoomToggle(field, value) {
+    if (field === 'shared') {
+      _editRoomIsShared = value;
+      document.getElementById('edit-room-shared-yes').classList.toggle('active', value);
+      document.getElementById('edit-room-shared-no').classList.toggle('active', !value);
+    } else {
+      _editRoomIsFemale = value;
+      document.getElementById('edit-room-female-yes').classList.toggle('active', value);
+      document.getElementById('edit-room-female-no').classList.toggle('active', !value);
+    }
+  }
+
+  function openEditRoom(r) {
+    document.getElementById('edit-room-id').value   = r.id;
+    document.getElementById('edit-room-code').value = r.room_code;
+    document.getElementById('edit-room-name').value = r.room_name;
+    document.getElementById('edit-room-beds').value = r.beds_per_room;
+    document.getElementById('edit-room-floor').value = r.floor || '';
+
+    // Populate category dropdown
+    const sel = document.getElementById('edit-room-category-id');
+    sel.innerHTML = '<option value="">— Select —</option>' +
+      allRoomCategories.map(c => `<option value="${c.id}" ${r.category_id === c.id ? 'selected' : ''}>${c.category_name}</option>`).join('');
+
+    setRoomToggle('shared', r.is_shared || false);
+    setRoomToggle('female', r.only_female || false);
+
+    UI.hideAlert('edit-room-error');
+    UI.openModal('modal-edit-room');
+  }
+
+  document.getElementById('btn-update-room').addEventListener('click', async () => {
+    const id          = document.getElementById('edit-room-id').value;
+    const room_name   = document.getElementById('edit-room-name').value.trim();
+    const category_id = document.getElementById('edit-room-category-id').value || null;
+    const beds_per_room = parseInt(document.getElementById('edit-room-beds').value) || 1;
+    const floor       = document.getElementById('edit-room-floor').value.trim() || null;
+
+    UI.hideAlert('edit-room-error');
+    if (!room_name) { UI.showAlert('edit-room-error', 'Room name is required.'); return; }
+
+    UI.setLoading('btn-update-room', true, 'Save changes');
+    const { error } = await Rooms.update(id, {
+      room_name, category_id, beds_per_room, floor,
+      is_shared: _editRoomIsShared,
+      only_female: _editRoomIsFemale
+    });
+    UI.setLoading('btn-update-room', false, 'Save changes');
+
+    if (error) { UI.showAlert('edit-room-error', error.message); return; }
+    UI.closeModal('modal-edit-room');
+    loadRoomsList();
+  });
 
   document.getElementById('btn-add-room').addEventListener('click', () => {
     // Populate category dropdown from loaded categories
