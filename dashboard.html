@@ -866,6 +866,8 @@
     document.getElementById('user-label').textContent   = currentProfile.full_name || session.user.email;
     document.title = `BeyonData — ${currentCompany.name}`;
 
+    // Enable nav items now that currentCompany is set
+    document.querySelectorAll('.nav-item').forEach(i => i.style.opacity = '1');
     loadOverview();
   }
 
@@ -2066,6 +2068,7 @@
 
   // ── NAV HELPER ────────────────────────────────────────────────────
   function navTo(section) {
+    if (!currentCompany) return;
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     const navItem = document.querySelector(`.nav-item[data-section="${section}"]`);
