@@ -1566,13 +1566,12 @@
         if (isPend)   bg = '#fffbeb';
         if (isClosed) bg = '#fff5f5';
 
-        const attrDots = (day.attributes || []).slice(0,3).map(() =>
+        const attrDots = (day.attributes || []).slice(0,3).map(function() {
           '<span style="display:inline-block;width:5px;height:5px;border-radius:50%;' +
           'background:var(--brand);margin:0 1px;opacity:0.5"></span>'
-        ).join('');
+        }).join('');
 
-        html += '<td onclick="rcalOpenCell('' + room.id + '','' + date + '','' +
-                room.room_name.replace(/'/g,"\'") + '')" ' +
+        html += '<td data-rid="' + room.id + '" data-date="' + date + '" onclick="rcalOpenCellEl(this)" ' +
                 'style="width:' + CW + 'px;min-width:' + CW + 'px;' +
                 'padding:3px 1px;text-align:center;background:' + bg + ';' +
                 'border:1px solid var(--border);cursor:pointer;vertical-align:middle" ' +
