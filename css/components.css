@@ -546,3 +546,25 @@ tbody tr:hover { background: var(--brand-light) !important; }
 .card-link:hover::after {
   color: var(--brand);
 }
+
+/* ── Room Calendar Gantt ────────────────────────────────────────── */
+#rcal-grid-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+}
+
+#rcal-grid-wrap table td,
+#rcal-grid-wrap table th {
+  transition: background 0.1s;
+}
+
+#rcal-grid-wrap table td:hover {
+  filter: brightness(0.96);
+}
+
+#rcal-grid-wrap table tr:last-child td,
+#rcal-grid-wrap table tr:last-child th {
+  border-bottom: none;
+}
