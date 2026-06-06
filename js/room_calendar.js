@@ -227,6 +227,7 @@ const RoomCalendar = (() => {
 
     UI.hideAlert('rcal-cell-error');
     UI.openModal('modal-rcal-cell');
+    wireRoomCalendarButtons();
   }
 
   function setRcalStatus(status) {
@@ -263,6 +264,7 @@ const RoomCalendar = (() => {
 
     UI.hideAlert('rcal-row-error');
     UI.openModal('modal-rcal-row');
+    wireRoomCalendarButtons();
   }
 
   function saveRow() {
@@ -348,15 +350,25 @@ function changeRoomCalYear(y)         { RoomCalendar.changeYear(y); }
 function openRoomCell(rid,date,name)  { RoomCalendar.openCell(rid,date,name); }
 function openRoomRow(rid,name)        { RoomCalendar.openRow(rid,name); }
 function saveRoomCalendar()           { RoomCalendar.saveAll(); }
-function setRcalStatus(s)             { RoomCalendar.saveCell && null; 
+
+function setRcalStatus(s) {
   document.getElementById('rcal-status-open').classList.toggle('active', s==='open');
   document.getElementById('rcal-status-closed').classList.toggle('active', s==='closed');
   document.getElementById('rcal-beds-field').style.opacity = s==='closed'?'0.4':'1';
 }
-// These need direct access:
-document.addEventListener('DOMContentLoaded', () => {
+
+// Wire modal save buttons after DOM is ready
+function wireRoomCalendarButtons() {
   const saveCell = document.getElementById('btn-save-rcal-cell');
-  if (saveCell) saveCell.addEventListener('click', () => RoomCalendar.saveCell());
-  const saveRow  = document.getElementById('btn-save-rcal-row');
-  if (saveRow)  saveRow.addEventListener('click',  () => RoomCalendar.saveRow());
-});
+  if (saveCell && !saveCell._wired) {
+    saveCell.addEventListener('click', () => RoomCalendar.saveCell());
+    saveCell._wired = true;
+  }
+  const saveRow = document.getElementById('btn-save-rcal-row');
+  if (saveRow && !saveRow._wired) {
+    saveRow.addEventListener('click', () => RoomCalendar.saveRow());
+    saveRow._wired = true;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', wireRoomCalendarButtons);
