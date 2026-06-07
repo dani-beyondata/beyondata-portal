@@ -568,3 +568,48 @@ tbody tr:hover { background: var(--brand-light) !important; }
 #rcal-grid-wrap table tr:last-child th {
   border-bottom: none;
 }
+
+/* ── Room Calendar filter chips ─────────────────────────────── */
+.rcal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.rcal-chip:hover { border-color: var(--brand); color: var(--brand); }
+.rcal-chip.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.rcal-show-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  transition: all 0.12s;
+}
+.rcal-show-btn:hover { border-color: var(--brand); color: var(--brand); }
+.rcal-show-btn.active {
+  background: var(--white);
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 600;
+  box-shadow: 0 0 0 2px var(--brand-light);
+}
