@@ -370,21 +370,28 @@
       <div class="subpage" id="subpage-rooms-calendar">
 
         <!-- Controls row -->
-        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem">
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem">
           <div style="display:flex;align-items:center;gap:0.5rem">
             <label style="font-size:0.8rem;color:var(--text-muted);font-weight:500">Property:</label>
             <select class="filter-select" id="rcal-property" onchange="rcalLoad()"></select>
           </div>
+          <!-- View selector -->
+          <div class="toggle-wrap">
+            <button class="toggle-btn active" id="rcal-view-day"   onclick="rcalSetView('day')">Day</button>
+            <button class="toggle-btn"         id="rcal-view-week"  onclick="rcalSetView('week')">Week</button>
+            <button class="toggle-btn"         id="rcal-view-month" onclick="rcalSetView('month')">Month</button>
+          </div>
+          <!-- Navigation -->
           <div class="cal-nav">
-            <button class="cal-nav-btn" onclick="rcalChangeMonth(-1)">&#8592;</button>
-            <div class="cal-month-label" id="rcal-month-label" style="font-size:0.9rem;min-width:130px;text-align:center"></div>
-            <button class="cal-nav-btn" onclick="rcalChangeMonth(1)">&#8594;</button>
+            <button class="cal-nav-btn" onclick="rcalNavPrev()">&#8592;</button>
+            <div class="cal-month-label" id="rcal-period-label" style="font-size:0.9rem;min-width:140px;text-align:center"></div>
+            <button class="cal-nav-btn" onclick="rcalNavNext()">&#8594;</button>
           </div>
           <select class="cal-year-select" id="rcal-year" onchange="rcalChangeYear(this.value)"></select>
           <div id="rcal-save-bar" style="display:none;margin-left:auto">
             <div class="save-bar">
-              <span>&#9888; Cambios sin guardar</span>
-              <button class="btn btn-primary btn-sm" style="margin-left:1rem" id="btn-rcal-save">Guardar</button>
+              <span>&#9888; Unsaved changes</span>
+              <button class="btn btn-primary btn-sm" style="margin-left:1rem" id="btn-rcal-save">Save</button>
             </div>
           </div>
         </div>
@@ -1403,15 +1410,19 @@
 
 
   // ── ROOM CALENDAR ─────────────────────────────────────────────────
-  let rcalYear  = new Date().getFullYear();
-  let rcalMonth = new Date().getMonth() + 1;
-  let rcalRooms = [];
-  let rcalAttrs = [];
-  let rcalCap   = {}; // key: roomId__date
-  let rcalPend  = {}; // pending changes
+  let rcalYear   = new Date().getFullYear();
+  let rcalMonth  = new Date().getMonth() + 1;
+  let rcalView   = 'day'; // 'day' | 'week' | 'month'
+  let rcalRooms  = [];
+  let rcalAttrs  = [];
+  let rcalCap    = {}; // key: roomId__date
+  let rcalPend   = {}; // pending changes
+  let rcalAvail  = {}; // date -> max beds
 
   const RCAL_MONTHS = ['January','February','March','April','May','June',
     'July','August','September','October','November','December'];
+  const RCAL_MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun',
+    'Jul','Aug','Sep','Oct','Nov','Dec'];
 
   function rcalKey(roomId, date) { return roomId + '__' + date; }
 
@@ -1427,8 +1438,44 @@
       Object.keys(rcalPend).length > 0 ? 'block' : 'none';
   }
 
+  function rcalSetView(view) {
+    rcalView = view;
+    ['day','week','month'].forEach(v => {
+      document.getElementById('rcal-view-' + v).classList.toggle('active', v === view);
+    });
+    // In month view, year selector is primary nav — hide month navigation label detail
+    rcalUpdatePeriodLabel();
+    rcalRenderGrid();
+  }
+
+  function rcalNavPrev() {
+    if (rcalView === 'month') { rcalYear--; }
+    else { rcalMonth--; if (rcalMonth < 1) { rcalMonth = 12; rcalYear--; } }
+    rcalLoad();
+  }
+
+  function rcalNavNext() {
+    if (rcalView === 'month') { rcalYear++; }
+    else { rcalMonth++; if (rcalMonth > 12) { rcalMonth = 1; rcalYear++; } }
+    rcalLoad();
+  }
+
+  function rcalChangeYear(y) {
+    rcalYear = parseInt(y);
+    rcalLoad();
+  }
+
+  function rcalUpdatePeriodLabel() {
+    const el = document.getElementById('rcal-period-label');
+    if (!el) return;
+    if (rcalView === 'month') {
+      el.textContent = String(rcalYear);
+    } else {
+      el.textContent = RCAL_MONTHS[rcalMonth-1] + ' ' + rcalYear;
+    }
+  }
+
   async function rcalInit() {
-    // Populate property selector once
     const sel = document.getElementById('rcal-property');
     if (!sel.options.length) {
       const { data } = await Properties.getByCompany(currentCompany.id);
@@ -1439,52 +1486,7 @@
         sel.appendChild(o);
       });
     }
-    await rcalLoad();
-  }
-
-  async function rcalLoad() {
-    const propertyId = document.getElementById('rcal-property').value;
-    if (!propertyId) return;
-    rcalPend = {};
-    document.getElementById('rcal-save-bar').style.display = 'none';
-
-    const from = rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-01';
-    const lastDay = new Date(rcalYear, rcalMonth, 0).getDate();
-    const to   = rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-' + String(lastDay).padStart(2,'0');
-
-    const [roomsRes, attrsRes, capRes, availRes] = await Promise.all([
-      Rooms.getByProperty(currentCompany.id, propertyId),
-      Rooms.getAttributeTypes(currentCompany.id),
-      sb.from('room_capacity_calendar').select('*')
-        .eq('company_id', currentCompany.id).eq('property_id', propertyId)
-        .gte('date', from).lte('date', to),
-      sb.from('availability_calendar').select('date,number_of_beds')
-        .eq('company_id', currentCompany.id).eq('property_id', propertyId)
-        .gte('date', from).lte('date', to)
-    ]);
-
-    rcalRooms = (roomsRes.data || []).filter(r => r.status === 'active');
-    rcalAttrs = (attrsRes.data || []).filter(a => a.status === 'active');
-
-    rcalCap = {};
-    (capRes.data || []).forEach(r => {
-      rcalCap[rcalKey(r.room_id, r.date)] = {
-        beds_available: r.beds_available, status: r.status, attributes: r.attributes || []
-      };
-    });
-
-    const availMax = {};
-    (availRes.data || []).forEach(r => { availMax[r.date] = r.number_of_beds; });
-
-    rcalRender(availMax, lastDay);
-  }
-
-  function rcalRender(availMax, totalDays) {
-    // Month label
-    document.getElementById('rcal-month-label').textContent =
-      RCAL_MONTHS[rcalMonth-1] + ' ' + rcalYear;
-
-    // Year selector
+    // Populate year selector
     const yrSel = document.getElementById('rcal-year');
     if (!yrSel.options.length) {
       const cy = new Date().getFullYear();
@@ -1495,28 +1497,143 @@
         yrSel.appendChild(o);
       }
     }
-    yrSel.value = rcalYear;
+    await rcalLoad();
+  }
 
-    const today = new Date().toISOString().slice(0,10);
-    const CW = 36; // cell width px
-    const RH = 44; // row height px
-    const NW = 150; // room name col width
+  async function rcalLoad() {
+    const propertyId = document.getElementById('rcal-property').value;
+    if (!propertyId) return;
+    rcalPend = {};
+    document.getElementById('rcal-save-bar').style.display = 'none';
 
-    // Build dates array
-    const dates = [];
-    for (let d = 1; d <= totalDays; d++) {
-      dates.push(rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0'));
+    // Always load full year for month view, else just the month
+    const fromDate = rcalView === 'month'
+      ? rcalYear + '-01-01'
+      : rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-01';
+    const toDate = rcalView === 'month'
+      ? rcalYear + '-12-31'
+      : rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-' + String(new Date(rcalYear, rcalMonth, 0).getDate()).padStart(2,'0');
+
+    const [roomsRes, attrsRes, capRes, availRes] = await Promise.all([
+      Rooms.getByProperty(currentCompany.id, propertyId),
+      Rooms.getAttributeTypes(currentCompany.id),
+      sb.from('room_capacity_calendar').select('*')
+        .eq('company_id', currentCompany.id).eq('property_id', propertyId)
+        .gte('date', fromDate).lte('date', toDate),
+      sb.from('availability_calendar').select('date,number_of_beds')
+        .eq('company_id', currentCompany.id).eq('property_id', propertyId)
+        .gte('date', fromDate).lte('date', toDate)
+    ]);
+
+    rcalRooms = (roomsRes.data || []).filter(function(r) { return r.status === 'active'; });
+    rcalAttrs = (attrsRes.data || []).filter(function(a) { return a.status === 'active'; });
+
+    rcalCap = {};
+    (capRes.data || []).forEach(function(r) {
+      rcalCap[rcalKey(r.room_id, r.date)] = {
+        beds_available: r.beds_available, status: r.status, attributes: r.attributes || []
+      };
+    });
+
+    rcalAvail = {};
+    (availRes.data || []).forEach(function(r) { rcalAvail[r.date] = r.number_of_beds; });
+
+    rcalUpdateYearSel();
+    rcalUpdatePeriodLabel();
+    rcalRenderGrid();
+  }
+
+  function rcalUpdateYearSel() {
+    const yrSel = document.getElementById('rcal-year');
+    if (yrSel) yrSel.value = rcalYear;
+  }
+
+  // ── Build column definitions based on view ────────────────────────
+  function rcalBuildCols() {
+    if (rcalView === 'day') {
+      const totalDays = new Date(rcalYear, rcalMonth, 0).getDate();
+      const cols = [];
+      for (let d = 1; d <= totalDays; d++) {
+        const date = rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+        const dow  = new Date(date).getDay();
+        cols.push({ label: String(d), sublabel: ['Su','Mo','Tu','We','Th','Fr','Sa'][dow],
+                    dates: [date], isWeekend: dow===0||dow===6 });
+      }
+      return cols;
     }
-
-    // Compute daily totals
-    const totals = {};
-    dates.forEach(date => {
-      let t = 0;
-      rcalRooms.forEach(r => {
-        const day = rcalGetDay(r.id, date);
-        if (day.status === 'open') t += (day.beds_available || 0);
+    if (rcalView === 'week') {
+      const totalDays = new Date(rcalYear, rcalMonth, 0).getDate();
+      const cols = [];
+      let weekDates = [];
+      let weekNum = 1;
+      for (let d = 1; d <= totalDays; d++) {
+        const date = rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+        const dow  = new Date(date).getDay(); // 0=Sun
+        weekDates.push(date);
+        // End week on Saturday (dow=6) or last day
+        if (dow === 6 || d === totalDays) {
+          const first = parseInt(weekDates[0].slice(8));
+          const last  = parseInt(weekDates[weekDates.length-1].slice(8));
+          cols.push({ label: 'W' + weekNum, sublabel: first + '-' + last,
+                      dates: weekDates.slice(), isWeekend: false });
+          weekDates = [];
+          weekNum++;
+        }
+      }
+      return cols;
+    }
+    if (rcalView === 'month') {
+      return RCAL_MONTHS_SHORT.map(function(name, mi) {
+        const m    = mi + 1;
+        const days = new Date(rcalYear, m, 0).getDate();
+        const dates = [];
+        for (let d = 1; d <= days; d++) {
+          dates.push(rcalYear + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0'));
+        }
+        return { label: name, sublabel: String(rcalYear), dates: dates, isWeekend: false };
       });
-      totals[date] = t;
+    }
+    return [];
+  }
+
+  // ── Consensus display for a set of days ───────────────────────────
+  function rcalConsensus(roomId, dates) {
+    if (!dates.length) return { display: '—', status: 'closed', beds: 0, attrs: [] };
+    const days = dates.map(function(d) { return rcalGetDay(roomId, d); });
+    const allClosed = days.every(function(d) { return d.status === 'closed'; });
+    if (allClosed) return { display: null, status: 'closed', beds: 0, attrs: [] };
+    const openDays  = days.filter(function(d) { return d.status === 'open'; });
+    const bedValues = openDays.map(function(d) { return d.beds_available || 0; });
+    const allSame   = bedValues.every(function(v) { return v === bedValues[0]; });
+    const beds      = allSame ? bedValues[0] : null; // null = mixed
+    return { display: allSame ? String(beds) : '~', status: 'open', beds: beds, attrs: [] };
+  }
+
+  // ── Render grid ───────────────────────────────────────────────────
+  function rcalRenderGrid() {
+    const cols  = rcalBuildCols();
+    const today = new Date().toISOString().slice(0,10);
+    const NW    = 150;
+    const CW    = rcalView === 'month' ? 42 : rcalView === 'week' ? 52 : 36;
+
+    // Compute daily totals per col
+    const colTotals = cols.map(function(col) {
+      let tot = 0;
+      rcalRooms.forEach(function(r) {
+        col.dates.forEach(function(date) {
+          const day = rcalGetDay(r.id, date);
+          if (day.status === 'open') tot += (day.beds_available || 0);
+        });
+      });
+      // For week/month: average per day to avoid inflated totals
+      return rcalView === 'day' ? tot : Math.round(tot / col.dates.length);
+    });
+
+    // Max per col from availability_calendar (avg for week/month)
+    const colMaxes = cols.map(function(col) {
+      const vals = col.dates.map(function(d) { return rcalAvail[d] || 0; }).filter(function(v) { return v > 0; });
+      if (!vals.length) return 0;
+      return rcalView === 'day' ? vals[0] : Math.round(vals.reduce(function(a,b){return a+b;},0)/vals.length);
     });
 
     let html = '<table style="border-collapse:collapse;font-size:0.75rem;width:100%">';
@@ -1524,62 +1641,53 @@
     // Header
     html += '<thead><tr>';
     html += '<th style="width:' + NW + 'px;min-width:' + NW + 'px;padding:5px 8px;' +
-            'background:var(--bg);border:1px solid var(--border);' +
+            'background:var(--bg);border:1px solid var(--border);text-align:left;' +
             'font-family:DM Mono,monospace;font-size:0.65rem;color:var(--text-muted);' +
-            'text-transform:uppercase;letter-spacing:0.06em;' +
-            'position:sticky;left:0;z-index:3;text-align:left">Room</th>';
+            'text-transform:uppercase;letter-spacing:0.06em;position:sticky;left:0;z-index:3">Room</th>';
 
-    dates.forEach(date => {
-      const d   = parseInt(date.slice(8));
-      const dow = new Date(date).getDay();
-      const isWE = dow === 0 || dow === 6;
-      const isTd = date === today;
-      const tot  = totals[date] || 0;
-      const max  = availMax[date] || 0;
-      const over = max > 0 && tot > max;
-      const bg   = over ? '#fff0f0' : isTd ? 'var(--brand-light)' : isWE ? '#f9fafb' : 'var(--bg)';
-      const col  = over ? 'var(--error)' : isTd ? 'var(--brand)' : 'var(--text-muted)';
-      html += '<th style="width:' + CW + 'px;min-width:' + CW + 'px;padding:3px 1px;' +
+    cols.forEach(function(col, ci) {
+      const isToday = col.dates.includes(today);
+      const over    = colMaxes[ci] > 0 && colTotals[ci] > colMaxes[ci];
+      const bg      = over ? '#fff0f0' : isToday ? 'var(--brand-light)' : col.isWeekend ? '#f9fafb' : 'var(--bg)';
+      const color   = over ? 'var(--error)' : isToday ? 'var(--brand)' : 'var(--text-muted)';
+      html += '<th style="width:' + CW + 'px;min-width:' + CW + 'px;padding:3px 2px;' +
               'text-align:center;background:' + bg + ';border:1px solid var(--border);' +
-              'color:' + col + ';font-weight:' + (isTd?700:500) + '">' +
-              d + '<br><span style="font-size:0.6rem;font-weight:400">' +
-              tot + '/' + (max||'?') + '</span></th>';
+              'color:' + color + ';font-size:0.7rem">' +
+              col.label + '<br><span style="font-size:0.6rem;font-weight:400;color:' + color + '">' +
+              colTotals[ci] + '/' + (colMaxes[ci]||'?') + '</span></th>';
     });
     html += '</tr></thead><tbody>';
 
     // Room rows
-    rcalRooms.forEach(room => {
+    rcalRooms.forEach(function(room) {
       html += '<tr>';
-      html += '<td data-rid="' + room.id + '" data-rname="' + room.room_name.replace(/"/g,"&quot;") + '" ' +
+      html += '<td data-rid="' + room.id + '" data-rname="' + room.room_name.replace(/"/g,'&quot;') + '" ' +
               'onclick="rcalOpenRowEl(this)" ' +
               'style="padding:4px 8px;background:var(--white);border:1px solid var(--border);' +
               'font-weight:500;cursor:pointer;position:sticky;left:0;z-index:1;' +
               'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:' + NW + 'px" ' +
               'title="Click to edit entire row">' + room.room_name + '</td>';
 
-      dates.forEach(date => {
-        const day  = rcalGetDay(room.id, date);
-        const isPend = !!rcalPend[rcalKey(room.id, date)];
-        const isClosed = day.status === 'closed';
-        const beds = day.beds_available || 0;
+      cols.forEach(function(col) {
+        const cons    = rcalConsensus(room.id, col.dates);
+        const isPend  = col.dates.some(function(d) { return !!rcalPend[rcalKey(room.id, d)]; });
+        const isClosed = cons.status === 'closed';
         let bg = 'var(--white)';
         if (isPend)   bg = '#fffbeb';
         if (isClosed) bg = '#fff5f5';
 
-        const attrDots = (day.attributes || []).slice(0,3).map(function() {
-          '<span style="display:inline-block;width:5px;height:5px;border-radius:50%;' +
-          'background:var(--brand);margin:0 1px;opacity:0.5"></span>'
-        }).join('');
-
-        html += '<td data-rid="' + room.id + '" data-date="' + date + '" onclick="rcalOpenCellEl(this)" ' +
-                'style="width:' + CW + 'px;min-width:' + CW + 'px;' +
-                'padding:3px 1px;text-align:center;background:' + bg + ';' +
-                'border:1px solid var(--border);cursor:pointer;vertical-align:middle" ' +
-                'title="' + date + ' — ' + (isClosed ? 'Closed' : beds + ' beds') + '">' +
+        const datesJson = JSON.stringify(col.dates);
+        html += '<td data-rid="' + room.id + '" data-dates="' + datesJson.replace(/"/g,'&quot;') + '" ' +
+                'data-rname="' + room.room_name.replace(/"/g,'&quot;') + '" ' +
+                'onclick="rcalOpenColEl(this)" ' +
+                'style="width:' + CW + 'px;min-width:' + CW + 'px;padding:3px 1px;' +
+                'text-align:center;background:' + bg + ';border:1px solid var(--border);' +
+                'cursor:pointer;vertical-align:middle">' +
                 (isClosed
                   ? '<span style="color:#fca5a5;font-size:0.7rem">&#10005;</span>'
-                  : '<span style="font-weight:500;color:var(--text)">' + (beds||'—') + '</span>') +
-                '<div style="line-height:1">' + attrDots + '</div>' +
+                  : '<span style="font-weight:' + (cons.display==='~'?'400':'500') + ';' +
+                    'color:' + (cons.display==='~'?'var(--text-muted)':'var(--text)') + '">' +
+                    cons.display + '</span>') +
                 '</td>';
       });
       html += '</tr>';
@@ -1587,47 +1695,61 @@
 
     // Totals row
     html += '<tr><td style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);' +
-            'font-weight:600;position:sticky;left:0;z-index:1;font-size:0.72rem;' +
-            'color:var(--text-muted)">TOTAL BEDS</td>';
-    dates.forEach(date => {
-      const tot  = totals[date] || 0;
-      const max  = availMax[date] || 0;
+            'font-weight:600;font-size:0.72rem;color:var(--text-muted);position:sticky;left:0;z-index:1">' +
+            (rcalView === 'day' ? 'TOTAL BEDS' : 'AVG BEDS') + '</td>';
+    cols.forEach(function(col, ci) {
+      const tot  = colTotals[ci];
+      const max  = colMaxes[ci];
       const over = max > 0 && tot > max;
       const eq   = max > 0 && tot === max;
       const bg   = over ? '#fff0f0' : eq ? '#f0fdf4' : 'var(--bg)';
-      const col  = over ? 'var(--error)' : eq ? 'var(--success)' : 'var(--text-muted)';
+      const col2 = over ? 'var(--error)' : eq ? 'var(--success)' : 'var(--text-muted)';
       html += '<td style="padding:3px 1px;text-align:center;background:' + bg + ';' +
-              'border:1px solid var(--border);font-weight:600;color:' + col + ';' +
-              'font-size:0.72rem">' + tot + '</td>';
+              'border:1px solid var(--border);font-weight:600;color:' + col2 + ';font-size:0.72rem">' +
+              tot + '</td>';
     });
     html += '</tr>';
 
     // Max row
     html += '<tr><td style="padding:3px 8px;background:var(--bg);border:1px solid var(--border);' +
-            'font-size:0.68rem;color:var(--text-muted);position:sticky;left:0;z-index:1">' +
-            'MAX (avail.cal)</td>';
-    dates.forEach(date => {
+            'font-size:0.68rem;color:var(--text-muted);position:sticky;left:0;z-index:1">MAX</td>';
+    cols.forEach(function(col, ci) {
       html += '<td style="padding:3px 1px;text-align:center;background:var(--bg);' +
               'border:1px solid var(--border);font-size:0.68rem;color:var(--text-muted)">' +
-              (availMax[date] || '?') + '</td>';
+              (colMaxes[ci]||'?') + '</td>';
     });
     html += '</tr></tbody></table>';
 
     document.getElementById('rcal-grid').innerHTML = html;
   }
 
-  function rcalChangeMonth(delta) {
-    rcalMonth += delta;
-    if (rcalMonth > 12) { rcalMonth = 1; rcalYear++; }
-    if (rcalMonth < 1)  { rcalMonth = 12; rcalYear--; }
-    rcalPend = {};
-    rcalLoad();
-  }
+  // ── Cell/column click handlers ────────────────────────────────────
+  function rcalOpenColEl(el) {
+    const roomId = el.dataset.rid;
+    const dates  = JSON.parse(el.dataset.dates.replace(/&quot;/g,'"'));
+    const name   = el.dataset.rname;
+    // Use first date for current values
+    const day    = rcalGetDay(roomId, dates[0]);
+    document.getElementById('rcal-cell-room-id').value = roomId;
+    // Store dates as JSON in a hidden field
+    document.getElementById('rcal-cell-date').value = JSON.stringify(dates);
+    document.getElementById('rcal-cell-title').textContent =
+      name + ' — ' + (dates.length === 1 ? dates[0] :
+        dates[0].slice(8) + '-' + dates[dates.length-1].slice(8) + ' ' + RCAL_MONTHS[rcalMonth-1]);
+    document.getElementById('rcal-cell-beds').value = day.beds_available || 0;
+    rcalSetStatus(day.status || 'open');
 
-  function rcalChangeYear(y) {
-    rcalYear = parseInt(y);
-    rcalPend = {};
-    rcalLoad();
+    const container = document.getElementById('rcal-cell-attrs');
+    container.innerHTML = rcalAttrs.map(function(a) {
+      return '<label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;' +
+             'background:var(--bg);padding:3px 8px;border-radius:var(--radius);border:1px solid var(--border)">' +
+             '<input type="checkbox" value="' + a.attribute_code + '" ' +
+             ((day.attributes||[]).includes(a.attribute_code) ? 'checked' : '') + '>' +
+             a.attribute_name + '</label>';
+    }).join('');
+
+    UI.hideAlert('rcal-cell-error');
+    UI.openModal('modal-rcal-cell');
   }
 
   function rcalSetStatus(s) {
@@ -1636,100 +1758,76 @@
     document.getElementById('rcal-beds-wrap').style.opacity = s === 'closed' ? '0.4' : '1';
   }
 
-  function rcalOpenCell(roomId, date, roomName) {
-    const day = rcalGetDay(roomId, date);
-    document.getElementById('rcal-cell-room-id').value = roomId;
-    document.getElementById('rcal-cell-date').value    = date;
-    document.getElementById('rcal-cell-title').textContent = roomName + ' — ' + date;
-    document.getElementById('rcal-cell-beds').value = day.beds_available || 0;
-    rcalSetStatus(day.status || 'open');
-
-    const container = document.getElementById('rcal-cell-attrs');
-    container.innerHTML = rcalAttrs.map(a =>
-      '<label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;' +
-      'background:var(--bg);padding:3px 8px;border-radius:var(--radius);border:1px solid var(--border)">' +
-      '<input type="checkbox" value="' + a.attribute_code + '" ' +
-      ((day.attributes||[]).includes(a.attribute_code) ? 'checked' : '') + '>' +
-      a.attribute_name + '</label>'
-    ).join('');
-
-    UI.hideAlert('rcal-cell-error');
-    UI.openModal('modal-rcal-cell');
-  }
-
-  document.getElementById('btn-rcal-cell-save').addEventListener('click', () => {
+  document.getElementById('btn-rcal-cell-save').addEventListener('click', function() {
     const roomId = document.getElementById('rcal-cell-room-id').value;
-    const date   = document.getElementById('rcal-cell-date').value;
+    const dates  = JSON.parse(document.getElementById('rcal-cell-date').value);
     const beds   = parseInt(document.getElementById('rcal-cell-beds').value) || 0;
     const status = document.getElementById('rcal-status-open').classList.contains('active') ? 'open' : 'closed';
-    const attrs  = [...document.querySelectorAll('#rcal-cell-attrs input:checked')].map(i => i.value);
-    rcalSetDay(roomId, date, { beds_available: beds, status, attributes: attrs });
+    const attrs  = Array.from(document.querySelectorAll('#rcal-cell-attrs input:checked')).map(function(i) { return i.value; });
+    dates.forEach(function(date) {
+      rcalSetDay(roomId, date, { beds_available: beds, status: status, attributes: attrs });
+    });
     UI.closeModal('modal-rcal-cell');
-    const lastDay = new Date(rcalYear, rcalMonth, 0).getDate();
-    const availMax = {};
-    rcalRender(availMax, lastDay);
-    rcalLoad();
+    rcalRenderGrid();
   });
 
   function rcalOpenRowEl(el) {
     rcalOpenRow(el.dataset.rid, el.dataset.rname);
   }
 
-  function rcalOpenCellEl(el) {
-    rcalOpenCell(el.dataset.rid, el.dataset.date,
-      el.closest('tr').querySelector('td:first-child').dataset.rname || '');
-  }
-
   function rcalOpenRow(roomId, roomName) {
     document.getElementById('rcal-row-room-id').value = roomId;
-    document.getElementById('rcal-row-title').textContent = 'Edit month — ' + roomName;
+    document.getElementById('rcal-row-title').textContent = 'Edit — ' + roomName;
     document.getElementById('rcal-row-status').value = '';
     document.getElementById('rcal-row-beds').value   = '';
-
     const container = document.getElementById('rcal-row-attrs');
-    container.innerHTML = rcalAttrs.map(a =>
-      '<label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;' +
-      'background:var(--bg);padding:3px 8px;border-radius:var(--radius);border:1px solid var(--border)">' +
-      '<input type="checkbox" value="' + a.attribute_code + '">' + a.attribute_name + '</label>'
-    ).join('');
-
+    container.innerHTML = rcalAttrs.map(function(a) {
+      return '<label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;' +
+             'background:var(--bg);padding:3px 8px;border-radius:var(--radius);border:1px solid var(--border)">' +
+             '<input type="checkbox" value="' + a.attribute_code + '">' + a.attribute_name + '</label>';
+    }).join('');
     UI.openModal('modal-rcal-row');
   }
 
-  document.getElementById('btn-rcal-row-save').addEventListener('click', () => {
+  document.getElementById('btn-rcal-row-save').addEventListener('click', function() {
     const roomId  = document.getElementById('rcal-row-room-id').value;
     const status  = document.getElementById('rcal-row-status').value || null;
     const bedsRaw = document.getElementById('rcal-row-beds').value;
     const beds    = bedsRaw !== '' ? parseInt(bedsRaw) : null;
-    const checked = [...document.querySelectorAll('#rcal-row-attrs input:checked')].map(i => i.value);
-    const totalDays = new Date(rcalYear, rcalMonth, 0).getDate();
-    for (let d = 1; d <= totalDays; d++) {
-      const date = rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0');
-      const upd  = {};
+    const checked = Array.from(document.querySelectorAll('#rcal-row-attrs input:checked')).map(function(i) { return i.value; });
+    // Apply to ALL dates currently loaded
+    const cols = rcalBuildCols();
+    const allDates = [];
+    cols.forEach(function(col) { col.dates.forEach(function(d) { allDates.push(d); }); });
+    // Deduplicate
+    const uniqueDates = allDates.filter(function(d, i) { return allDates.indexOf(d) === i; });
+    uniqueDates.forEach(function(date) {
+      const upd = {};
       if (status !== null) upd.status = status;
       if (beds   !== null) upd.beds_available = beds;
       if (checked.length > 0) upd.attributes = checked;
       rcalSetDay(roomId, date, upd);
-    }
+    });
     UI.closeModal('modal-rcal-row');
-    rcalLoad();
+    rcalRenderGrid();
   });
 
-  document.getElementById('btn-rcal-save').addEventListener('click', async () => {
+  document.getElementById('btn-rcal-save').addEventListener('click', async function() {
     const propertyId = document.getElementById('rcal-property').value;
     const btn = document.getElementById('btn-rcal-save');
     btn.disabled = true; btn.textContent = 'Saving...';
 
-    const rows = Object.entries(rcalPend).map(([k, fields]) => {
-      const [roomId, date] = k.split('__');
+    const rows = Object.entries(rcalPend).map(function(entry) {
+      const k = entry[0]; const fields = entry[1];
+      const parts = k.split('__');
       return Object.assign({ company_id: currentCompany.id, property_id: propertyId,
-        room_id: roomId, date }, fields, { updated_at: new Date().toISOString() });
+        room_id: parts[0], date: parts[1] }, fields, { updated_at: new Date().toISOString() });
     });
 
     const { error } = await sb.from('room_capacity_calendar')
       .upsert(rows, { onConflict: 'company_id,property_id,room_id,date' });
 
-    btn.disabled = false; btn.textContent = 'Guardar';
+    btn.disabled = false; btn.textContent = 'Save';
     if (error) { alert('Error: ' + error.message); return; }
     rcalPend = {};
     document.getElementById('rcal-save-bar').style.display = 'none';
