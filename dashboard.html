@@ -1674,19 +1674,6 @@
     rcalRenderGrid();
   }
 
-  function rcalRenderChips() {
-    const container = document.getElementById('rcal-room-chips');
-    if (!container) return;
-    const allActive = rcalRoomFilter.size === 0;
-    let html = '<button class="rcal-chip' + (allActive ? ' active' : '') +
-               '" onclick="rcalSelectAllRooms()">All</button>';
-    rcalRooms.forEach(function(r) {
-      const active = !allActive && rcalRoomFilter.has(r.id);
-      html += '<button class="rcal-chip' + (active ? ' active' : '') +
-              '" onclick="rcalToggleRoom('' + r.id + '')">' + r.room_name + '</button>';
-    });
-    container.innerHTML = html;
-  }
 
   // ── Build column definitions based on view ────────────────────────
   function rcalBuildCols() {
