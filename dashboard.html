@@ -1825,7 +1825,7 @@
     });
 
     const { error } = await sb.from('room_capacity_calendar')
-      .upsert(rows, { onConflict: 'company_id,property_id,room_id,date' });
+      .upsert(rows, { onConflict: 'company_id,property_uuid,room_id,date' });
 
     btn.disabled = false; btn.textContent = 'Save';
     if (error) { alert('Error: ' + error.message); return; }
