@@ -1700,6 +1700,9 @@
       };
     });
 
+    // Overlay any pending saves (not yet written to DB) so view switches don't lose edits
+    Object.keys(rcalSaveQueue).forEach(function(k) { rcalCap[k] = rcalSaveQueue[k]; });
+
     rcalAvail = {};
     (availRes.data || []).forEach(function(r) { rcalAvail[r.date] = r.number_of_beds; });
 
@@ -2178,26 +2181,30 @@
       committed = true;
       const val  = parseInt(input.value);
       const beds = isNaN(val) ? cur : Math.max(0, val);
+      const allKeys = [];
 
       // Apply to this cell
       dates.forEach(function(date) {
         rcalCapSet(roomId, date, { beds_available: beds, status: 'open' });
+        allKeys.push(rcalKey(roomId, date));
       });
-      rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }), true);
       rcalUpdateCellDisplay(el, roomId, dates, beds);
 
-      // Apply to all shift-selected cells
+      // Apply to all selected cells
       if (rcalSelected.size > 0) {
         rcalSelected.forEach(function(info) {
           info.dates.forEach(function(date) {
             rcalCapSet(info.roomId, date, { beds_available: beds, status: 'open' });
+            allKeys.push(rcalKey(info.roomId, date));
           });
-          rcalAutoSave(info.dates.map(function(d) { return rcalKey(info.roomId, d); }), true);
           rcalUpdateCellDisplay(info.el, info.roomId, info.dates, beds);
           info.el.style.outline = '';
         });
         rcalSelected.clear();
       }
+
+      // Single save call with ALL keys — prevents debounce from dropping earlier batches
+      rcalAutoSave(allKeys, true);
     }
 
     input.addEventListener('keydown', function(e) {
