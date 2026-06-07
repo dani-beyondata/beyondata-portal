@@ -1652,15 +1652,33 @@
       ? rcalYear + '-12-31'
       : rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-' + String(new Date(rcalYear, rcalMonth, 0).getDate()).padStart(2,'0');
 
+    // Paginated fetch for room_capacity_calendar (bypasses 1000-row server default)
+    async function fetchAllCapRows() {
+      const PAGE = 1000;
+      let allRows = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await sb.from('room_capacity_calendar')
+          .select('room_id,date,beds_available,status,attributes')
+          .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
+          .gte('date', fromDate).lte('date', toDate)
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        allRows = allRows.concat(data);
+        if (data.length < PAGE) break; // last page
+        from += PAGE;
+        if (from > 20000) break; // safety cap
+      }
+      return { data: allRows, error: null };
+    }
+
     const [roomsRes, attrsRes, capRes, availRes] = await Promise.all([
       Rooms.getByProperty(currentCompany.id, propertyId),
       Rooms.getAttributeTypes(currentCompany.id),
-      sb.from('room_capacity_calendar').select('*')
-        .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
-        .gte('date', fromDate).lte('date', toDate).limit(10000),
+      fetchAllCapRows(),
       sb.from('availability_calendar').select('date,number_of_beds')
         .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
-        .gte('date', fromDate).lte('date', toDate).limit(10000)
+        .gte('date', fromDate).lte('date', toDate).limit(1000)
     ]);
 
     // Discard stale results
