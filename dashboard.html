@@ -1907,31 +1907,39 @@
   // ── Cell/column click handlers ────────────────────────────────────
   function rcalOpenColEl(el) {
     const roomId = el.dataset.rid;
-    const dates  = JSON.parse(el.dataset.dates.replace(/&quot;/g,'"'));
+    const dates  = JSON.parse(el.dataset.dates.replace(/&quot;/g, '"'));
     const name   = el.dataset.rname;
-    // Use first date for current values
-    const day    = rcalGetDay(roomId, dates[0]);
+
+    // Direct toggle for status and only_female — no modal
+    if (rcalShowMode === 'status') {
+      rcalToggleStatus(roomId, dates);
+      return;
+    }
+    if (rcalShowMode === 'only_female') {
+      rcalToggleOnlyFemale(roomId, dates);
+      return;
+    }
+
+    // Beds mode — open modal
+    const day = rcalGetDay(roomId, dates[0]);
     document.getElementById('rcal-cell-room-id').value = roomId;
-    // Store dates as JSON in a hidden field
-    document.getElementById('rcal-cell-date').value = JSON.stringify(dates);
+    document.getElementById('rcal-cell-date').value    = JSON.stringify(dates);
     document.getElementById('rcal-cell-title').textContent =
       name + ' — ' + (dates.length === 1 ? dates[0] :
         dates[0].slice(8) + '-' + dates[dates.length-1].slice(8) + ' ' + RCAL_MONTHS[rcalMonth-1]);
     document.getElementById('rcal-cell-beds').value = day.beds_available || 0;
     rcalSetStatus(day.status || 'open');
 
-    // Build current attribute values map from new format [{code,value}]
     const currentAttrs = {};
     (day.attributes || []).forEach(function(a) {
       if (typeof a === 'object' && a.code) currentAttrs[a.code] = a.value;
-      else if (typeof a === 'string') currentAttrs[a] = true; // legacy
+      else if (typeof a === 'string') currentAttrs[a] = true;
     });
-
     const container = document.getElementById('rcal-cell-attrs');
     container.innerHTML = rcalAttrs.map(function(a) {
-      const type    = a.attribute_type || 'boolean';
-      const curVal  = currentAttrs[a.attribute_code];
-      const opts    = a.options || [];
+      const type   = a.attribute_type || 'boolean';
+      const curVal = currentAttrs[a.attribute_code];
+      const opts   = a.options || [];
       let input = '';
       if (type === 'boolean') {
         input = '<input type="checkbox" data-code="' + a.attribute_code + '" data-type="boolean" ' +
@@ -1944,9 +1952,9 @@
                   return '<option value="' + o + '"' + (curVal === o ? ' selected' : '') + '>' + o + '</option>';
                 }).join('') + '</select>';
       } else {
-        input = '<input type="text" data-code="' + a.attribute_code + '" data-type="text" ' +
-                'value="' + (curVal || '') + '" ' +
-                'style="font-size:0.8rem;padding:2px 6px;border:1px solid var(--border);border-radius:4px;width:120px">';
+        input = '<input type="text" data-code="' + a.attribute_code + '" data-type="text" value="' +
+                (curVal || '') + '" style="font-size:0.8rem;padding:2px 6px;border:1px solid var(--border);' +
+                'border-radius:4px;width:120px">';
       }
       return '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;' +
              'background:var(--bg);padding:4px 8px;border-radius:var(--radius);border:1px solid var(--border)">' +
@@ -1957,7 +1965,28 @@
     UI.openModal('modal-rcal-cell');
   }
 
-  function rcalSetStatus(s) {
+  // Toggle helpers
+  function rcalToggleStatus(roomId, dates) {
+    const current   = rcalGetDay(roomId, dates[0]).status;
+    const newStatus = current === 'open' ? 'closed' : 'open';
+    dates.forEach(function(date) { rcalSetDay(roomId, date, { status: newStatus }); });
+    rcalRenderGrid();
+  }
+
+  function rcalToggleOnlyFemale(roomId, dates) {
+    const day      = rcalGetDay(roomId, dates[0]);
+    const attrs    = (day.attributes || []).map(function(a) {
+      return typeof a === 'object' ? a : { code: a, value: true };
+    });
+    const existing = attrs.find(function(a) { return a.code === 'ONLY_FEMALE'; });
+    const newVal   = existing ? !existing.value : true;
+    const newAttrs = attrs.filter(function(a) { return a.code !== 'ONLY_FEMALE'; });
+    newAttrs.push({ code: 'ONLY_FEMALE', value: newVal });
+    dates.forEach(function(date) { rcalSetDay(roomId, date, { attributes: newAttrs }); });
+    rcalRenderGrid();
+  }
+
+    function rcalSetStatus(s) {
     document.getElementById('rcal-status-open').classList.toggle('active', s === 'open');
     document.getElementById('rcal-status-closed').classList.toggle('active', s === 'closed');
     document.getElementById('rcal-beds-wrap').style.opacity = s === 'closed' ? '0.4' : '1';
