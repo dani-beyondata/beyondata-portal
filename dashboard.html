@@ -1565,6 +1565,7 @@
   }
 
   function rcalSetView(view) {
+    console.log('[rcalSetView] called with:', view);
     rcalView = view;
     ['day','week','month'].forEach(function(v) {
       const btn = document.getElementById('rcal-view-' + v);
@@ -1573,9 +1574,9 @@
     const yrSel = document.getElementById('rcal-year');
     if (yrSel) yrSel.style.display = view === 'month' ? 'inline-block' : 'none';
     rcalUpdatePeriodLabel();
-    // Render immediately with current data so grid structure changes at once
+    const cols = rcalBuildCols();
+    console.log('[rcalSetView] cols built:', cols.length, 'first col:', cols[0]?.label);
     rcalRenderGrid();
-    // Then reload correct date range from DB in background
     rcalLoad();
   }
 
@@ -1797,6 +1798,7 @@
       return cols;
     }
     if (rcalView === 'month') {
+      console.log('[rcalBuildCols] building MONTH cols for year', rcalYear);
       return RCAL_MONTHS_SHORT.map(function(name, mi) {
         const m    = mi + 1;
         const days = new Date(rcalYear, m, 0).getDate();
@@ -1807,6 +1809,7 @@
         return { label: name, sublabel: String(rcalYear), dates: dates, isWeekend: false };
       });
     }
+    console.log('[rcalBuildCols] WARNING: no matching view, rcalView=', rcalView);
     return [];
   }
 
@@ -2266,8 +2269,13 @@
   });
 
   // Wire view toggle buttons
-  document.querySelectorAll('[data-view]').forEach(function(btn) {
-    btn.addEventListener('click', function() { rcalSetView(btn.dataset.view); });
+  const viewBtns = document.querySelectorAll('[data-view]');
+  console.log('[wire] found data-view buttons:', viewBtns.length);
+  viewBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      console.log('[btn click] data-view =', btn.dataset.view);
+      rcalSetView(btn.dataset.view);
+    });
   });
 
   // Wire show mode buttons
