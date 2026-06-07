@@ -1570,10 +1570,12 @@
       const btn = document.getElementById('rcal-view-' + v);
       if (btn) btn.classList.toggle('active', v === view);
     });
-    // Hide year selector for non-month views
     const yrSel = document.getElementById('rcal-year');
     if (yrSel) yrSel.style.display = view === 'month' ? 'inline-block' : 'none';
     rcalUpdatePeriodLabel();
+    // Render immediately with current data so grid structure changes at once
+    rcalRenderGrid();
+    // Then reload correct date range from DB in background
     rcalLoad();
   }
 
