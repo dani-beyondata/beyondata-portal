@@ -2136,62 +2136,63 @@
   }
 
   async function rcalSmartSave(propertyId, rows) {
-    // Group rows by their field signature (beds_available + status + attributes)
-    // so we can do one UPDATE per unique value set
-    const groups = new Map();
-    rows.forEach(function(r) {
-      const sig = JSON.stringify({
-        beds_available: r.fields.beds_available,
-        status:         r.fields.status,
-        attributes:     r.fields.attributes || []
-      });
-      if (!groups.has(sig)) groups.set(sig, { fields: r.fields, roomIds: new Set(), dates: [] });
-      const g = groups.get(sig);
-      g.roomIds.add(r.roomId);
-      g.dates.push(r.date);
-    });
-
     const now = new Date().toISOString();
 
-    for (const [, group] of groups) {
-      const roomIds  = Array.from(group.roomIds);
-      const dates    = group.dates.sort();
-      const minDate  = dates[0];
-      const maxDate  = dates[dates.length - 1];
+    // Group by (roomId + fields signature) → per-room date list
+    // This way we correctly detect contiguous ranges per room
+    const groups = new Map();
+    rows.forEach(function(r) {
+      const sig = r.roomId + '|' + JSON.stringify({
+        b: r.fields.beds_available,
+        s: r.fields.status,
+        a: r.fields.attributes || []
+      });
+      if (!groups.has(sig)) groups.set(sig, { roomId: r.roomId, fields: r.fields, dates: [] });
+      groups.get(sig).dates.push(r.date);
+    });
 
-      // Check if dates form a contiguous range for ALL rooms in this group
-      // If yes: one UPDATE with gte/lte range (fastest)
-      // If no: fall back to upsert chunks
-      const isContiguous = rcalIsContiguousRange(roomIds, dates, group.roomIds);
+    // Further merge: rooms sharing the same fields + same date range → one IN() UPDATE
+    const mergedGroups = new Map();
+    for (const [, g] of groups) {
+      const sortedDates = g.dates.sort();
+      const minDate = sortedDates[0];
+      const maxDate = sortedDates[sortedDates.length - 1];
+      const contiguous = rcalDatesContiguous(sortedDates);
+      const mergeKey = JSON.stringify({ b: g.fields.beds_available, s: g.fields.status,
+        a: g.fields.attributes || [], min: minDate, max: maxDate, cont: contiguous });
+      if (!mergedGroups.has(mergeKey)) {
+        mergedGroups.set(mergeKey, { fields: g.fields, roomIds: [], minDate, maxDate, contiguous, rows: [] });
+      }
+      const mg = mergedGroups.get(mergeKey);
+      mg.roomIds.push(g.roomId);
+      g.dates.forEach(function(d) { mg.rows.push({ roomId: g.roomId, date: d }); });
+    }
 
-      if (isContiguous) {
-        // Single range UPDATE — 1 request regardless of row count
+    for (const [, mg] of mergedGroups) {
+      if (mg.contiguous) {
+        // One UPDATE per group of rooms with same date range — fewest requests
         const { error } = await sb.from('room_capacity_calendar')
-          .update({
-            beds_available: group.fields.beds_available,
-            status:         group.fields.status,
-            attributes:     group.fields.attributes || [],
-            updated_at:     now
-          })
+          .update({ beds_available: mg.fields.beds_available, status: mg.fields.status,
+                    attributes: mg.fields.attributes || [], updated_at: now })
           .eq('company_id', currentCompany.id)
           .eq('property_uuid', propertyId)
-          .in('room_id', roomIds)
-          .gte('date', minDate)
-          .lte('date', maxDate);
+          .in('room_id', mg.roomIds)
+          .gte('date', mg.minDate)
+          .lte('date', mg.maxDate);
         if (error) return error;
       } else {
-        // Scattered selection — upsert in chunks of 500
-        const upsertRows = rows
-          .filter(function(r) { return group.roomIds.has(r.roomId); })
+        // Scattered: deduplicate rows then upsert in chunks
+        const seen = new Set();
+        const upsertRows = mg.rows
+          .filter(function(r) {
+            const k = r.roomId + '|' + r.date;
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+          })
           .map(function(r) {
-            return Object.assign({
-              company_id:    currentCompany.id,
-              property_uuid: propertyId,
-              property_id:   propertyId,
-              room_id:       r.roomId,
-              date:          r.date,
-              updated_at:    now
-            }, group.fields);
+            return Object.assign({ company_id: currentCompany.id, property_uuid: propertyId,
+              property_id: propertyId, room_id: r.roomId, date: r.date, updated_at: now }, mg.fields);
           });
         for (let i = 0; i < upsertRows.length; i += 500) {
           const { error } = await sb.from('room_capacity_calendar')
@@ -2200,17 +2201,15 @@
         }
       }
     }
-    return null; // success
+    return null;
   }
 
-  function rcalIsContiguousRange(roomIds, sortedDates, roomIdSet) {
-    if (sortedDates.length === 0) return false;
-    // All dates must form an unbroken sequence
-    for (let i = 1; i < sortedDates.length; i++) {
-      const prev = new Date(sortedDates[i-1]);
-      const curr = new Date(sortedDates[i]);
-      const diff = (curr - prev) / 86400000;
-      if (diff > 1) return false; // gap in dates
+  function rcalDatesContiguous(sorted) {
+    if (!sorted.length) return false;
+    const uniq = sorted.filter(function(d, i) { return sorted.indexOf(d) === i; });
+    for (let i = 1; i < uniq.length; i++) {
+      const diff = (new Date(uniq[i]) - new Date(uniq[i-1])) / 86400000;
+      if (diff > 1) return false;
     }
     return true;
   }
@@ -2258,21 +2257,27 @@
       committed = true;
       const val  = parseInt(input.value);
       const beds = isNaN(val) ? cur : Math.max(0, val);
-      const allKeys = [];
+      // Collect all (roomId, dates) pairs — deduplicated
+      const allPairs = new Map(); // key -> {roomId, date}
 
-      // Apply to this cell
+      function addPair(rId, date) {
+        const k = rcalKey(rId, date);
+        if (!allPairs.has(k)) allPairs.set(k, { roomId: rId, date: date });
+      }
+
+      // This cell
       dates.forEach(function(date) {
         rcalCapSet(roomId, date, { beds_available: beds, status: 'open' });
-        allKeys.push(rcalKey(roomId, date));
+        addPair(roomId, date);
       });
       rcalUpdateCellDisplay(el, roomId, dates, beds);
 
-      // Apply to all selected cells
+      // All selected cells
       if (rcalSelected.size > 0) {
         rcalSelected.forEach(function(info) {
           info.dates.forEach(function(date) {
             rcalCapSet(info.roomId, date, { beds_available: beds, status: 'open' });
-            allKeys.push(rcalKey(info.roomId, date));
+            addPair(info.roomId, date);
           });
           rcalUpdateCellDisplay(info.el, info.roomId, info.dates, beds);
           info.el.style.outline = '';
@@ -2280,8 +2285,7 @@
         rcalSelected.clear();
       }
 
-      // Single save call with ALL keys — prevents debounce from dropping earlier batches
-      rcalAutoSave(allKeys, true);
+      rcalAutoSave(Array.from(allPairs.keys()), true);
     }
 
     input.addEventListener('keydown', function(e) {
