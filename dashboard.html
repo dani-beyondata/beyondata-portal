@@ -1525,6 +1525,7 @@
   let rcalAvail       = {}; // date -> max beds
   let rcalRoomFilter  = new Set(); // empty = show all
   let rcalShowMode    = 'status'; // 'status' | 'beds' | 'only_female'
+  let rcalLoadGen     = 0; // generation counter — cancels stale async loads
 
   const RCAL_MONTHS = ['January','February','March','April','May','June',
     'July','August','September','October','November','December'];
@@ -1612,10 +1613,13 @@
   async function rcalLoad() {
     const propertyId = document.getElementById('rcal-property').value;
     if (!propertyId) return;
+
+    // Generation counter — if another load starts before this one finishes, discard this result
+    const myGen = ++rcalLoadGen;
+
     rcalPend = {};
     document.getElementById('rcal-save-bar').style.display = 'none';
 
-    // Always load full year for month view, else just the month
     const fromDate = rcalView === 'month'
       ? rcalYear + '-01-01'
       : rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-01';
@@ -1634,6 +1638,9 @@
         .gte('date', fromDate).lte('date', toDate)
     ]);
 
+    // Discard stale results
+    if (myGen !== rcalLoadGen) return;
+
     rcalRooms = (roomsRes.data || []).filter(function(r) { return r.status === 'active'; });
     rcalAttrs = (attrsRes.data || []).filter(function(a) { return a.status === 'active'; });
 
@@ -1650,7 +1657,6 @@
     rcalUpdateYearSel();
     rcalUpdatePeriodLabel();
     rcalRenderChips();
-    console.log('[rcal] Loaded', Object.keys(rcalCap).length, 'cap rows, view:', rcalView);
     rcalRenderGrid();
   }
 
@@ -1768,8 +1774,17 @@
       const beds      = allSame ? bedValues[0] : null;
       return { display: allSame ? String(beds) : '~', status: 'open', beds: beds, attrs: [] };
     }
-    // Mixed — some open, some closed
-    return { display: openDays.length + '/' + days.length, status: 'partial', beds: null, attrs: [] };
+    // Mixed — show open/total where total = only days with actual data in DB
+    const daysWithData = days.filter(function(d) {
+      // A day counts only if it has an explicit DB row (beds_available > 0 or status was explicitly set)
+      const k = rcalKey(roomId, dates[days.indexOf(d)]);
+      return !!rcalCap[k];
+    });
+    const openWithData = daysWithData.filter(function(d) { return d.status === 'open'; });
+    const label = daysWithData.length === 0
+      ? '0'
+      : openWithData.length + '/' + daysWithData.length;
+    return { display: label, status: 'partial', beds: null, attrs: [] };
   }
 
   // ── Render grid ───────────────────────────────────────────────────
