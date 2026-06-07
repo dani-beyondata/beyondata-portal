@@ -1651,6 +1651,7 @@
     rcalUpdateYearSel();
     rcalUpdatePeriodLabel();
     rcalRenderChips();
+    console.log('[rcal] Loaded', Object.keys(rcalCap).length, 'cap rows, view:', rcalView);
     rcalRenderGrid();
   }
 
@@ -1753,16 +1754,23 @@
   }
 
   // ── Consensus display for a set of days ───────────────────────────
+  // Returns status: 'closed' | 'open' | 'partial' (mixed)
   function rcalConsensus(roomId, dates) {
     if (!dates.length) return { display: '—', status: 'closed', beds: 0, attrs: [] };
-    const days = dates.map(function(d) { return rcalGetDay(roomId, d); });
-    const allClosed = days.every(function(d) { return d.status === 'closed'; });
-    if (allClosed) return { display: null, status: 'closed', beds: 0, attrs: [] };
+    const days      = dates.map(function(d) { return rcalGetDay(roomId, d); });
     const openDays  = days.filter(function(d) { return d.status === 'open'; });
-    const bedValues = openDays.map(function(d) { return d.beds_available || 0; });
-    const allSame   = bedValues.every(function(v) { return v === bedValues[0]; });
-    const beds      = allSame ? bedValues[0] : null; // null = mixed
-    return { display: allSame ? String(beds) : '~', status: 'open', beds: beds, attrs: [] };
+    const closedDays = days.filter(function(d) { return d.status === 'closed'; });
+
+    if (openDays.length === 0)  return { display: null,  status: 'closed',  beds: 0, attrs: [] };
+    if (closedDays.length === 0) {
+      // All open — check beds consistency
+      const bedValues = openDays.map(function(d) { return d.beds_available || 0; });
+      const allSame   = bedValues.every(function(v) { return v === bedValues[0]; });
+      const beds      = allSame ? bedValues[0] : null;
+      return { display: allSame ? String(beds) : '~', status: 'open', beds: beds, attrs: [] };
+    }
+    // Mixed — some open, some closed
+    return { display: openDays.length + '/' + days.length, status: 'partial', beds: null, attrs: [] };
   }
 
   // ── Render grid ───────────────────────────────────────────────────
@@ -1837,11 +1845,16 @@
         let content = '';
         let border  = '1px solid var(--border)';
 
+        const isPartial = cons.status === 'partial';
         if (isClosed) {
-          bg = '#e5e7eb'; // grey for closed — all modes
+          bg = '#e5e7eb'; // grey — all closed
           content = '';
+        } else if (isPartial && rcalShowMode === 'status') {
+          bg = 'repeating-linear-gradient(45deg,#dcfce7,#dcfce7 4px,#e5e7eb 4px,#e5e7eb 8px)';
+          border = '1px solid #d1d5db';
+          content = '<span style="font-size:0.65rem;color:#6b7280;font-weight:500">' + cons.display + '</span>';
         } else if (rcalShowMode === 'status') {
-          bg = '#dcfce7'; // soft green — open
+          bg = '#dcfce7'; // soft green — all open
           border = '1px solid #86efac';
           content = '';
         } else if (rcalShowMode === 'beds') {
@@ -1854,14 +1867,27 @@
           content = '<span style="font-weight:500;font-size:0.78rem;color:' + textColor + '">' +
                     (cons.display === '~' ? '~' : beds) + '</span>';
         } else if (rcalShowMode === 'only_female') {
-          // Check ONLY_FEMALE attribute in consensus
-          const dayVal = rcalGetDay(room.id, col.dates[0]);
-          const attrs  = dayVal.attributes || [];
-          const attr   = attrs.find(function(a) { return (typeof a === 'object' ? a.code : a) === 'ONLY_FEMALE'; });
-          const val    = attr ? (typeof attr === 'object' ? attr.value : true) : false;
-          bg      = val ? '#dcfce7' : '#fee2e2';
-          border  = val ? '1px solid #86efac' : '1px solid #fca5a5';
-          content = '';
+          if (isClosed) {
+            bg = '#e5e7eb';
+            content = '';
+          } else {
+            // Check ONLY_FEMALE across all dates in col — show partial if mixed
+            const femaleCount = col.dates.filter(function(dt) {
+              const dayVal = rcalGetDay(room.id, dt);
+              const attrs  = dayVal.attributes || [];
+              const attr   = attrs.find(function(a) { return (typeof a === 'object' ? a.code : a) === 'ONLY_FEMALE'; });
+              return attr ? (typeof attr === 'object' ? attr.value : true) : false;
+            }).length;
+            if (femaleCount === col.dates.length) {
+              bg = '#dcfce7'; border = '1px solid #86efac'; content = ''; // all female
+            } else if (femaleCount === 0) {
+              bg = '#fee2e2'; border = '1px solid #fca5a5'; content = ''; // none female
+            } else {
+              bg = 'repeating-linear-gradient(45deg,#dcfce7,#dcfce7 4px,#fee2e2 4px,#fee2e2 8px)';
+              border = '1px solid #d1d5db';
+              content = '<span style="font-size:0.65rem;color:#6b7280">' + femaleCount + '/' + col.dates.length + '</span>';
+            }
+          }
         }
 
         if (isPend && rcalShowMode === 'beds') { bg = '#fffbeb'; border = '1px solid #fde68a'; }
