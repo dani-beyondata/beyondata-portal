@@ -1664,10 +1664,17 @@
     ]);
 
     // Discard stale results
-    if (myGen !== rcalLoadGen) return;
+    if (myGen !== rcalLoadGen) {
+      console.log('[rcalLoad] DISCARDED gen', myGen, 'current', rcalLoadGen);
+      return;
+    }
 
     // Hide loading overlay
     if (loadingEl) loadingEl.style.display = 'none';
+
+    console.log('[rcalLoad] APPLYING gen', myGen, 'view:', rcalView, 'from:', fromDate, 'to:', toDate,
+      'cap rows:', (capRes.data||[]).length, 'avail rows:', (availRes.data||[]).length,
+      'cap error:', capRes.error?.message || 'none');
 
     rcalRooms = (roomsRes.data || []).filter(function(r) { return r.status === 'active'; });
     rcalAttrs = (attrsRes.data || []).filter(function(a) { return a.status === 'active'; });
