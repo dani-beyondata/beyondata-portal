@@ -1553,9 +1553,8 @@
     ['day','week','month'].forEach(v => {
       document.getElementById('rcal-view-' + v).classList.toggle('active', v === view);
     });
-    // In month view, year selector is primary nav — hide month navigation label detail
     rcalUpdatePeriodLabel();
-    rcalRenderGrid();
+    rcalLoad(); // reload data — month view needs full year, day/week need just the month
   }
 
   function rcalNavPrev() {
