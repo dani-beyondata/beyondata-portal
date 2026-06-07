@@ -1536,6 +1536,8 @@
   let rcalRoomFilter  = new Set(); // empty = show all
   let rcalShowMode    = 'status'; // 'status' | 'beds' | 'only_female'
   let rcalLoadGen     = 0; // generation counter — cancels stale async loads
+  let rcalSelected    = new Set(); // selected cell keys for bulk beds edit
+  let rcalLastClicked = null; // last clicked cell key (for shift-range select)
 
   const RCAL_MONTHS = ['January','February','March','April','May','June',
     'July','August','September','October','November','December'];
@@ -1984,10 +1986,13 @@
         const datesJson = JSON.stringify(col.dates);
         html += '<td data-rid="' + room.id + '" data-dates="' + datesJson.replace(/"/g,'&quot;') + '" ' +
                 'data-rname="' + room.room_name.replace(/"/g,'&quot;') + '" ' +
-                'onclick="rcalOpenColEl(this)" ' +
+                'data-sel-key="' + rcalKey(room.id, col.dates[0]) + '" ' +
+                'data-maxbeds="' + (room.beds_per_room || 2) + '" ' +
+                'onclick="rcalOpenColEl(this,event)" ' +
                 'style="width:' + CW + 'px;min-width:' + CW + 'px;padding:3px 1px;' +
                 'text-align:center;background:' + bg + ';border:' + border + ';' +
-                'cursor:pointer;vertical-align:middle;transition:background 0.15s">' +
+                'cursor:' + (rcalShowMode === 'beds' ? 'cell' : 'pointer') + ';' +
+                'vertical-align:middle;transition:background 0.15s">' +
                 content +
                 '</td>';
       });
@@ -2025,64 +2030,22 @@
   }
 
   // ── Cell/column click handlers ────────────────────────────────────
-  function rcalOpenColEl(el) {
-    const roomId = el.dataset.rid;
-    const dates  = JSON.parse(el.dataset.dates.replace(/&quot;/g, '"'));
-    const name   = el.dataset.rname;
+  function rcalOpenColEl(el, evt) {
+    const roomId  = el.dataset.rid;
+    const dates   = JSON.parse(el.dataset.dates.replace(/&quot;/g, '"'));
+    const name    = el.dataset.rname;
+    const isShift = evt && evt.shiftKey;
 
-    // Direct toggle for status and only_female — no modal
     if (rcalShowMode === 'status') {
-      rcalToggleStatus(roomId, dates);
+      if (!isShift) rcalToggleStatus(roomId, dates);
       return;
     }
     if (rcalShowMode === 'only_female') {
-      rcalToggleOnlyFemale(roomId, dates);
+      if (!isShift) rcalToggleOnlyFemale(roomId, dates);
       return;
     }
-
-    // Beds mode — open modal
-    const day = rcalGetDay(roomId, dates[0]);
-    document.getElementById('rcal-cell-room-id').value = roomId;
-    document.getElementById('rcal-cell-date').value    = JSON.stringify(dates);
-    document.getElementById('rcal-cell-title').textContent =
-      name + ' — ' + (dates.length === 1 ? dates[0] :
-        dates[0].slice(8) + '-' + dates[dates.length-1].slice(8) + ' ' + RCAL_MONTHS[rcalMonth-1]);
-    document.getElementById('rcal-cell-beds').value = day.beds_available || 0;
-    rcalSetStatus(day.status || 'open');
-
-    const currentAttrs = {};
-    (day.attributes || []).forEach(function(a) {
-      if (typeof a === 'object' && a.code) currentAttrs[a.code] = a.value;
-      else if (typeof a === 'string') currentAttrs[a] = true;
-    });
-    const container = document.getElementById('rcal-cell-attrs');
-    container.innerHTML = rcalAttrs.map(function(a) {
-      const type   = a.attribute_type || 'boolean';
-      const curVal = currentAttrs[a.attribute_code];
-      const opts   = a.options || [];
-      let input = '';
-      if (type === 'boolean') {
-        input = '<input type="checkbox" data-code="' + a.attribute_code + '" data-type="boolean" ' +
-                (curVal ? 'checked' : '') + '>';
-      } else if (type === 'select') {
-        input = '<select data-code="' + a.attribute_code + '" data-type="select" ' +
-                'style="font-size:0.8rem;padding:2px 4px;border:1px solid var(--border);border-radius:4px">' +
-                '<option value="">— none —</option>' +
-                opts.map(function(o) {
-                  return '<option value="' + o + '"' + (curVal === o ? ' selected' : '') + '>' + o + '</option>';
-                }).join('') + '</select>';
-      } else {
-        input = '<input type="text" data-code="' + a.attribute_code + '" data-type="text" value="' +
-                (curVal || '') + '" style="font-size:0.8rem;padding:2px 6px;border:1px solid var(--border);' +
-                'border-radius:4px;width:120px">';
-      }
-      return '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;' +
-             'background:var(--bg);padding:4px 8px;border-radius:var(--radius);border:1px solid var(--border)">' +
-             input + a.attribute_name + '</label>';
-    }).join('');
-
-    UI.hideAlert('rcal-cell-error');
-    UI.openModal('modal-rcal-cell');
+    // Beds mode — inline edit with optional shift-select
+    rcalInlineEdit(el, roomId, dates, isShift);
   }
 
   // ── Auto-save helper ─────────────────────────────────────────────
@@ -2135,6 +2098,113 @@
         }
       }
     }, 300);
+  }
+
+  // ── Inline beds editing ───────────────────────────────────────────
+
+  function rcalInlineEdit(el, roomId, dates, isShift) {
+    const cellKey = rcalKey(roomId, dates[0]);
+
+    // Shift+click — toggle selection
+    if (isShift) {
+      if (rcalSelected.has(cellKey)) {
+        rcalSelected.delete(cellKey);
+      } else {
+        rcalSelected.add(cellKey);
+      }
+      // Highlight selected cells
+      document.querySelectorAll('td[data-sel-key]').forEach(function(td) {
+        td.style.outline = rcalSelected.has(td.dataset.selKey)
+          ? '2px solid var(--brand)' : '';
+      });
+      return;
+    }
+
+    // Regular click — if cells are selected, apply value to all selected
+    if (rcalSelected.size > 0) {
+      rcalCommitSelectedBeds(el, roomId, dates);
+      return;
+    }
+
+    // Single cell inline edit
+    const day  = rcalGetDay(roomId, dates[0]);
+    const cur  = day.beds_available || 0;
+    const maxB = parseInt(el.dataset.maxbeds || 999);
+
+    // Replace cell content with input
+    el.innerHTML = '';
+    el.style.padding = '0';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min  = '0';
+    input.max  = '999';
+    input.value = cur;
+    input.style.cssText = 'width:100%;height:100%;min-height:32px;padding:2px 4px;' +
+      'border:2px solid var(--brand);border-radius:0;background:#fff;' +
+      'font-size:0.8rem;font-weight:600;text-align:center;outline:none;box-sizing:border-box;';
+    el.appendChild(input);
+    input.focus();
+    input.select();
+
+    function commit() {
+      const val = parseInt(input.value);
+      const beds = isNaN(val) ? cur : Math.max(0, val);
+      dates.forEach(function(date) {
+        rcalCapSet(roomId, date, { beds_available: beds, status: 'open' });
+      });
+      rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }), true);
+      // Update cell display without full re-render
+      rcalUpdateCellDisplay(el, roomId, dates, beds);
+    }
+
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { commit(); el.blur(); }
+      if (e.key === 'Escape') {
+        rcalUpdateCellDisplay(el, roomId, dates, cur); // restore
+      }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        commit();
+        // Move to next sibling td
+        const next = e.shiftKey ? el.previousElementSibling : el.nextElementSibling;
+        if (next && next.dataset.rid) next.click();
+      }
+    });
+    input.addEventListener('blur', commit);
+  }
+
+  function rcalUpdateCellDisplay(el, roomId, dates, beds) {
+    el.style.padding = '3px 1px';
+    const maxBeds = parseInt(el.dataset.maxbeds || 1);
+    const ratio   = maxBeds > 0 ? Math.min(beds / maxBeds, 1) : 0;
+    const opacity = 0.08 + ratio * 0.72;
+    const bg      = 'rgba(61,101,168,' + opacity.toFixed(2) + ')';
+    const color   = ratio > 0.5 ? '#fff' : 'var(--text)';
+    el.style.background = bg;
+    el.innerHTML = '<span style="font-weight:500;font-size:0.78rem;color:' + color + '">' + beds + '</span>';
+  }
+
+  function rcalCommitSelectedBeds(el, roomId, dates) {
+    // Ask for value via a small popover near the cell
+    const day = rcalGetDay(roomId, dates[0]);
+    const val = prompt('Set beds for ' + rcalSelected.size + ' selected cells:', day.beds_available || 0);
+    if (val === null) return;
+    const beds = Math.max(0, parseInt(val) || 0);
+
+    // Apply to all selected cells
+    document.querySelectorAll('td[data-sel-key]').forEach(function(td) {
+      if (!rcalSelected.has(td.dataset.selKey)) return;
+      const parts = td.dataset.selKey.split('__');
+      const rId   = parts[0];
+      const datesStr = td.dataset.dates ? JSON.parse(td.dataset.dates.replace(/&quot;/g, '"')) : [parts[1]];
+      datesStr.forEach(function(date) {
+        rcalCapSet(rId, date, { beds_available: beds, status: 'open' });
+      });
+      rcalAutoSave(datesStr.map(function(d) { return rcalKey(rId, d); }), true);
+      rcalUpdateCellDisplay(td, rId, datesStr, beds);
+      td.style.outline = '';
+    });
+    rcalSelected.clear();
   }
 
   // Toggle helpers — write directly to rcalCap (no pending state, no yellow)
