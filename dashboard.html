@@ -1822,12 +1822,14 @@
     // Room rows
     visibleRooms.forEach(function(room) {
       html += '<tr>';
+      const rowClickable = rcalShowMode === 'beds';
       html += '<td data-rid="' + room.id + '" data-rname="' + room.room_name.replace(/"/g,'&quot;') + '" ' +
-              'onclick="rcalOpenRowEl(this)" ' +
+              (rowClickable ? 'onclick="rcalOpenRowEl(this)" ' : '') +
               'style="padding:4px 8px;background:var(--white);border:1px solid var(--border);' +
-              'font-weight:500;cursor:pointer;position:sticky;left:0;z-index:1;' +
+              'font-weight:500;' + (rowClickable ? 'cursor:pointer;' : '') +
+              'position:sticky;left:0;z-index:1;' +
               'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:' + NW + 'px" ' +
-              'title="Click to edit entire row">' + room.room_name + '</td>';
+              (rowClickable ? 'title="Click to edit entire row"' : '') + '>' + room.room_name + '</td>';
 
       cols.forEach(function(col) {
         const cons    = rcalConsensus(room.id, col.dates);
@@ -1866,7 +1868,7 @@
           content = '';
         }
 
-        if (isPend) { bg = '#fffbeb'; border = '1px solid #fde68a'; }
+        if (isPend && rcalShowMode === 'beds') { bg = '#fffbeb'; border = '1px solid #fde68a'; }
 
         const datesJson = JSON.stringify(col.dates);
         html += '<td data-rid="' + room.id + '" data-dates="' + datesJson.replace(/"/g,'&quot;') + '" ' +
