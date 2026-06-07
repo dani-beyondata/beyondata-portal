@@ -78,7 +78,7 @@ const Rooms = (() => {
 
   async function upsertCapacityMany(rows) {
     const { data, error } = await sb.from('room_capacity_calendar')
-      .upsert(rows, { onConflict: 'company_id,property_id,room_id,date' });
+      .upsert(rows, { onConflict: 'company_id,property_uuid,room_id,date' });
     return { data, error };
   }
 
