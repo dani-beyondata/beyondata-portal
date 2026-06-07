@@ -1537,7 +1537,8 @@
   let rcalShowMode    = 'status'; // 'status' | 'beds' | 'only_female'
   let rcalLoadGen     = 0; // generation counter — cancels stale async loads
   let rcalSelected    = new Map(); // selected cells for bulk beds edit: key -> {el,roomId,dates}
-  let rcalLastClicked = null; // last clicked cell key (for shift-range select)
+  let rcalDragging    = false;    // true while mouse is held down for drag-select
+  let rcalDragMoved   = false;    // true if drag moved across cells (suppress click inline-edit)
 
   const RCAL_MONTHS = ['January','February','March','April','May','June',
     'July','August','September','October','November','December'];
@@ -1705,10 +1706,10 @@
     rcalUpdateYearSel();
     rcalUpdatePeriodLabel();
     rcalRenderChips();
-    // Show/hide year selector based on view
     const yrSelEl = document.getElementById('rcal-year');
     if (yrSelEl) yrSelEl.style.display = rcalView === 'month' ? 'inline-block' : 'none';
     rcalRenderGrid();
+    rcalWireDragEvents();
   }
 
   function rcalUpdateYearSel() {
@@ -2031,21 +2032,49 @@
 
   // ── Cell/column click handlers ────────────────────────────────────
   function rcalOpenColEl(el, evt) {
-    const roomId  = el.dataset.rid;
-    const dates   = JSON.parse(el.dataset.dates.replace(/&quot;/g, '"'));
-    const name    = el.dataset.rname;
-    const isShift = evt && evt.shiftKey;
+    const roomId = el.dataset.rid;
+    const dates  = JSON.parse(el.dataset.dates.replace(/&quot;/g, '"'));
+    const isCtrl = evt && (evt.ctrlKey || evt.metaKey);
 
     if (rcalShowMode === 'status') {
-      if (!isShift) rcalToggleStatus(roomId, dates);
+      rcalToggleStatus(roomId, dates);
       return;
     }
     if (rcalShowMode === 'only_female') {
-      if (!isShift) rcalToggleOnlyFemale(roomId, dates);
+      rcalToggleOnlyFemale(roomId, dates);
       return;
     }
-    // Beds mode — inline edit with optional shift-select
-    rcalInlineEdit(el, roomId, dates, isShift);
+
+    // Beds mode
+    // If drag just finished over multiple cells, suppress inline edit — keep selection
+    if (rcalDragMoved) {
+      rcalDragMoved = false;
+      return;
+    }
+
+    // Ctrl+click: toggle this cell in selection without clearing others
+    if (isCtrl) {
+      const cellKey = rcalKey(roomId, dates[0]);
+      if (rcalSelected.has(cellKey)) {
+        rcalSelected.delete(cellKey);
+        el.style.outline = '';
+        const day = rcalGetDay(roomId, dates[0]);
+        rcalUpdateCellDisplay(el, roomId, dates, day.beds_available || 0);
+      } else {
+        rcalSelected.set(cellKey, { el: el, roomId: roomId, dates: dates });
+        el.style.outline = '2px solid var(--brand)';
+        el.style.background = 'var(--brand-light)';
+      }
+      return;
+    }
+
+    // Regular click
+    const cellKey = rcalKey(roomId, dates[0]);
+    if (rcalSelected.size > 0 && !rcalSelected.has(cellKey)) {
+      // Clicked outside selection — clear and edit just this cell
+      rcalClearSelection();
+    }
+    rcalInlineEdit(el, roomId, dates);
   }
 
   // ── Auto-save helper ─────────────────────────────────────────────
@@ -2114,25 +2143,8 @@
     rcalSelected.clear();
   }
 
-  function rcalInlineEdit(el, roomId, dates, isShift) {
-    const cellKey = rcalKey(roomId, dates[0]);
-
-    // Shift+click — toggle this cell in selection
-    if (isShift) {
-      if (rcalSelected.has(cellKey)) {
-        rcalSelected.delete(cellKey);
-        el.style.outline = '';
-        const day = rcalGetDay(roomId, dates[0]);
-        rcalUpdateCellDisplay(el, roomId, dates, day.beds_available || 0);
-      } else {
-        rcalSelected.set(cellKey, { el: el, roomId: roomId, dates: dates });
-        el.style.outline = '2px solid var(--brand)';
-        el.style.background = 'var(--brand-light)';
-      }
-      return;
-    }
-
-    // Regular click — start inline input
+  function rcalInlineEdit(el, roomId, dates) {
+    // Start inline input
     // If there's a selection, this cell's committed value will apply to all selected cells too
     const day = rcalGetDay(roomId, dates[0]);
     const cur = day.beds_available || 0;
@@ -2374,6 +2386,50 @@
     UI.closeModal('modal-rcal-row');
     rcalRenderGrid();
   });
+
+  function rcalWireDragEvents() {
+    const grid = document.getElementById('rcal-grid');
+    if (!grid || grid._dragWired) return;
+    grid._dragWired = true;
+
+    grid.addEventListener('mousedown', function(e) {
+      if (rcalShowMode !== 'beds') return;
+      const td = e.target.closest('td[data-rid]');
+      if (!td) return;
+      e.preventDefault(); // prevent text selection during drag
+
+      rcalDragging  = true;
+      rcalDragMoved = false;
+
+      // Ctrl: keep existing selection; otherwise start fresh
+      if (!e.ctrlKey && !e.metaKey) rcalClearSelection();
+
+      const roomId = td.dataset.rid;
+      const dates  = JSON.parse(td.dataset.dates.replace(/&quot;/g, '"'));
+      const k      = rcalKey(roomId, dates[0]);
+      rcalSelected.set(k, { el: td, roomId: roomId, dates: dates });
+      td.style.outline    = '2px solid var(--brand)';
+      td.style.background = 'var(--brand-light)';
+    });
+
+    grid.addEventListener('mouseover', function(e) {
+      if (!rcalDragging || rcalShowMode !== 'beds') return;
+      const td = e.target.closest('td[data-rid]');
+      if (!td) return;
+
+      rcalDragMoved = true;
+      const roomId = td.dataset.rid;
+      const dates  = JSON.parse(td.dataset.dates.replace(/&quot;/g, '"'));
+      const k      = rcalKey(roomId, dates[0]);
+      if (!rcalSelected.has(k)) {
+        rcalSelected.set(k, { el: td, roomId: roomId, dates: dates });
+        td.style.outline    = '2px solid var(--brand)';
+        td.style.background = 'var(--brand-light)';
+      }
+    });
+
+    document.addEventListener('mouseup', function() { rcalDragging = false; });
+  }
 
   // Wire view toggle buttons
   document.querySelectorAll('[data-view]').forEach(function(btn) {
