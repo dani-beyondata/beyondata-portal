@@ -388,6 +388,10 @@
             <button class="cal-nav-btn" onclick="rcalNavNext()">&#8594;</button>
           </div>
           <select class="cal-year-select" id="rcal-year" onchange="rcalChangeYear(this.value)"></select>
+          <span id="rcal-saving-indicator"
+            style="font-size:0.78rem;color:var(--success);font-weight:500;opacity:0;transition:opacity 0.3s;margin-left:0.5rem">
+            ✓ Saved
+          </span>
           <div id="rcal-save-bar" style="display:none;margin-left:auto">
             <div class="save-bar">
               <span>&#9888; Unsaved changes</span>
@@ -1537,8 +1541,11 @@
   function rcalSetDay(roomId, date, fields) {
     const k = rcalKey(roomId, date);
     rcalPend[k] = Object.assign({}, rcalGetDay(roomId, date), fields);
-    document.getElementById('rcal-save-bar').style.display =
-      Object.keys(rcalPend).length > 0 ? 'block' : 'none';
+    // Only show save bar for beds mode (toggle modes auto-save)
+    if (rcalShowMode === 'beds') {
+      document.getElementById('rcal-save-bar').style.display =
+        Object.keys(rcalPend).length > 0 ? 'block' : 'none';
+    }
   }
 
   function rcalSetView(view) {
@@ -1965,12 +1972,66 @@
     UI.openModal('modal-rcal-cell');
   }
 
+  // ── Auto-save helper ─────────────────────────────────────────────
+  let rcalSaveTimer = null;
+
+  function rcalAutoSave(keys) {
+    // Save specific pending keys immediately, debounced 400ms for rapid clicks
+    clearTimeout(rcalSaveTimer);
+    rcalSaveTimer = setTimeout(async function() {
+      const propertyId = document.getElementById('rcal-property').value;
+      if (!propertyId) return;
+
+      const rows = keys
+        .filter(function(k) { return rcalPend[k]; })
+        .map(function(k) {
+          const parts = k.split('__');
+          return Object.assign({
+            company_id:    currentCompany.id,
+            property_uuid: propertyId,
+            property_id:   propertyId,
+            room_id:       parts[0],
+            date:          parts[1]
+          }, rcalPend[k], { updated_at: new Date().toISOString() });
+        });
+
+      if (!rows.length) return;
+
+      // Flash saving indicator
+      const indicator = document.getElementById('rcal-saving-indicator');
+      if (indicator) { indicator.style.opacity = '1'; }
+
+      const { error } = await sb.from('room_capacity_calendar')
+        .upsert(rows, { onConflict: 'company_id,property_uuid,room_id,date' });
+
+      if (error) {
+        console.error('Auto-save error:', error.message);
+        if (indicator) indicator.textContent = '✗ Error saving';
+      } else {
+        // Move saved keys from pending to cap
+        keys.forEach(function(k) {
+          if (rcalPend[k]) { rcalCap[k] = rcalPend[k]; delete rcalPend[k]; }
+        });
+        if (indicator) {
+          indicator.textContent = '✓ Saved';
+          setTimeout(function() { indicator.style.opacity = '0'; }, 1200);
+        }
+        // Hide save bar if nothing left pending
+        if (Object.keys(rcalPend).length === 0) {
+          document.getElementById('rcal-save-bar').style.display = 'none';
+        }
+        rcalRenderGrid();
+      }
+    }, 400);
+  }
+
   // Toggle helpers
   function rcalToggleStatus(roomId, dates) {
     const current   = rcalGetDay(roomId, dates[0]).status;
     const newStatus = current === 'open' ? 'closed' : 'open';
     dates.forEach(function(date) { rcalSetDay(roomId, date, { status: newStatus }); });
     rcalRenderGrid();
+    rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }));
   }
 
   function rcalToggleOnlyFemale(roomId, dates) {
@@ -1984,6 +2045,7 @@
     newAttrs.push({ code: 'ONLY_FEMALE', value: newVal });
     dates.forEach(function(date) { rcalSetDay(roomId, date, { attributes: newAttrs }); });
     rcalRenderGrid();
+    rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }));
   }
 
     function rcalSetStatus(s) {
