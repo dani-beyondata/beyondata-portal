@@ -555,6 +555,12 @@ tbody tr:hover { background: var(--brand-light) !important; }
   background: var(--white);
 }
 
+/* Prevent text selection when shift-clicking cells */
+#rcal-grid {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 #rcal-grid-wrap table td,
 #rcal-grid-wrap table th {
   transition: background 0.1s;
