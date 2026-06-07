@@ -1949,14 +1949,20 @@
           border = '1px solid #86efac';
           content = '';
         } else if (rcalShowMode === 'beds') {
-          const beds    = cons.beds !== null ? cons.beds : 0;
-          const maxBeds = room.beds_per_room || 1;
-          const ratio   = Math.min(beds / maxBeds, 1);
-          const opacity = 0.08 + ratio * 0.72; // 0.08 (empty) → 0.80 (full)
-          bg = 'rgba(61,101,168,' + opacity.toFixed(2) + ')';
-          const textColor = ratio > 0.5 ? '#fff' : 'var(--text)';
-          content = '<span style="font-weight:500;font-size:0.78rem;color:' + textColor + '">' +
-                    (cons.display === '~' ? '~' : beds) + '</span>';
+          if (cons.display === '~') {
+            // Mixed beds values — orange indicator
+            bg = '#fffbeb';
+            border = '1px solid #fde68a';
+            content = '<span style="font-weight:700;font-size:0.85rem;color:#d97706">~</span>';
+          } else {
+            const beds    = cons.beds !== null ? cons.beds : 0;
+            const maxBeds = room.beds_per_room || 1;
+            const ratio   = Math.min(beds / maxBeds, 1);
+            const opacity = 0.08 + ratio * 0.72;
+            bg = 'rgba(61,101,168,' + opacity.toFixed(2) + ')';
+            const textColor = ratio > 0.5 ? '#fff' : 'var(--text)';
+            content = '<span style="font-weight:500;font-size:0.78rem;color:' + textColor + '">' + beds + '</span>';
+          }
         } else if (rcalShowMode === 'only_female') {
           if (isUnset || isClosed) {
             bg = isUnset ? '#f4f6fb' : '#e5e7eb';
