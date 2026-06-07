@@ -339,7 +339,7 @@
         <div class="action-bar" style="margin-bottom:0.75rem">
           <div style="display:flex;align-items:center;gap:0.75rem">
             <label style="font-size:0.8rem;color:var(--text-muted);font-weight:500">Property:</label>
-            <select class="filter-select" id="rooms-property-filter" onchange="loadRoomsList()">
+            <select class="filter-select" id="rooms-property-filter" onchange="hashSet({property:this.value});loadRoomsList()">
             </select>
           </div>
           <button class="btn btn-primary" id="btn-add-room">+ Add room</button>
@@ -373,7 +373,7 @@
         <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem">
           <div style="display:flex;align-items:center;gap:0.5rem">
             <label style="font-size:0.8rem;color:var(--text-muted);font-weight:500">Property:</label>
-            <select class="filter-select" id="rcal-property" onchange="rcalLoad()"></select>
+            <select class="filter-select" id="rcal-property" onchange="hashSet({property:this.value});rcalLoad()"></select>
           </div>
           <!-- View selector -->
           <div class="toggle-wrap">
@@ -426,7 +426,7 @@
       <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
         <div style="display:flex;align-items:center;gap:0.5rem">
           <label style="font-size:0.8rem;color:var(--text-muted);font-weight:500">Property:</label>
-          <select class="filter-select" id="avail-property-filter" onchange="loadAvailability()"></select>
+          <select class="filter-select" id="avail-property-filter" onchange="hashSet({property:this.value});loadAvailability()"></select>
         </div>
         <div id="avail-save-bar" style="display:none;margin-left:auto">
           <div class="save-bar">
@@ -913,6 +913,34 @@
     document.title = `BeyonData — ${currentCompany.name}`;
 
     loadOverview();
+  }
+
+  // ── URL HASH STATE ───────────────────────────────────────────────
+  function hashGet() {
+    const hash = window.location.hash.slice(1);
+    const params = {};
+    hash.split('&').forEach(function(part) {
+      const [k, v] = part.split('=');
+      if (k && v) params[decodeURIComponent(k)] = decodeURIComponent(v);
+    });
+    return params;
+  }
+
+  function hashSet(updates) {
+    const current = hashGet();
+    const merged  = Object.assign({}, current, updates);
+    // Remove null/undefined values
+    Object.keys(merged).forEach(function(k) {
+      if (merged[k] == null) delete merged[k];
+    });
+    const str = Object.entries(merged)
+      .map(function(e) { return encodeURIComponent(e[0]) + '=' + encodeURIComponent(e[1]); })
+      .join('&');
+    history.replaceState(null, '', '#' + str);
+  }
+
+  function hashClear() {
+    history.replaceState(null, '', window.location.pathname);
   }
 
   // ── NAVIGATION ────────────────────────────────────────────────────
