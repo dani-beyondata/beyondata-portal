@@ -396,6 +396,28 @@
           </div>
         </div>
 
+        <!-- Filter: Rooms -->
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem">
+          <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600;min-width:44px">Rooms:</span>
+          <div id="rcal-room-chips" style="display:flex;flex-wrap:wrap;gap:0.3rem"></div>
+        </div>
+
+        <!-- Filter: Show mode -->
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
+          <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600;min-width:44px">Show:</span>
+          <div style="display:flex;gap:0.3rem">
+            <button class="rcal-show-btn active" id="rcal-show-status"      onclick="rcalSetShow('status')">
+              <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#22c55e;margin-right:4px"></span>Status
+            </button>
+            <button class="rcal-show-btn" id="rcal-show-beds"        onclick="rcalSetShow('beds')">
+              <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#3D65A8;margin-right:4px"></span>Beds
+            </button>
+            <button class="rcal-show-btn" id="rcal-show-only_female" onclick="rcalSetShow('only_female')">
+              <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ec4899;margin-right:4px"></span>Only Female
+            </button>
+          </div>
+        </div>
+
         <!-- Grid -->
         <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--white)">
           <div id="rcal-grid"></div>
@@ -1489,14 +1511,16 @@
 
 
   // ── ROOM CALENDAR ─────────────────────────────────────────────────
-  let rcalYear   = new Date().getFullYear();
-  let rcalMonth  = new Date().getMonth() + 1;
-  let rcalView   = 'day'; // 'day' | 'week' | 'month'
-  let rcalRooms  = [];
-  let rcalAttrs  = [];
-  let rcalCap    = {}; // key: roomId__date
-  let rcalPend   = {}; // pending changes
-  let rcalAvail  = {}; // date -> max beds
+  let rcalYear        = new Date().getFullYear();
+  let rcalMonth       = new Date().getMonth() + 1;
+  let rcalView        = 'day'; // 'day' | 'week' | 'month'
+  let rcalRooms       = [];
+  let rcalAttrs       = [];
+  let rcalCap         = {}; // key: roomId__date
+  let rcalPend        = {}; // pending changes
+  let rcalAvail       = {}; // date -> max beds
+  let rcalRoomFilter  = new Set(); // empty = show all
+  let rcalShowMode    = 'status'; // 'status' | 'beds' | 'only_female'
 
   const RCAL_MONTHS = ['January','February','March','April','May','June',
     'July','August','September','October','November','December'];
@@ -1619,12 +1643,49 @@
 
     rcalUpdateYearSel();
     rcalUpdatePeriodLabel();
+    rcalRenderChips();
     rcalRenderGrid();
   }
 
   function rcalUpdateYearSel() {
     const yrSel = document.getElementById('rcal-year');
     if (yrSel) yrSel.value = rcalYear;
+  }
+
+  function rcalSetShow(mode) {
+    rcalShowMode = mode;
+    ['status','beds','only_female'].forEach(function(m) {
+      const btn = document.getElementById('rcal-show-' + m);
+      if (btn) btn.classList.toggle('active', m === mode);
+    });
+    rcalRenderGrid();
+  }
+
+  function rcalToggleRoom(roomId) {
+    if (rcalRoomFilter.has(roomId)) rcalRoomFilter.delete(roomId);
+    else rcalRoomFilter.add(roomId);
+    rcalRenderChips();
+    rcalRenderGrid();
+  }
+
+  function rcalSelectAllRooms() {
+    rcalRoomFilter.clear();
+    rcalRenderChips();
+    rcalRenderGrid();
+  }
+
+  function rcalRenderChips() {
+    const container = document.getElementById('rcal-room-chips');
+    if (!container) return;
+    const allActive = rcalRoomFilter.size === 0;
+    let html = '<button class="rcal-chip' + (allActive ? ' active' : '') +
+               '" onclick="rcalSelectAllRooms()">All</button>';
+    rcalRooms.forEach(function(r) {
+      const active = !allActive && rcalRoomFilter.has(r.id);
+      html += '<button class="rcal-chip' + (active ? ' active' : '') +
+              '" onclick="rcalToggleRoom('' + r.id + '')">' + r.room_name + '</button>';
+    });
+    container.innerHTML = html;
   }
 
   // ── Build column definitions based on view ────────────────────────
@@ -1698,7 +1759,7 @@
     // Compute daily totals per col
     const colTotals = cols.map(function(col) {
       let tot = 0;
-      rcalRooms.forEach(function(r) {
+      visibleRooms.forEach(function(r) {
         col.dates.forEach(function(date) {
           const day = rcalGetDay(r.id, date);
           if (day.status === 'open') tot += (day.beds_available || 0);
@@ -1738,7 +1799,7 @@
     html += '</tr></thead><tbody>';
 
     // Room rows
-    rcalRooms.forEach(function(room) {
+    visibleRooms.forEach(function(room) {
       html += '<tr>';
       html += '<td data-rid="' + room.id + '" data-rname="' + room.room_name.replace(/"/g,'&quot;') + '" ' +
               'onclick="rcalOpenRowEl(this)" ' +
@@ -1751,22 +1812,49 @@
         const cons    = rcalConsensus(room.id, col.dates);
         const isPend  = col.dates.some(function(d) { return !!rcalPend[rcalKey(room.id, d)]; });
         const isClosed = cons.status === 'closed';
-        let bg = 'var(--white)';
-        if (isPend)   bg = '#fffbeb';
-        if (isClosed) bg = '#fff5f5';
+
+        // Compute display based on show mode
+        let bg      = 'var(--white)';
+        let content = '';
+        let border  = '1px solid var(--border)';
+
+        if (isClosed) {
+          bg = '#e5e7eb'; // grey for closed — all modes
+          content = '';
+        } else if (rcalShowMode === 'status') {
+          bg = '#dcfce7'; // soft green — open
+          border = '1px solid #86efac';
+          content = '';
+        } else if (rcalShowMode === 'beds') {
+          const beds    = cons.beds !== null ? cons.beds : 0;
+          const maxBeds = room.beds_per_room || 1;
+          const ratio   = Math.min(beds / maxBeds, 1);
+          const opacity = 0.08 + ratio * 0.72; // 0.08 (empty) → 0.80 (full)
+          bg = 'rgba(61,101,168,' + opacity.toFixed(2) + ')';
+          const textColor = ratio > 0.5 ? '#fff' : 'var(--text)';
+          content = '<span style="font-weight:500;font-size:0.78rem;color:' + textColor + '">' +
+                    (cons.display === '~' ? '~' : beds) + '</span>';
+        } else if (rcalShowMode === 'only_female') {
+          // Check ONLY_FEMALE attribute in consensus
+          const dayVal = rcalGetDay(room.id, col.dates[0]);
+          const attrs  = dayVal.attributes || [];
+          const attr   = attrs.find(function(a) { return (typeof a === 'object' ? a.code : a) === 'ONLY_FEMALE'; });
+          const val    = attr ? (typeof attr === 'object' ? attr.value : true) : false;
+          bg      = val ? '#dcfce7' : '#fee2e2';
+          border  = val ? '1px solid #86efac' : '1px solid #fca5a5';
+          content = '';
+        }
+
+        if (isPend) { bg = '#fffbeb'; border = '1px solid #fde68a'; }
 
         const datesJson = JSON.stringify(col.dates);
         html += '<td data-rid="' + room.id + '" data-dates="' + datesJson.replace(/"/g,'&quot;') + '" ' +
                 'data-rname="' + room.room_name.replace(/"/g,'&quot;') + '" ' +
                 'onclick="rcalOpenColEl(this)" ' +
                 'style="width:' + CW + 'px;min-width:' + CW + 'px;padding:3px 1px;' +
-                'text-align:center;background:' + bg + ';border:1px solid var(--border);' +
-                'cursor:pointer;vertical-align:middle">' +
-                (isClosed
-                  ? '<span style="color:#fca5a5;font-size:0.7rem">&#10005;</span>'
-                  : '<span style="font-weight:' + (cons.display==='~'?'400':'500') + ';' +
-                    'color:' + (cons.display==='~'?'var(--text-muted)':'var(--text)') + '">' +
-                    cons.display + '</span>') +
+                'text-align:center;background:' + bg + ';border:' + border + ';' +
+                'cursor:pointer;vertical-align:middle;transition:background 0.15s">' +
+                content +
                 '</td>';
       });
       html += '</tr>';
