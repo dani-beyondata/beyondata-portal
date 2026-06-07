@@ -1657,24 +1657,17 @@
       Rooms.getAttributeTypes(currentCompany.id),
       sb.from('room_capacity_calendar').select('*')
         .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
-        .gte('date', fromDate).lte('date', toDate),
+        .gte('date', fromDate).lte('date', toDate).limit(10000),
       sb.from('availability_calendar').select('date,number_of_beds')
         .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
-        .gte('date', fromDate).lte('date', toDate)
+        .gte('date', fromDate).lte('date', toDate).limit(10000)
     ]);
 
     // Discard stale results
-    if (myGen !== rcalLoadGen) {
-      console.log('[rcalLoad] DISCARDED gen', myGen, 'current', rcalLoadGen);
-      return;
-    }
+    if (myGen !== rcalLoadGen) return;
 
     // Hide loading overlay
     if (loadingEl) loadingEl.style.display = 'none';
-
-    console.log('[rcalLoad] APPLYING gen', myGen, 'view:', rcalView, 'from:', fromDate, 'to:', toDate,
-      'cap rows:', (capRes.data||[]).length, 'avail rows:', (availRes.data||[]).length,
-      'cap error:', capRes.error?.message || 'none');
 
     rcalRooms = (roomsRes.data || []).filter(function(r) { return r.status === 'active'; });
     rcalAttrs = (attrsRes.data || []).filter(function(a) { return a.status === 'active'; });
