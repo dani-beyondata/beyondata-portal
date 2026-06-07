@@ -377,9 +377,9 @@
           </div>
           <!-- View selector -->
           <div class="toggle-wrap">
-            <button class="toggle-btn active" id="rcal-view-day"   onclick="rcalSetView('day')">Day</button>
-            <button class="toggle-btn"         id="rcal-view-week"  onclick="rcalSetView('week')">Week</button>
-            <button class="toggle-btn"         id="rcal-view-month" onclick="rcalSetView('month')">Month</button>
+            <button class="toggle-btn active" id="rcal-view-day"   data-view="day">Day</button>
+            <button class="toggle-btn"        id="rcal-view-week"  data-view="week">Week</button>
+            <button class="toggle-btn"        id="rcal-view-month" data-view="month">Month</button>
           </div>
           <!-- Navigation -->
           <div class="cal-nav">
@@ -410,13 +410,13 @@
         <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
           <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600;min-width:44px">Show:</span>
           <div style="display:flex;gap:0.3rem">
-            <button class="rcal-show-btn active" id="rcal-show-status"      onclick="rcalSetShow('status')">
+            <button class="rcal-show-btn active" id="rcal-show-status"      data-show="status">
               <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#22c55e;margin-right:4px"></span>Status
             </button>
-            <button class="rcal-show-btn" id="rcal-show-beds"        onclick="rcalSetShow('beds')">
+            <button class="rcal-show-btn" id="rcal-show-beds"        data-show="beds">
               <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#3D65A8;margin-right:4px"></span>Beds
             </button>
-            <button class="rcal-show-btn" id="rcal-show-only_female" onclick="rcalSetShow('only_female')">
+            <button class="rcal-show-btn" id="rcal-show-only_female" data-show="only_female">
               <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ec4899;margin-right:4px"></span>Only Female
             </button>
           </div>
@@ -2263,6 +2263,16 @@
     });
     UI.closeModal('modal-rcal-row');
     rcalRenderGrid();
+  });
+
+  // Wire view toggle buttons
+  document.querySelectorAll('[data-view]').forEach(function(btn) {
+    btn.addEventListener('click', function() { rcalSetView(btn.dataset.view); });
+  });
+
+  // Wire show mode buttons
+  document.querySelectorAll('[data-show]').forEach(function(btn) {
+    btn.addEventListener('click', function() { rcalSetShow(btn.dataset.show); });
   });
 
   document.getElementById('btn-rcal-save').addEventListener('click', async function() {
