@@ -387,7 +387,7 @@
             <div class="cal-month-label" id="rcal-period-label" style="font-size:0.9rem;min-width:140px;text-align:center"></div>
             <button class="cal-nav-btn" onclick="rcalNavNext()">&#8594;</button>
           </div>
-          <select class="cal-year-select" id="rcal-year" onchange="rcalChangeYear(this.value)"></select>
+          <select class="cal-year-select" id="rcal-year" onchange="rcalChangeYear(this.value)" style="display:none"></select>
           <span id="rcal-saving-indicator"
             style="font-size:0.78rem;color:var(--success);font-weight:500;opacity:0;transition:opacity 0.3s;margin-left:0.5rem">
             ✓ Saved
@@ -1566,11 +1566,15 @@
 
   function rcalSetView(view) {
     rcalView = view;
-    ['day','week','month'].forEach(v => {
-      document.getElementById('rcal-view-' + v).classList.toggle('active', v === view);
+    ['day','week','month'].forEach(function(v) {
+      const btn = document.getElementById('rcal-view-' + v);
+      if (btn) btn.classList.toggle('active', v === view);
     });
+    // Hide year selector for non-month views
+    const yrSel = document.getElementById('rcal-year');
+    if (yrSel) yrSel.style.display = view === 'month' ? 'inline-block' : 'none';
     rcalUpdatePeriodLabel();
-    rcalLoad(); // reload data — month view needs full year, day/week need just the month
+    rcalLoad();
   }
 
   function rcalNavPrev() {
@@ -1679,6 +1683,9 @@
     rcalUpdateYearSel();
     rcalUpdatePeriodLabel();
     rcalRenderChips();
+    // Show/hide year selector based on view
+    const yrSelEl = document.getElementById('rcal-year');
+    if (yrSelEl) yrSelEl.style.display = rcalView === 'month' ? 'inline-block' : 'none';
     rcalRenderGrid();
   }
 
@@ -1746,23 +1753,44 @@
       return cols;
     }
     if (rcalView === 'week') {
+      // ISO week number helper
+      function isoWeek(dateStr) {
+        const d = new Date(dateStr);
+        d.setHours(0,0,0,0);
+        d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+        const w1 = new Date(d.getFullYear(), 0, 4);
+        return 1 + Math.round(((d - w1) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7);
+      }
+
       const totalDays = new Date(rcalYear, rcalMonth, 0).getDate();
       const cols = [];
       let weekDates = [];
-      let weekNum = 1;
+      let currentWeek = null;
+
       for (let d = 1; d <= totalDays; d++) {
         const date = rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0');
-        const dow  = new Date(date).getDay(); // 0=Sun
-        weekDates.push(date);
-        // End week on Saturday (dow=6) or last day
-        if (dow === 6 || d === totalDays) {
-          const first = parseInt(weekDates[0].slice(8));
-          const last  = parseInt(weekDates[weekDates.length-1].slice(8));
-          cols.push({ label: 'W' + weekNum, sublabel: first + '-' + last,
+        const dow  = new Date(date).getDay(); // 0=Sun, 1=Mon...
+        const wnum = isoWeek(date);
+
+        if (currentWeek !== null && wnum !== currentWeek && weekDates.length > 0) {
+          // New ISO week — save previous
+          const first = weekDates[0].slice(8).replace(/^0/,'');
+          const last  = weekDates[weekDates.length-1].slice(8).replace(/^0/,'');
+          cols.push({ label: 'W' + String(currentWeek).padStart(2,'0'),
+                      sublabel: first + '-' + last,
                       dates: weekDates.slice(), isWeekend: false });
           weekDates = [];
-          weekNum++;
         }
+        currentWeek = wnum;
+        weekDates.push(date);
+      }
+      // Last partial week
+      if (weekDates.length > 0) {
+        const first = weekDates[0].slice(8).replace(/^0/,'');
+        const last  = weekDates[weekDates.length-1].slice(8).replace(/^0/,'');
+        cols.push({ label: 'W' + String(currentWeek).padStart(2,'0'),
+                    sublabel: first + '-' + last,
+                    dates: weekDates.slice(), isWeekend: false });
       }
       return cols;
     }
