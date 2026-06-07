@@ -1783,30 +1783,29 @@
   // ── Consensus display for a set of days ───────────────────────────
   // Returns status: 'closed' | 'open' | 'partial' (mixed)
   function rcalConsensus(roomId, dates) {
-    if (!dates.length) return { display: '—', status: 'closed', beds: 0, attrs: [] };
-    const days      = dates.map(function(d) { return rcalGetDay(roomId, d); });
-    const openDays  = days.filter(function(d) { return d.status === 'open'; });
-    const closedDays = days.filter(function(d) { return d.status === 'closed'; });
+    if (!dates.length) return { status: 'unset', display: null, beds: 0 };
 
-    if (openDays.length === 0)  return { display: null,  status: 'closed',  beds: 0, attrs: [] };
+    // Only consider days with actual data (DB rows or pending)
+    const configuredDates = dates.filter(function(d) { return rcalHasData(roomId, d); });
+
+    if (configuredDates.length === 0) return { status: 'unset', display: null, beds: 0 };
+
+    const days       = configuredDates.map(function(d) { return rcalGetDay(roomId, d); });
+    const openDays   = days.filter(function(d) { return d && d.status === 'open'; });
+    const closedDays = days.filter(function(d) { return d && d.status === 'closed'; });
+
+    if (openDays.length === 0) return { status: 'closed', display: null, beds: 0 };
+
     if (closedDays.length === 0) {
-      // All open — check beds consistency
+      // All configured days are open
       const bedValues = openDays.map(function(d) { return d.beds_available || 0; });
       const allSame   = bedValues.every(function(v) { return v === bedValues[0]; });
-      const beds      = allSame ? bedValues[0] : null;
-      return { display: allSame ? String(beds) : '~', status: 'open', beds: beds, attrs: [] };
+      return { status: 'open', display: allSame ? String(bedValues[0]) : '~',
+               beds: allSame ? bedValues[0] : null };
     }
-    // Mixed — show open/total where total = only days with actual data in DB
-    const daysWithData = days.filter(function(d) {
-      // A day counts only if it has an explicit DB row (beds_available > 0 or status was explicitly set)
-      const k = rcalKey(roomId, dates[days.indexOf(d)]);
-      return !!rcalCap[k];
-    });
-    const openWithData = daysWithData.filter(function(d) { return d.status === 'open'; });
-    const label = daysWithData.length === 0
-      ? '0'
-      : openWithData.length + '/' + daysWithData.length;
-    return { display: label, status: 'partial', beds: null, attrs: [] };
+
+    // Mix of open and explicitly closed configured days
+    return { status: 'partial', display: openDays.length + '/' + configuredDates.length, beds: null };
   }
 
   // ── Render grid ───────────────────────────────────────────────────
