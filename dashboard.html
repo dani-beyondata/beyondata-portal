@@ -2090,7 +2090,7 @@
     const { data } = await Properties.getByCompany(currentCompany.id);
     const sel = document.getElementById('rooms-property-filter');
     sel.innerHTML = (data || []).map(p =>
-      `<option value="${p.property_id}">${p.property_name} (${p.property_id})</option>`
+      `<option value="${p.id}">${p.property_name} (${p.property_id})</option>`
     ).join('');
   }
 
