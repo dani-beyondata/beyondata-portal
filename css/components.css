@@ -613,3 +613,5 @@ tbody tr:hover { background: var(--brand-light) !important; }
   font-weight: 600;
   box-shadow: 0 0 0 2px var(--brand-light);
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }
