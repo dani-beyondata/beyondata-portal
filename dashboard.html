@@ -1765,6 +1765,11 @@
     const NW    = 150;
     const CW    = rcalView === 'month' ? 42 : rcalView === 'week' ? 52 : 36;
 
+    // Apply room filter
+    const visibleRooms = rcalRoomFilter.size === 0
+      ? rcalRooms
+      : rcalRooms.filter(function(r) { return rcalRoomFilter.has(r.id); });
+
     // Compute daily totals per col
     const colTotals = cols.map(function(col) {
       let tot = 0;
