@@ -2113,10 +2113,21 @@
 
       if (error) {
         console.error('Save error:', error.message || error);
+        // Friendly message for the capacity trigger error
+        const msg = (error.message || '').includes('supera el máximo')
+          ? '✗ Beds exceed availability limit — lower the value or update Availability Calendar first'
+          : '✗ Error saving: ' + (error.message || error);
         if (indicator) {
-          indicator.textContent = '✗ Error saving';
+          indicator.textContent = msg;
           indicator.style.color = 'var(--error)';
-          setTimeout(function() { indicator.style.opacity = '0'; indicator.style.color = ''; }, 3000);
+          indicator.style.maxWidth = '500px';
+          indicator.style.fontSize = '0.75rem';
+          setTimeout(function() {
+            indicator.style.opacity = '0';
+            indicator.style.color = '';
+            indicator.style.maxWidth = '';
+            indicator.style.fontSize = '';
+          }, 5000);
         }
       } else {
         if (fromCap) {
