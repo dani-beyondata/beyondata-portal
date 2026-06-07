@@ -1675,6 +1675,28 @@
   }
 
 
+  function rcalRenderChips() {
+    const container = document.getElementById('rcal-room-chips');
+    if (!container) return;
+    const allActive = rcalRoomFilter.size === 0;
+    container.innerHTML = '';
+
+    const allBtn = document.createElement('button');
+    allBtn.className = 'rcal-chip' + (allActive ? ' active' : '');
+    allBtn.textContent = 'All';
+    allBtn.addEventListener('click', rcalSelectAllRooms);
+    container.appendChild(allBtn);
+
+    rcalRooms.forEach(function(r) {
+      const active = !allActive && rcalRoomFilter.has(r.id);
+      const btn = document.createElement('button');
+      btn.className = 'rcal-chip' + (active ? ' active' : '');
+      btn.textContent = r.room_name;
+      btn.addEventListener('click', function() { rcalToggleRoom(r.id); });
+      container.appendChild(btn);
+    });
+  }
+
   // ── Build column definitions based on view ────────────────────────
   function rcalBuildCols() {
     if (rcalView === 'day') {
