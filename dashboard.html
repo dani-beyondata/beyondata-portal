@@ -2393,6 +2393,34 @@
     rcalRenderGrid();
   });
 
+  let rcalDragStartTd = null; // anchor cell for rectangular selection
+
+  function rcalSelectRect(table, startTd, endTd) {
+    // Clear visual of current selection
+    rcalSelected.forEach(function(info) {
+      if (info.el) { info.el.style.outline = ''; info.el.style.background = ''; }
+    });
+    rcalSelected.clear();
+
+    const minRow = Math.min(startTd.parentElement.rowIndex, endTd.parentElement.rowIndex);
+    const maxRow = Math.max(startTd.parentElement.rowIndex, endTd.parentElement.rowIndex);
+    const minCol = Math.min(startTd.cellIndex, endTd.cellIndex);
+    const maxCol = Math.max(startTd.cellIndex, endTd.cellIndex);
+
+    table.querySelectorAll('tbody tr').forEach(function(row) {
+      if (row.rowIndex < minRow || row.rowIndex > maxRow) return;
+      row.querySelectorAll('td[data-rid]').forEach(function(cell) {
+        if (cell.cellIndex < minCol || cell.cellIndex > maxCol) return;
+        const rId  = cell.dataset.rid;
+        const dts  = JSON.parse(cell.dataset.dates.replace(/&quot;/g, '"'));
+        const k    = rcalKey(rId, dts[0]);
+        rcalSelected.set(k, { el: cell, roomId: rId, dates: dts });
+        cell.style.outline    = '2px solid var(--brand)';
+        cell.style.background = 'var(--brand-light)';
+      });
+    });
+  }
+
   function rcalWireDragEvents() {
     const grid = document.getElementById('rcal-grid');
     if (!grid || grid._dragWired) return;
@@ -2402,39 +2430,53 @@
       if (rcalShowMode !== 'beds') return;
       const td = e.target.closest('td[data-rid]');
       if (!td) return;
-      e.preventDefault(); // prevent text selection during drag
-
-      rcalDragging  = true;
-      rcalDragMoved = false;
-
-      // Ctrl: keep existing selection; otherwise start fresh
-      if (!e.ctrlKey && !e.metaKey) rcalClearSelection();
+      e.preventDefault();
 
       const roomId = td.dataset.rid;
       const dates  = JSON.parse(td.dataset.dates.replace(/&quot;/g, '"'));
       const k      = rcalKey(roomId, dates[0]);
-      rcalSelected.set(k, { el: td, roomId: roomId, dates: dates });
-      td.style.outline    = '2px solid var(--brand)';
-      td.style.background = 'var(--brand-light)';
+      const isOnSelected = rcalSelected.has(k);
+
+      rcalDragging    = true;
+      rcalDragMoved   = false;
+      rcalDragStartTd = td;
+
+      if (e.ctrlKey || e.metaKey) {
+        // Ctrl: toggle this cell without clearing others
+        if (isOnSelected) {
+          rcalSelected.delete(k);
+          td.style.outline = '';
+          td.style.background = '';
+        } else {
+          rcalSelected.set(k, { el: td, roomId: roomId, dates: dates });
+          td.style.outline    = '2px solid var(--brand)';
+          td.style.background = 'var(--brand-light)';
+        }
+      } else if (!isOnSelected) {
+        // Regular click on unselected cell — start fresh
+        rcalClearSelection();
+        rcalSelected.set(k, { el: td, roomId: roomId, dates: dates });
+        td.style.outline    = '2px solid var(--brand)';
+        td.style.background = 'var(--brand-light)';
+      }
+      // If clicking on already-selected cell: keep selection for commit
     });
 
     grid.addEventListener('mouseover', function(e) {
       if (!rcalDragging || rcalShowMode !== 'beds') return;
       const td = e.target.closest('td[data-rid]');
-      if (!td) return;
+      if (!td || !rcalDragStartTd) return;
+      if (td === rcalDragStartTd && !rcalDragMoved) return;
 
       rcalDragMoved = true;
-      const roomId = td.dataset.rid;
-      const dates  = JSON.parse(td.dataset.dates.replace(/&quot;/g, '"'));
-      const k      = rcalKey(roomId, dates[0]);
-      if (!rcalSelected.has(k)) {
-        rcalSelected.set(k, { el: td, roomId: roomId, dates: dates });
-        td.style.outline    = '2px solid var(--brand)';
-        td.style.background = 'var(--brand-light)';
-      }
+      const table = td.closest('table');
+      if (table) rcalSelectRect(table, rcalDragStartTd, td);
     });
 
-    document.addEventListener('mouseup', function() { rcalDragging = false; });
+    document.addEventListener('mouseup', function() {
+      rcalDragging    = false;
+      rcalDragStartTd = null;
+    });
   }
 
   // Wire view toggle buttons
