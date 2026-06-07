@@ -2090,7 +2090,6 @@
   let rcalSaveTimer = null;
 
   function rcalAutoSave(keys, fromCap) {
-    // Debounced save — fromCap=true means read from rcalSaveQueue (toggle modes)
     clearTimeout(rcalSaveTimer);
     rcalSaveTimer = setTimeout(async function() {
       const propertyId = document.getElementById('rcal-property').value;
@@ -2113,16 +2112,26 @@
       if (!rows.length) return;
 
       const indicator = document.getElementById('rcal-saving-indicator');
-      if (indicator) { indicator.style.opacity = '1'; indicator.textContent = '✓ Saved'; }
+      if (indicator) { indicator.style.opacity = '1'; indicator.textContent = 'Saving...'; }
 
-      const { error } = await sb.from('room_capacity_calendar')
-        .upsert(rows, { onConflict: 'company_id,property_uuid,room_id,date' });
+      // Chunk into batches of 200 to avoid Supabase request size limits
+      const CHUNK = 200;
+      let hasError = null;
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const chunk = rows.slice(i, i + CHUNK);
+        const { error } = await sb.from('room_capacity_calendar')
+          .upsert(chunk, { onConflict: 'company_id,property_uuid,room_id,date' });
+        if (error) { hasError = error; break; }
+      }
 
-      if (error) {
-        console.error('Auto-save error:', error.message);
-        if (indicator) indicator.textContent = '✗ Error';
+      if (hasError) {
+        console.error('Auto-save error:', hasError.message);
+        if (indicator) {
+          indicator.textContent = '✗ Error saving';
+          indicator.style.color = 'var(--error)';
+          setTimeout(function() { indicator.style.opacity = '0'; indicator.style.color = ''; }, 3000);
+        }
       } else {
-        // Clear from save queue
         if (fromCap) {
           keys.forEach(function(k) { delete rcalSaveQueue[k]; });
         } else {
@@ -2132,7 +2141,8 @@
           }
         }
         if (indicator) {
-          setTimeout(function() { indicator.style.opacity = '0'; }, 1200);
+          indicator.textContent = '✓ Saved (' + rows.length + ')';
+          setTimeout(function() { indicator.style.opacity = '0'; }, 2000);
         }
       }
     }, 300);
