@@ -2675,6 +2675,7 @@
     if (navItem) navItem.classList.add('active');
     const sectionEl = document.getElementById(`section-${section}`);
     if (sectionEl) sectionEl.classList.add('active');
+    hashSet({ section: section });
     const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany };
     loaders[section]?.();
     window.scrollTo(0, 0);
