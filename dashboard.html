@@ -423,8 +423,18 @@
         </div>
 
         <!-- Grid -->
-        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--white)">
-          <div id="rcal-grid"></div>
+        <div style="position:relative">
+          <div id="rcal-loading" style="display:none;position:absolute;inset:0;background:rgba(255,255,255,0.75);
+            z-index:10;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-lg)">
+            <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:var(--brand);font-weight:500">
+              <div style="width:16px;height:16px;border:2px solid var(--brand-light);border-top-color:var(--brand);
+                border-radius:50%;animation:spin 0.7s linear infinite"></div>
+              Loading...
+            </div>
+          </div>
+          <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--white)">
+            <div id="rcal-grid"></div>
+          </div>
         </div>
 
         <!-- Legend -->
@@ -1536,7 +1546,12 @@
 
   function rcalGetDay(roomId, date) {
     const k = rcalKey(roomId, date);
-    return rcalPend[k] || rcalCap[k] || { beds_available: 0, status: 'closed', attributes: [] };
+    return rcalPend[k] || rcalCap[k] || null; // null = not configured
+  }
+
+  function rcalHasData(roomId, date) {
+    const k = rcalKey(roomId, date);
+    return !!(rcalPend[k] || rcalCap[k]);
   }
 
   function rcalSetDay(roomId, date, fields) {
@@ -1620,6 +1635,10 @@
     rcalPend = {};
     document.getElementById('rcal-save-bar').style.display = 'none';
 
+    // Show loading overlay
+    const loadingEl = document.getElementById('rcal-loading');
+    if (loadingEl) loadingEl.style.display = 'flex';
+
     const fromDate = rcalView === 'month'
       ? rcalYear + '-01-01'
       : rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-01';
@@ -1640,6 +1659,9 @@
 
     // Discard stale results
     if (myGen !== rcalLoadGen) return;
+
+    // Hide loading overlay
+    if (loadingEl) loadingEl.style.display = 'none';
 
     rcalRooms = (roomsRes.data || []).filter(function(r) { return r.status === 'active'; });
     rcalAttrs = (attrsRes.data || []).filter(function(a) { return a.status === 'active'; });
@@ -1860,8 +1882,13 @@
         let border  = '1px solid var(--border)';
 
         const isPartial = cons.status === 'partial';
-        if (isClosed) {
-          bg = '#e5e7eb'; // grey — all closed
+        const isUnset   = cons.status === 'unset';
+        if (isUnset) {
+          bg = '#f4f6fb'; // very light — not configured
+          border = '1px solid #e5e7eb';
+          content = '';
+        } else if (isClosed) {
+          bg = '#e5e7eb'; // grey — explicitly closed
           content = '';
         } else if (isPartial && rcalShowMode === 'status') {
           bg = 'repeating-linear-gradient(45deg,#dcfce7,#dcfce7 4px,#e5e7eb 4px,#e5e7eb 8px)';
@@ -1881,8 +1908,9 @@
           content = '<span style="font-weight:500;font-size:0.78rem;color:' + textColor + '">' +
                     (cons.display === '~' ? '~' : beds) + '</span>';
         } else if (rcalShowMode === 'only_female') {
-          if (isClosed) {
-            bg = '#e5e7eb';
+          if (isUnset || isClosed) {
+            bg = isUnset ? '#f4f6fb' : '#e5e7eb';
+            border = '1px solid #e5e7eb';
             content = '';
           } else {
             // Check ONLY_FEMALE across all dates in col — show partial if mixed
@@ -2067,12 +2095,14 @@
 
   function rcalCapSet(roomId, date, fields) {
     const k = rcalKey(roomId, date);
-    rcalCap[k] = Object.assign({}, rcalCap[k] || { beds_available: 0, status: 'closed', attributes: [] }, fields);
+    rcalCap[k] = Object.assign({}, rcalCap[k] || { beds_available: 0, status: 'open', attributes: [] }, fields);
     rcalSaveQueue[k] = rcalCap[k]; // queue for save
   }
 
   function rcalToggleStatus(roomId, dates) {
-    const current   = rcalGetDay(roomId, dates[0]).status;
+    const day     = rcalGetDay(roomId, dates[0]);
+    const current = day ? day.status : 'unset';
+    // unset or closed → open; open → closed
     const newStatus = current === 'open' ? 'closed' : 'open';
     dates.forEach(function(date) { rcalCapSet(roomId, date, { status: newStatus }); });
     rcalRenderGrid();
