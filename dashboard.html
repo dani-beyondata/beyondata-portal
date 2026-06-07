@@ -1481,7 +1481,7 @@
       const { data } = await Properties.getByCompany(currentCompany.id);
       (data || []).forEach(p => {
         const o = document.createElement('option');
-        o.value = p.property_id;
+        o.value = p.id;
         o.textContent = p.property_name + ' (' + p.property_id + ')';
         sel.appendChild(o);
       });
@@ -1518,10 +1518,10 @@
       Rooms.getByProperty(currentCompany.id, propertyId),
       Rooms.getAttributeTypes(currentCompany.id),
       sb.from('room_capacity_calendar').select('*')
-        .eq('company_id', currentCompany.id).eq('property_id', propertyId)
+        .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
         .gte('date', fromDate).lte('date', toDate),
       sb.from('availability_calendar').select('date,number_of_beds')
-        .eq('company_id', currentCompany.id).eq('property_id', propertyId)
+        .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
         .gte('date', fromDate).lte('date', toDate)
     ]);
 
@@ -1820,7 +1820,7 @@
     const rows = Object.entries(rcalPend).map(function(entry) {
       const k = entry[0]; const fields = entry[1];
       const parts = k.split('__');
-      return Object.assign({ company_id: currentCompany.id, property_id: propertyId,
+      return Object.assign({ company_id: currentCompany.id, property_uuid: propertyId, property_id: propertyId,
         room_id: parts[0], date: parts[1] }, fields, { updated_at: new Date().toISOString() });
     });
 
@@ -2048,7 +2048,7 @@
   async function saveAvailability() {
     const propertyId = document.getElementById('avail-property-filter').value;
     const rows = Object.entries(availPending).map(([date, fields]) => ({
-      company_id: currentCompany.id, property_id: propertyId, date, ...fields,
+      company_id: currentCompany.id, property_uuid: propertyId, property_id: propertyId, date, ...fields,
       updated_at: new Date().toISOString()
     }));
     const btn = document.querySelector('#avail-save-bar button');
@@ -2069,7 +2069,7 @@
     if (!sel.options.length) {
       (data || []).forEach(p => {
         const opt = document.createElement('option');
-        opt.value = p.property_id;
+        opt.value = p.id;
         opt.textContent = `${p.property_name} (${p.property_id})`;
         sel.appendChild(opt);
       });
