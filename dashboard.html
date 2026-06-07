@@ -360,7 +360,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Code</th><th>Name</th><th>Description</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Options</th><th>Description</th><th>Status</th><th></th></tr></thead>
             <tbody id="room-attr-tbody"></tbody>
           </table>
         </div>
@@ -746,8 +746,20 @@
   <div class="modal">
     <h3>Add room attribute</h3>
     <div class="alert error" id="room-attr-error"></div>
-    <div class="field"><label>Code</label><input type="text" id="rattr-code" placeholder="e.g. ONLY_FEMALE" style="text-transform:uppercase"></div>
-    <div class="field"><label>Name</label><input type="text" id="rattr-name" placeholder="e.g. Solo femenino"></div>
+    <div class="field"><label>Code</label><input type="text" id="rattr-code" placeholder="e.g. BED_TYPE" style="text-transform:uppercase"></div>
+    <div class="field"><label>Name</label><input type="text" id="rattr-name" placeholder="e.g. Bed type"></div>
+    <div class="field">
+      <label>Type</label>
+      <select id="rattr-type" onchange="rattrTypeChanged()">
+        <option value="boolean">Boolean (Yes / No)</option>
+        <option value="select">Select (dropdown with options)</option>
+        <option value="text">Text (free input)</option>
+      </select>
+    </div>
+    <div class="field" id="rattr-options-field" style="display:none">
+      <label>Options <span style="font-size:0.75rem;color:var(--text-muted)">(comma separated)</span></label>
+      <input type="text" id="rattr-options" placeholder="e.g. single, double, king">
+    </div>
     <div class="field"><label>Description (optional)</label><input type="text" id="rattr-desc" placeholder="Brief description"></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-room-attr')">Cancel</button>
@@ -1739,13 +1751,37 @@
     document.getElementById('rcal-cell-beds').value = day.beds_available || 0;
     rcalSetStatus(day.status || 'open');
 
+    // Build current attribute values map from new format [{code,value}]
+    const currentAttrs = {};
+    (day.attributes || []).forEach(function(a) {
+      if (typeof a === 'object' && a.code) currentAttrs[a.code] = a.value;
+      else if (typeof a === 'string') currentAttrs[a] = true; // legacy
+    });
+
     const container = document.getElementById('rcal-cell-attrs');
     container.innerHTML = rcalAttrs.map(function(a) {
-      return '<label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;' +
-             'background:var(--bg);padding:3px 8px;border-radius:var(--radius);border:1px solid var(--border)">' +
-             '<input type="checkbox" value="' + a.attribute_code + '" ' +
-             ((day.attributes||[]).includes(a.attribute_code) ? 'checked' : '') + '>' +
-             a.attribute_name + '</label>';
+      const type    = a.attribute_type || 'boolean';
+      const curVal  = currentAttrs[a.attribute_code];
+      const opts    = a.options || [];
+      let input = '';
+      if (type === 'boolean') {
+        input = '<input type="checkbox" data-code="' + a.attribute_code + '" data-type="boolean" ' +
+                (curVal ? 'checked' : '') + '>';
+      } else if (type === 'select') {
+        input = '<select data-code="' + a.attribute_code + '" data-type="select" ' +
+                'style="font-size:0.8rem;padding:2px 4px;border:1px solid var(--border);border-radius:4px">' +
+                '<option value="">— none —</option>' +
+                opts.map(function(o) {
+                  return '<option value="' + o + '"' + (curVal === o ? ' selected' : '') + '>' + o + '</option>';
+                }).join('') + '</select>';
+      } else {
+        input = '<input type="text" data-code="' + a.attribute_code + '" data-type="text" ' +
+                'value="' + (curVal || '') + '" ' +
+                'style="font-size:0.8rem;padding:2px 6px;border:1px solid var(--border);border-radius:4px;width:120px">';
+      }
+      return '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;' +
+             'background:var(--bg);padding:4px 8px;border-radius:var(--radius);border:1px solid var(--border)">' +
+             input + a.attribute_name + '</label>';
     }).join('');
 
     UI.hideAlert('rcal-cell-error');
@@ -1763,7 +1799,18 @@
     const dates  = JSON.parse(document.getElementById('rcal-cell-date').value);
     const beds   = parseInt(document.getElementById('rcal-cell-beds').value) || 0;
     const status = document.getElementById('rcal-status-open').classList.contains('active') ? 'open' : 'closed';
-    const attrs  = Array.from(document.querySelectorAll('#rcal-cell-attrs input:checked')).map(function(i) { return i.value; });
+    const attrs = [];
+    document.querySelectorAll('#rcal-cell-attrs [data-code]').forEach(function(el) {
+      const code = el.dataset.code;
+      const type = el.dataset.type;
+      if (type === 'boolean' && el.checked) {
+        attrs.push({ code: code, value: true });
+      } else if (type === 'select' && el.value) {
+        attrs.push({ code: code, value: el.value });
+      } else if (type === 'text' && el.value.trim()) {
+        attrs.push({ code: code, value: el.value.trim() });
+      }
+    });
     dates.forEach(function(date) {
       rcalSetDay(roomId, date, { beds_available: beds, status: status, attributes: attrs });
     });
@@ -2167,17 +2214,20 @@
     }
     const attrs = data || [];
     document.getElementById('room-attr-count').textContent = attrs.length + ' attributes';
+    const TYPE_BADGE = { boolean: 'badge-api', select: 'badge-upload', text: 'badge-user' };
     document.getElementById('room-attr-tbody').innerHTML = attrs.map(a => `
       <tr>
         <td>${UI.mono(a.attribute_code)}</td>
         <td>${a.attribute_name}</td>
+        <td>${UI.badge(a.attribute_type || 'boolean', TYPE_BADGE[a.attribute_type] || 'badge-user')}</td>
+        <td style="font-size:0.8rem;color:var(--text-muted)">${a.options ? JSON.parse(JSON.stringify(a.options)).join(', ') : '—'}</td>
         <td style="color:var(--text-muted);font-size:0.82rem">${a.description || '—'}</td>
         <td>${UI.badge(a.status, a.status === 'active' ? 'active' : 'inactive')}</td>
         <td>${isAdmin ? `<button class="btn btn-secondary btn-sm"
           onclick="toggleRoomAttr('${a.id}','${a.status}')">
           ${a.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
       </tr>
-    `).join('') || '<tr><td colspan="5"><div class="empty-state">No attributes yet.</div></td></tr>';
+    `).join('') || '<tr><td colspan="7"><div class="empty-state">No attributes yet.</div></td></tr>';
   }
 
   async function toggleRoomAttr(id, status) {
@@ -2190,25 +2240,43 @@
 
   document.getElementById('btn-add-room-attr').addEventListener('click', () => UI.openModal('modal-room-attr'));
 
+  function rattrTypeChanged() {
+    const type = document.getElementById('rattr-type').value;
+    document.getElementById('rattr-options-field').style.display = type === 'select' ? 'block' : 'none';
+  }
+
   document.getElementById('btn-save-room-attr').addEventListener('click', async () => {
-    const attribute_code = document.getElementById('rattr-code').value.trim().toUpperCase().replace(/\s+/g,'_');
-    const attribute_name = document.getElementById('rattr-name').value.trim();
-    const description    = document.getElementById('rattr-desc').value.trim() || null;
+    const attribute_code  = document.getElementById('rattr-code').value.trim().toUpperCase().replace(/[^A-Z0-9_]/g,'_');
+    const attribute_name  = document.getElementById('rattr-name').value.trim();
+    const attribute_type  = document.getElementById('rattr-type').value;
+    const description     = document.getElementById('rattr-desc').value.trim() || null;
+    const optionsRaw      = document.getElementById('rattr-options').value.trim();
+    const options         = attribute_type === 'select' && optionsRaw
+      ? optionsRaw.split(',').map(o => o.trim()).filter(Boolean)
+      : null;
+
     UI.hideAlert('room-attr-error');
     if (!attribute_code || !attribute_name) {
       UI.showAlert('room-attr-error', 'Code and name are required.');
       return;
     }
+    if (attribute_type === 'select' && (!options || !options.length)) {
+      UI.showAlert('room-attr-error', 'Select type requires at least one option.');
+      return;
+    }
     UI.setLoading('btn-save-room-attr', true, 'Save');
     const { error } = await sb.from('room_attribute_types').insert({
-      company_id: currentCompany.id, attribute_code, attribute_name, description, status: 'active'
+      company_id: currentCompany.id, attribute_code, attribute_name,
+      attribute_type, options, description, status: 'active'
     });
     UI.setLoading('btn-save-room-attr', false, 'Save');
     if (error) { UI.showAlert('room-attr-error', error.message); return; }
     UI.closeModal('modal-room-attr');
-    document.getElementById('rattr-code').value = '';
-    document.getElementById('rattr-name').value = '';
-    document.getElementById('rattr-desc').value = '';
+    ['rattr-code','rattr-name','rattr-desc','rattr-options'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('rattr-type').value = 'boolean';
+    rattrTypeChanged();
     loadRoomAttributes();
   });
 
