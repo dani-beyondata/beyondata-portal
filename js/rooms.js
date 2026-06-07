@@ -24,13 +24,13 @@ const Rooms = (() => {
   async function getByProperty(companyId, propertyId) {
     const { data, error } = await sb.from('rooms')
       .select('*, room_categories(category_name)')
-      .eq('company_id', companyId).eq('property_id', propertyId).order('room_code');
+      .eq('company_id', companyId).eq('property_uuid', propertyId).order('room_code');
     return { data, error };
   }
 
   async function create(companyId, propertyId, fields) {
     const { data, error } = await sb.from('rooms')
-      .insert({ ...fields, company_id: companyId, property_id: propertyId, status: 'active' })
+      .insert({ ...fields, company_id: companyId, property_uuid: propertyId, property_id: propertyId, status: 'active' })
       .select().single();
     return { data, error };
   }
@@ -71,7 +71,7 @@ const Rooms = (() => {
     const to = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
     const { data, error } = await sb.from('room_capacity_calendar')
       .select('*')
-      .eq('company_id', companyId).eq('property_id', propertyId)
+      .eq('company_id', companyId).eq('property_uuid', propertyId)
       .gte('date', from).lte('date', to);
     return { data, error };
   }
