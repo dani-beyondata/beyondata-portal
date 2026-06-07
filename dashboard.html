@@ -2100,32 +2100,19 @@
         .filter(function(k) { return source[k]; })
         .map(function(k) {
           const parts = k.split('__');
-          return Object.assign({
-            company_id:    currentCompany.id,
-            property_uuid: propertyId,
-            property_id:   propertyId,
-            room_id:       parts[0],
-            date:          parts[1]
-          }, source[k], { updated_at: new Date().toISOString() });
+          return { roomId: parts[0], date: parts[1], fields: source[k] };
         });
-
       if (!rows.length) return;
 
       const indicator = document.getElementById('rcal-saving-indicator');
       if (indicator) { indicator.style.opacity = '1'; indicator.textContent = 'Saving...'; }
 
-      // Chunk into batches of 200 to avoid Supabase request size limits
-      const CHUNK = 200;
-      let hasError = null;
-      for (let i = 0; i < rows.length; i += CHUNK) {
-        const chunk = rows.slice(i, i + CHUNK);
-        const { error } = await sb.from('room_capacity_calendar')
-          .upsert(chunk, { onConflict: 'company_id,property_uuid,room_id,date' });
-        if (error) { hasError = error; break; }
-      }
+      // Smart save: group rows by (fields signature) and try range UPDATE first
+      // Falls back to upsert chunks for scattered/mixed selections
+      const error = await rcalSmartSave(propertyId, rows);
 
-      if (hasError) {
-        console.error('Auto-save error:', hasError.message);
+      if (error) {
+        console.error('Save error:', error.message || error);
         if (indicator) {
           indicator.textContent = '✗ Error saving';
           indicator.style.color = 'var(--error)';
@@ -2141,11 +2128,91 @@
           }
         }
         if (indicator) {
-          indicator.textContent = '✓ Saved (' + rows.length + ')';
-          setTimeout(function() { indicator.style.opacity = '0'; }, 2000);
+          indicator.textContent = '✓ Saved';
+          setTimeout(function() { indicator.style.opacity = '0'; }, 1500);
         }
       }
     }, 300);
+  }
+
+  async function rcalSmartSave(propertyId, rows) {
+    // Group rows by their field signature (beds_available + status + attributes)
+    // so we can do one UPDATE per unique value set
+    const groups = new Map();
+    rows.forEach(function(r) {
+      const sig = JSON.stringify({
+        beds_available: r.fields.beds_available,
+        status:         r.fields.status,
+        attributes:     r.fields.attributes || []
+      });
+      if (!groups.has(sig)) groups.set(sig, { fields: r.fields, roomIds: new Set(), dates: [] });
+      const g = groups.get(sig);
+      g.roomIds.add(r.roomId);
+      g.dates.push(r.date);
+    });
+
+    const now = new Date().toISOString();
+
+    for (const [, group] of groups) {
+      const roomIds  = Array.from(group.roomIds);
+      const dates    = group.dates.sort();
+      const minDate  = dates[0];
+      const maxDate  = dates[dates.length - 1];
+
+      // Check if dates form a contiguous range for ALL rooms in this group
+      // If yes: one UPDATE with gte/lte range (fastest)
+      // If no: fall back to upsert chunks
+      const isContiguous = rcalIsContiguousRange(roomIds, dates, group.roomIds);
+
+      if (isContiguous) {
+        // Single range UPDATE — 1 request regardless of row count
+        const { error } = await sb.from('room_capacity_calendar')
+          .update({
+            beds_available: group.fields.beds_available,
+            status:         group.fields.status,
+            attributes:     group.fields.attributes || [],
+            updated_at:     now
+          })
+          .eq('company_id', currentCompany.id)
+          .eq('property_uuid', propertyId)
+          .in('room_id', roomIds)
+          .gte('date', minDate)
+          .lte('date', maxDate);
+        if (error) return error;
+      } else {
+        // Scattered selection — upsert in chunks of 500
+        const upsertRows = rows
+          .filter(function(r) { return group.roomIds.has(r.roomId); })
+          .map(function(r) {
+            return Object.assign({
+              company_id:    currentCompany.id,
+              property_uuid: propertyId,
+              property_id:   propertyId,
+              room_id:       r.roomId,
+              date:          r.date,
+              updated_at:    now
+            }, group.fields);
+          });
+        for (let i = 0; i < upsertRows.length; i += 500) {
+          const { error } = await sb.from('room_capacity_calendar')
+            .upsert(upsertRows.slice(i, i + 500), { onConflict: 'company_id,property_uuid,room_id,date' });
+          if (error) return error;
+        }
+      }
+    }
+    return null; // success
+  }
+
+  function rcalIsContiguousRange(roomIds, sortedDates, roomIdSet) {
+    if (sortedDates.length === 0) return false;
+    // All dates must form an unbroken sequence
+    for (let i = 1; i < sortedDates.length; i++) {
+      const prev = new Date(sortedDates[i-1]);
+      const curr = new Date(sortedDates[i]);
+      const diff = (curr - prev) / 86400000;
+      if (diff > 1) return false; // gap in dates
+    }
+    return true;
   }
 
   // ── Inline beds editing ───────────────────────────────────────────
