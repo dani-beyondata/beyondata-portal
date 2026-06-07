@@ -1822,14 +1822,10 @@
     // Room rows
     visibleRooms.forEach(function(room) {
       html += '<tr>';
-      const rowClickable = rcalShowMode === 'beds';
-      html += '<td data-rid="' + room.id + '" data-rname="' + room.room_name.replace(/"/g,'&quot;') + '" ' +
-              (rowClickable ? 'onclick="rcalOpenRowEl(this)" ' : '') +
-              'style="padding:4px 8px;background:var(--white);border:1px solid var(--border);' +
-              'font-weight:500;' + (rowClickable ? 'cursor:pointer;' : '') +
-              'position:sticky;left:0;z-index:1;' +
-              'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:' + NW + 'px" ' +
-              (rowClickable ? 'title="Click to edit entire row"' : '') + '>' + room.room_name + '</td>';
+      html += '<td style="padding:4px 8px;background:var(--white);border:1px solid var(--border);' +
+              'font-weight:500;position:sticky;left:0;z-index:1;' +
+              'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:' + NW + 'px">' +
+              room.room_name + '</td>';
 
       cols.forEach(function(col) {
         const cons    = rcalConsensus(room.id, col.dates);
@@ -1977,15 +1973,16 @@
   // ── Auto-save helper ─────────────────────────────────────────────
   let rcalSaveTimer = null;
 
-  function rcalAutoSave(keys) {
-    // Save specific pending keys immediately, debounced 400ms for rapid clicks
+  function rcalAutoSave(keys, fromCap) {
+    // Debounced save — fromCap=true means read from rcalSaveQueue (toggle modes)
     clearTimeout(rcalSaveTimer);
     rcalSaveTimer = setTimeout(async function() {
       const propertyId = document.getElementById('rcal-property').value;
       if (!propertyId) return;
 
+      const source = fromCap ? rcalSaveQueue : rcalPend;
       const rows = keys
-        .filter(function(k) { return rcalPend[k]; })
+        .filter(function(k) { return source[k]; })
         .map(function(k) {
           const parts = k.split('__');
           return Object.assign({
@@ -1994,46 +1991,52 @@
             property_id:   propertyId,
             room_id:       parts[0],
             date:          parts[1]
-          }, rcalPend[k], { updated_at: new Date().toISOString() });
+          }, source[k], { updated_at: new Date().toISOString() });
         });
 
       if (!rows.length) return;
 
-      // Flash saving indicator
       const indicator = document.getElementById('rcal-saving-indicator');
-      if (indicator) { indicator.style.opacity = '1'; }
+      if (indicator) { indicator.style.opacity = '1'; indicator.textContent = '✓ Saved'; }
 
       const { error } = await sb.from('room_capacity_calendar')
         .upsert(rows, { onConflict: 'company_id,property_uuid,room_id,date' });
 
       if (error) {
         console.error('Auto-save error:', error.message);
-        if (indicator) indicator.textContent = '✗ Error saving';
+        if (indicator) indicator.textContent = '✗ Error';
       } else {
-        // Move saved keys from pending to cap
-        keys.forEach(function(k) {
-          if (rcalPend[k]) { rcalCap[k] = rcalPend[k]; delete rcalPend[k]; }
-        });
+        // Clear from save queue
+        if (fromCap) {
+          keys.forEach(function(k) { delete rcalSaveQueue[k]; });
+        } else {
+          keys.forEach(function(k) { if (rcalPend[k]) { rcalCap[k] = rcalPend[k]; delete rcalPend[k]; } });
+          if (Object.keys(rcalPend).length === 0) {
+            document.getElementById('rcal-save-bar').style.display = 'none';
+          }
+        }
         if (indicator) {
-          indicator.textContent = '✓ Saved';
           setTimeout(function() { indicator.style.opacity = '0'; }, 1200);
         }
-        // Hide save bar if nothing left pending
-        if (Object.keys(rcalPend).length === 0) {
-          document.getElementById('rcal-save-bar').style.display = 'none';
-        }
-        rcalRenderGrid();
       }
-    }, 400);
+    }, 300);
   }
 
-  // Toggle helpers
+  // Toggle helpers — write directly to rcalCap (no pending state, no yellow)
+  let rcalSaveQueue = {}; // separate queue for auto-save, doesn't affect rendering
+
+  function rcalCapSet(roomId, date, fields) {
+    const k = rcalKey(roomId, date);
+    rcalCap[k] = Object.assign({}, rcalCap[k] || { beds_available: 0, status: 'closed', attributes: [] }, fields);
+    rcalSaveQueue[k] = rcalCap[k]; // queue for save
+  }
+
   function rcalToggleStatus(roomId, dates) {
     const current   = rcalGetDay(roomId, dates[0]).status;
     const newStatus = current === 'open' ? 'closed' : 'open';
-    dates.forEach(function(date) { rcalSetDay(roomId, date, { status: newStatus }); });
+    dates.forEach(function(date) { rcalCapSet(roomId, date, { status: newStatus }); });
     rcalRenderGrid();
-    rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }));
+    rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }), true);
   }
 
   function rcalToggleOnlyFemale(roomId, dates) {
@@ -2045,9 +2048,9 @@
     const newVal   = existing ? !existing.value : true;
     const newAttrs = attrs.filter(function(a) { return a.code !== 'ONLY_FEMALE'; });
     newAttrs.push({ code: 'ONLY_FEMALE', value: newVal });
-    dates.forEach(function(date) { rcalSetDay(roomId, date, { attributes: newAttrs }); });
+    dates.forEach(function(date) { rcalCapSet(roomId, date, { attributes: newAttrs }); });
     rcalRenderGrid();
-    rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }));
+    rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }), true);
   }
 
     function rcalSetStatus(s) {
