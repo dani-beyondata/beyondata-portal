@@ -1988,7 +1988,49 @@
   });
 
   function rcalOpenRowEl(el) {
-    rcalOpenRow(el.dataset.rid, el.dataset.rname);
+    const roomId = el.dataset.rid;
+    const name   = el.dataset.rname;
+
+    if (rcalShowMode === 'status') {
+      // Toggle all days in current view for this room
+      const cols = rcalBuildCols();
+      const allDates = [];
+      cols.forEach(function(col) { col.dates.forEach(function(d) { allDates.push(d); }); });
+      // Determine majority status → toggle to opposite
+      const openCount = allDates.filter(function(d) {
+        return rcalGetDay(roomId, d).status === 'open';
+      }).length;
+      const newStatus = openCount > allDates.length / 2 ? 'closed' : 'open';
+      allDates.forEach(function(date) { rcalSetDay(roomId, date, { status: newStatus }); });
+      rcalRenderGrid();
+      return;
+    }
+
+    if (rcalShowMode === 'only_female') {
+      const cols = rcalBuildCols();
+      const allDates = [];
+      cols.forEach(function(col) { col.dates.forEach(function(d) { allDates.push(d); }); });
+      // Check current majority value
+      const femaleCount = allDates.filter(function(d) {
+        const attrs = rcalGetDay(roomId, d).attributes || [];
+        const a = attrs.find(function(x) { return (typeof x === 'object' ? x.code : x) === 'ONLY_FEMALE'; });
+        return a ? (typeof a === 'object' ? a.value : true) : false;
+      }).length;
+      const newVal = femaleCount <= allDates.length / 2;
+      allDates.forEach(function(date) {
+        const day     = rcalGetDay(roomId, date);
+        const attrs   = (day.attributes || []).map(function(a) {
+          return typeof a === 'object' ? a : { code: a, value: true };
+        }).filter(function(a) { return a.code !== 'ONLY_FEMALE'; });
+        attrs.push({ code: 'ONLY_FEMALE', value: newVal });
+        rcalSetDay(roomId, date, { attributes: attrs });
+      });
+      rcalRenderGrid();
+      return;
+    }
+
+    // Beds mode — open row modal
+    rcalOpenRow(roomId, name);
   }
 
   function rcalOpenRow(roomId, roomName) {
