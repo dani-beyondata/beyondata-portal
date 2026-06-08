@@ -346,7 +346,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Beds</th><th>Floor</th><th>Shared</th><th>Female</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Beds</th><th>Attributes</th><th>Status</th><th></th></tr></thead>
             <tbody id="rooms-tbody"></tbody>
           </table>
         </div>
@@ -755,21 +755,8 @@
       <select id="edit-room-category-id"></select>
     </div>
     <div class="field"><label>Beds per room</label><input type="number" id="edit-room-beds" min="1" max="20"></div>
-    <div class="field"><label>Floor</label><input type="text" id="edit-room-floor" placeholder="e.g. 1, Ground, Basement"></div>
-    <div class="field">
-      <label>Shared (guests from different reservations)</label>
-      <div class="toggle-wrap">
-        <button class="toggle-btn" id="edit-room-shared-yes" onclick="setRoomToggle('shared',true)">Yes</button>
-        <button class="toggle-btn" id="edit-room-shared-no"  onclick="setRoomToggle('shared',false)">No</button>
-      </div>
-    </div>
-    <div class="field">
-      <label>Female only</label>
-      <div class="toggle-wrap">
-        <button class="toggle-btn" id="edit-room-female-yes" onclick="setRoomToggle('female',true)">Yes</button>
-        <button class="toggle-btn" id="edit-room-female-no"  onclick="setRoomToggle('female',false)">No</button>
-      </div>
-    </div>
+    <!-- Dynamic constant attributes -->
+    <div id="edit-room-attrs-section"></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-edit-room')">Cancel</button>
       <button class="btn btn-primary" id="btn-update-room">Save changes</button>
@@ -2866,8 +2853,12 @@
   // ── ROOMS ─────────────────────────────────────────────────────────
   let allRoomCategories = [];
 
+  let allRoomAttributes = [];
+
   async function loadRooms() {
     await loadRoomCategories();
+    const { data: attrData } = await Rooms.getAttributeTypes(currentCompany.id);
+    allRoomAttributes = attrData || [];
     await populatePropertyFilter();
     await loadRoomsList();
   }
@@ -2921,27 +2912,52 @@
   async function loadRoomsList() {
     const propertyId = document.getElementById('rooms-property-filter').value;
     if (!propertyId) return;
-    UI.tableLoading('rooms-tbody', 9);
-    const { data } = await Rooms.getByProperty(currentCompany.id, propertyId);
-    const rooms = data || [];
-    document.getElementById('rooms-tbody').innerHTML = rooms.map(r => `
-      <tr>
-        <td>${UI.mono(r.room_code)}</td>
-        <td>${r.room_name}</td>
-        <td>${r.room_categories?.category_name ?? '—'}</td>
-        <td>${r.beds_per_room}</td>
-        <td>${r.floor || '—'}</td>
-        <td>${r.is_shared ? UI.badge('Yes','active') : UI.badge('No','inactive')}</td>
-        <td>${r.only_female ? UI.badge('Yes','admin') : UI.badge('No','inactive')}</td>
-        <td>${UI.statusBadge(r.status === 'active')}</td>
-        <td style="white-space:nowrap">${isAdmin ? `
-          <button class="btn btn-secondary btn-sm" onclick='openEditRoom(${JSON.stringify(r)})'>Edit</button>
-          <button class="btn btn-sm ${r.status === 'active' ? 'btn-danger' : 'btn-secondary'}" style="margin-left:4px"
-            onclick="toggleRoom('${r.id}','${r.status}')">
-            ${r.status === 'active' ? 'Disable' : 'Enable'}
-          </button>` : ''}</td>
-      </tr>
-    `).join('') || '<tr><td colspan="9"><div class="empty-state">No rooms for this property.</div></td></tr>';
+    UI.tableLoading('rooms-tbody', 7);
+    const [roomsRes, attrsRes, roomAttrsRes] = await Promise.all([
+      Rooms.getByProperty(currentCompany.id, propertyId),
+      Rooms.getAttributeTypes(currentCompany.id),
+      sb.from('room_attributes')
+        .select('room_id, value, room_attribute_types(attribute_code, attribute_name, attribute_type)')
+        .eq('company_id', currentCompany.id)
+    ]);
+    const rooms = roomsRes.data || [];
+    const attrTypes = (attrsRes.data || []).filter(function(a) { return !a.is_variable && a.status === 'active'; });
+    // Build lookup: roomId -> {attributeCode: value}
+    const roomAttrMap = {};
+    (roomAttrsRes.data || []).forEach(function(ra) {
+      if (!roomAttrMap[ra.room_id]) roomAttrMap[ra.room_id] = {};
+      const code = ra.room_attribute_types?.attribute_code;
+      if (code) roomAttrMap[ra.room_id][code] = ra.value;
+    });
+    document.getElementById('rooms-tbody').innerHTML = rooms.map(function(r) {
+    const rAttrs = roomAttrMap[r.id] || {};
+    // Build compact attribute pills
+    const attrPills = attrTypes.slice(0,3).map(function(at) {
+      const val = rAttrs[at.attribute_code];
+      if (val === undefined || val === null) return '';
+      if (at.attribute_type === 'boolean') {
+        return val === 'true'
+          ? '<span style="font-size:0.7rem;background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:10px;margin-right:2px">' + at.attribute_name + '</span>'
+          : '';
+      }
+      if (val) return '<span style="font-size:0.7rem;background:var(--bg);color:var(--text-muted);padding:1px 6px;border-radius:10px;border:1px solid var(--border);margin-right:2px">' + at.attribute_name + ': ' + val + '</span>';
+      return '';
+    }).join('');
+
+    return '<tr>' +
+      '<td>' + UI.mono(r.room_code) + '</td>' +
+      '<td>' + r.room_name + '</td>' +
+      '<td>' + (r.room_categories?.category_name ?? '—') + '</td>' +
+      '<td>' + r.beds_per_room + '</td>' +
+      '<td>' + (attrPills || '<span style="color:var(--text-muted);font-size:0.8rem">—</span>') + '</td>' +
+      '<td>' + UI.statusBadge(r.status === 'active') + '</td>' +
+      '<td style="white-space:nowrap">' + (isAdmin
+        ? '<button class="btn btn-secondary btn-sm" onclick='openEditRoom(' + JSON.stringify(r) + ',' + JSON.stringify(rAttrs) + ')'>Edit</button>' +
+          '<button class="btn btn-sm ' + (r.status === 'active' ? 'btn-danger' : 'btn-secondary') + '" style="margin-left:4px" onclick="toggleRoom('' + r.id + '','' + r.status + '')">' +
+          (r.status === 'active' ? 'Disable' : 'Enable') + '</button>'
+        : '') + '</td>' +
+      '</tr>';
+  }).join('') || '<tr><td colspan="7"><div class="empty-state">No rooms for this property.</div></td></tr>';
   }
 
   async function loadRoomAttributes() {
@@ -3039,55 +3055,95 @@
     loadRoomsList();
   }
 
-  let _roomIsShared = false;
-  let _roomIsFemale = false;
+  let _editRoomAttrValues = {}; // current attribute values being edited
 
-  function setRoomToggle(field, value) {
-    if (field === 'shared') {
-      _roomIsShared = value;
-      document.getElementById('edit-room-shared-yes').classList.toggle('active', value);
-      document.getElementById('edit-room-shared-no').classList.toggle('active', !value);
-    } else {
-      _roomIsFemale = value;
-      document.getElementById('edit-room-female-yes').classList.toggle('active', value);
-      document.getElementById('edit-room-female-no').classList.toggle('active', !value);
-    }
-  }
-
-  function openEditRoom(r) {
-    document.getElementById('edit-room-id').value    = r.id;
-    document.getElementById('edit-room-code').value  = r.room_code;
-    document.getElementById('edit-room-name').value  = r.room_name;
-    document.getElementById('edit-room-beds').value  = r.beds_per_room;
-    document.getElementById('edit-room-floor').value = r.floor || '';
+  function openEditRoom(r, rAttrs) {
+    document.getElementById('edit-room-id').value   = r.id;
+    document.getElementById('edit-room-code').value = r.room_code;
+    document.getElementById('edit-room-name').value = r.room_name;
+    document.getElementById('edit-room-beds').value = r.beds_per_room;
+    _editRoomAttrValues = Object.assign({}, rAttrs || {});
 
     const sel = document.getElementById('edit-room-category-id');
     sel.innerHTML = '<option value="">— Select —</option>' +
-      allRoomCategories.map(c =>
-        `<option value="${c.id}" ${r.category_id === c.id ? 'selected' : ''}>${c.category_name}</option>`
-      ).join('');
+      allRoomCategories.map(function(c) {
+        return '<option value="' + c.id + '"' + (r.category_id === c.id ? ' selected' : '') + '>' + c.category_name + '</option>';
+      }).join('');
 
-    setRoomToggle('shared', r.is_shared   || false);
-    setRoomToggle('female', r.only_female || false);
+    // Render dynamic constant attributes
+    const section = document.getElementById('edit-room-attrs-section');
+    const constAttrs = allRoomAttributes.filter(function(a) { return !a.is_variable && a.status === 'active'; });
+    section.innerHTML = constAttrs.map(function(at) {
+      const curVal = _editRoomAttrValues[at.attribute_code];
+      let input = '';
+      if (at.attribute_type === 'boolean') {
+        const isTrue = curVal === 'true';
+        input = '<div class="toggle-wrap">' +
+          '<button class="toggle-btn' + (isTrue ? ' active' : '') + '" onclick="setRoomAttr('' + at.attribute_code + '','true',this)">Yes</button>' +
+          '<button class="toggle-btn' + (!isTrue ? ' active' : '') + '" onclick="setRoomAttr('' + at.attribute_code + '','false',this)">No</button>' +
+          '</div>';
+      } else if (at.attribute_type === 'integer') {
+        input = '<input type="number" min="0" value="' + (curVal || '') + '" ' +
+          'onchange="setRoomAttrVal('' + at.attribute_code + '',this.value)" ' +
+          'style="width:100px">';
+      } else if (at.attribute_type === 'select') {
+        const opts = at.options || [];
+        input = '<select onchange="setRoomAttrVal('' + at.attribute_code + '',this.value)">' +
+          '<option value="">— Select —</option>' +
+          opts.map(function(o) {
+            return '<option value="' + o + '"' + (curVal === o ? ' selected' : '') + '>' + o + '</option>';
+          }).join('') + '</select>';
+      }
+      return '<div class="field"><label>' + at.attribute_name + '</label>' + input + '</div>';
+    }).join('');
+
     UI.hideAlert('edit-room-error');
     UI.openModal('modal-edit-room');
   }
 
-  document.getElementById('btn-update-room').addEventListener('click', async () => {
+  function setRoomAttr(code, value, btn) {
+    _editRoomAttrValues[code] = value;
+    // Update toggle buttons
+    const wrap = btn.parentElement;
+    wrap.querySelectorAll('.toggle-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+  }
+
+  function setRoomAttrVal(code, value) {
+    _editRoomAttrValues[code] = value;
+  }
+
+  document.getElementById('btn-update-room').addEventListener('click', async function() {
     const id          = document.getElementById('edit-room-id').value;
     const room_name   = document.getElementById('edit-room-name').value.trim();
     const category_id = document.getElementById('edit-room-category-id').value || null;
     const beds_per_room = parseInt(document.getElementById('edit-room-beds').value) || 1;
-    const floor       = document.getElementById('edit-room-floor').value.trim() || null;
+
     UI.hideAlert('edit-room-error');
     if (!room_name) { UI.showAlert('edit-room-error', 'Room name is required.'); return; }
     UI.setLoading('btn-update-room', true, 'Save changes');
-    const { error } = await Rooms.update(id, {
-      room_name, category_id, beds_per_room, floor,
-      is_shared: _roomIsShared, only_female: _roomIsFemale
-    });
+
+    // Save core room fields
+    const { error } = await Rooms.update(id, { room_name, category_id, beds_per_room });
+    if (error) { UI.setLoading('btn-update-room', false, 'Save changes'); UI.showAlert('edit-room-error', error.message); return; }
+
+    // Save room attributes — upsert each
+    const attrErrors = [];
+    for (const [code, value] of Object.entries(_editRoomAttrValues)) {
+      const attrType = allRoomAttributes.find(function(a) { return a.attribute_code === code; });
+      if (!attrType) continue;
+      const { error: ae } = await sb.from('room_attributes').upsert({
+        company_id:   currentCompany.id,
+        room_id:      id,
+        attribute_id: attrType.id,
+        value:        String(value),
+        updated_at:   new Date().toISOString()
+      }, { onConflict: 'room_id,attribute_id' });
+      if (ae) attrErrors.push(ae.message);
+    }
+
     UI.setLoading('btn-update-room', false, 'Save changes');
-    if (error) { UI.showAlert('edit-room-error', error.message); return; }
+    if (attrErrors.length) { UI.showAlert('edit-room-error', attrErrors.join(', ')); return; }
     UI.closeModal('modal-edit-room');
     loadRoomsList();
   });
