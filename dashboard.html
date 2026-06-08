@@ -315,8 +315,8 @@
       </div>
       <div class="subtabs">
         <button class="subtab active" onclick="showSubtab('rooms','categories')" id="subtab-rooms-categories">Room Categories</button>
-        <button class="subtab" onclick="showSubtab('rooms','list')" id="subtab-rooms-list">Rooms</button>
         <button class="subtab" onclick="showSubtab('rooms','attributes')" id="subtab-rooms-attributes">Room Attributes</button>
+        <button class="subtab" onclick="showSubtab('rooms','list')" id="subtab-rooms-list">Rooms</button>
         <button class="subtab" onclick="showSubtab('rooms','calendar')" id="subtab-rooms-calendar">Room Calendar</button>
       </div>
 
@@ -360,7 +360,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Options</th><th>Description</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Variable</th><th>Options</th><th>Description</th><th>Status</th><th></th></tr></thead>
             <tbody id="room-attr-tbody"></tbody>
           </table>
         </div>
@@ -788,13 +788,23 @@
       <label>Type</label>
       <select id="rattr-type" onchange="rattrTypeChanged()">
         <option value="boolean">Boolean (Yes / No)</option>
+        <option value="integer">Integer (number)</option>
         <option value="select">Select (dropdown with options)</option>
-        <option value="text">Text (free input)</option>
       </select>
     </div>
     <div class="field" id="rattr-options-field" style="display:none">
       <label>Options <span style="font-size:0.75rem;color:var(--text-muted)">(comma separated)</span></label>
       <input type="text" id="rattr-options" placeholder="e.g. single, double, king">
+    </div>
+    <div class="field">
+      <label>Constant or Variable?</label>
+      <div class="toggle-wrap">
+        <button class="toggle-btn active" id="rattr-var-no"  onclick="rattrVarChanged(false)">Constant (per room)</button>
+        <button class="toggle-btn"        id="rattr-var-yes" onclick="rattrVarChanged(true)">Variable (per day)</button>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.3rem" id="rattr-var-hint">
+        This attribute is a fixed property of the room.
+      </div>
     </div>
     <div class="field"><label>Description (optional)</label><input type="text" id="rattr-desc" placeholder="Brief description"></div>
     <div class="modal-actions">
@@ -2943,12 +2953,15 @@
     }
     const attrs = data || [];
     document.getElementById('room-attr-count').textContent = attrs.length + ' attributes';
-    const TYPE_BADGE = { boolean: 'badge-api', select: 'badge-upload', text: 'badge-user' };
+    const TYPE_BADGE = { boolean: 'badge-api', select: 'badge-upload', integer: 'badge-user' };
     document.getElementById('room-attr-tbody').innerHTML = attrs.map(a => `
       <tr>
         <td>${UI.mono(a.attribute_code)}</td>
         <td>${a.attribute_name}</td>
         <td>${UI.badge(a.attribute_type || 'boolean', TYPE_BADGE[a.attribute_type] || 'badge-user')}</td>
+        <td>${a.is_variable
+          ? '<span style="color:var(--brand);font-size:0.78rem;font-weight:600">Variable</span>'
+          : '<span style="color:var(--text-muted);font-size:0.78rem">Constant</span>'}</td>
         <td style="font-size:0.8rem;color:var(--text-muted)">${a.options ? JSON.parse(JSON.stringify(a.options)).join(', ') : '—'}</td>
         <td style="color:var(--text-muted);font-size:0.82rem">${a.description || '—'}</td>
         <td>${UI.badge(a.status, a.status === 'active' ? 'active' : 'inactive')}</td>
@@ -2956,7 +2969,7 @@
           onclick="toggleRoomAttr('${a.id}','${a.status}')">
           ${a.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
       </tr>
-    `).join('') || '<tr><td colspan="7"><div class="empty-state">No attributes yet.</div></td></tr>';
+    `).join('') || '<tr><td colspan="8"><div class="empty-state">No attributes yet.</div></td></tr>';
   }
 
   async function toggleRoomAttr(id, status) {
@@ -2969,9 +2982,20 @@
 
   document.getElementById('btn-add-room-attr').addEventListener('click', () => UI.openModal('modal-room-attr'));
 
+  let _rattrIsVariable = false;
+
   function rattrTypeChanged() {
     const type = document.getElementById('rattr-type').value;
     document.getElementById('rattr-options-field').style.display = type === 'select' ? 'block' : 'none';
+  }
+
+  function rattrVarChanged(isVar) {
+    _rattrIsVariable = isVar;
+    document.getElementById('rattr-var-no').classList.toggle('active', !isVar);
+    document.getElementById('rattr-var-yes').classList.toggle('active', isVar);
+    document.getElementById('rattr-var-hint').textContent = isVar
+      ? 'This attribute can change day to day (appears in Room Calendar).'
+      : 'This attribute is a fixed property of the room (appears in Rooms tab).';
   }
 
   document.getElementById('btn-save-room-attr').addEventListener('click', async () => {
@@ -2996,7 +3020,7 @@
     UI.setLoading('btn-save-room-attr', true, 'Save');
     const { error } = await sb.from('room_attribute_types').insert({
       company_id: currentCompany.id, attribute_code, attribute_name,
-      attribute_type, options, description, status: 'active'
+      attribute_type, options, description, is_variable: _rattrIsVariable, status: 'active'
     });
     UI.setLoading('btn-save-room-attr', false, 'Save');
     if (error) { UI.showAlert('room-attr-error', error.message); return; }
@@ -3006,6 +3030,7 @@
     });
     document.getElementById('rattr-type').value = 'boolean';
     rattrTypeChanged();
+    rattrVarChanged(false);
     loadRoomAttributes();
   });
 
