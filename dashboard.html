@@ -3084,29 +3084,54 @@
     // Render dynamic constant attributes
     const section = document.getElementById('edit-room-attrs-section');
     const constAttrs = allRoomAttributes.filter(function(a) { return !a.is_variable && a.status === 'active'; });
-    section.innerHTML = constAttrs.map(function(at) {
+    section.innerHTML = '';
+    constAttrs.forEach(function(at) {
       const curVal = _editRoomAttrValues[at.attribute_code];
-      let input = '';
+      const field  = document.createElement('div');
+      field.className = 'field';
+      const label = document.createElement('label');
+      label.textContent = at.attribute_name;
+      field.appendChild(label);
+
       if (at.attribute_type === 'boolean') {
         const isTrue = curVal === 'true';
-        input = '<div class="toggle-wrap">' +
-          '<button class="toggle-btn' + (isTrue ? ' active' : '') + '" onclick="setRoomAttr('' + at.attribute_code + '','true',this)">Yes</button>' +
-          '<button class="toggle-btn' + (!isTrue ? ' active' : '') + '" onclick="setRoomAttr('' + at.attribute_code + '','false',this)">No</button>' +
-          '</div>';
+        const wrap = document.createElement('div');
+        wrap.className = 'toggle-wrap';
+        const btnYes = document.createElement('button');
+        btnYes.className = 'toggle-btn' + (isTrue ? ' active' : '');
+        btnYes.textContent = 'Yes';
+        btnYes.addEventListener('click', function() { setRoomAttr(at.attribute_code, 'true', btnYes); });
+        const btnNo = document.createElement('button');
+        btnNo.className = 'toggle-btn' + (!isTrue ? ' active' : '');
+        btnNo.textContent = 'No';
+        btnNo.addEventListener('click', function() { setRoomAttr(at.attribute_code, 'false', btnNo); });
+        wrap.appendChild(btnYes);
+        wrap.appendChild(btnNo);
+        field.appendChild(wrap);
+
       } else if (at.attribute_type === 'integer') {
-        input = '<input type="number" min="0" value="' + (curVal || '') + '" ' +
-          'onchange="setRoomAttrVal('' + at.attribute_code + '',this.value)" ' +
-          'style="width:100px">';
+        const inp = document.createElement('input');
+        inp.type = 'number'; inp.min = '0'; inp.value = curVal || '';
+        inp.style.width = '100px';
+        inp.addEventListener('change', function() { setRoomAttrVal(at.attribute_code, inp.value); });
+        field.appendChild(inp);
+
       } else if (at.attribute_type === 'select') {
-        const opts = at.options || [];
-        input = '<select onchange="setRoomAttrVal('' + at.attribute_code + '',this.value)">' +
-          '<option value="">— Select —</option>' +
-          opts.map(function(o) {
-            return '<option value="' + o + '"' + (curVal === o ? ' selected' : '') + '>' + o + '</option>';
-          }).join('') + '</select>';
+        const sel = document.createElement('select');
+        const blank = document.createElement('option');
+        blank.value = ''; blank.textContent = '— Select —';
+        sel.appendChild(blank);
+        (at.options || []).forEach(function(o) {
+          const opt = document.createElement('option');
+          opt.value = o; opt.textContent = o;
+          if (curVal === o) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        sel.addEventListener('change', function() { setRoomAttrVal(at.attribute_code, sel.value); });
+        field.appendChild(sel);
       }
-      return '<div class="field"><label>' + at.attribute_name + '</label>' + input + '</div>';
-    }).join('');
+      section.appendChild(field);
+    });
 
     UI.hideAlert('edit-room-error');
     UI.openModal('modal-edit-room');
