@@ -2021,12 +2021,18 @@
               }
             } else if (attrDef.attribute_type === 'integer') {
               const numVals = vals.map(function(v) { return parseInt(v) || 0; });
-              const allSame = numVals.every(function(v) { return v === numVals[0]; });
-              const ratio   = Math.min((numVals[0] || 0) / 10, 1); // scale to 10 as reference
-              bg = 'rgba(245,158,11,' + (0.1 + ratio * 0.7).toFixed(2) + ')';
-              const textColor = ratio > 0.5 ? '#fff' : 'var(--text)';
-              content = '<span style="font-weight:500;font-size:0.78rem;color:' + textColor + '">' +
-                (allSame ? numVals[0] : '<span style="color:#d97706;font-weight:700">~</span>') + '</span>';
+              const allDatesHaveVal = vals.length === col.dates.length;
+              const allSame = allDatesHaveVal && numVals.every(function(v) { return v === numVals[0]; });
+              const isMixed = !allSame; // mixed = different values OR some dates missing the attr
+              if (isMixed) {
+                bg = '#fffbeb'; border = '1px solid #fde68a';
+                content = '<span style="font-weight:700;font-size:0.85rem;color:#d97706">~</span>';
+              } else {
+                const ratio = Math.min((numVals[0] || 0) / 10, 1);
+                bg = 'rgba(245,158,11,' + (0.1 + ratio * 0.7).toFixed(2) + ')';
+                const textColor = ratio > 0.5 ? '#fff' : 'var(--text)';
+                content = '<span style="font-weight:500;font-size:0.78rem;color:' + textColor + '">' + numVals[0] + '</span>';
+              }
             } else if (attrDef.attribute_type === 'select') {
               const allSame = vals.every(function(v) { return v === vals[0]; });
               bg = '#f3f4f6';
@@ -2454,9 +2460,18 @@
     function commit() {
       if (committed) return;
       committed = true;
-      const val = input.type === 'number' ? (parseInt(input.value) || null) : input.value || null;
-      if (val !== null) rcalSetAttrValue(roomId, dates, attrCode, val);
-      else rcalRenderGrid();
+      let val;
+      if (input.type === 'number') {
+        val = input.value.trim() === '' ? null : parseInt(input.value);
+      } else {
+        val = input.value || null;
+      }
+      if (val !== null && !isNaN(val)) {
+        rcalSetAttrValue(roomId, dates, attrCode, val);
+      } else {
+        // Empty → remove attribute from JSONB
+        rcalClearAttrValue(roomId, dates, attrCode);
+      }
     }
 
     input.addEventListener('keydown', function(e) {
@@ -2474,6 +2489,18 @@
         return typeof a === 'object' ? a : { code: a, value: true };
       }).filter(function(a) { return a.code !== attrCode; });
       attrs.push({ code: attrCode, value: value });
+      rcalCapSet(roomId, date, { attributes: attrs });
+    });
+    rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }), true);
+    rcalRenderGrid();
+  }
+
+  function rcalClearAttrValue(roomId, dates, attrCode) {
+    dates.forEach(function(date) {
+      const day   = rcalGetDay(roomId, date) || { beds_available: 0, status: 'open', attributes: [] };
+      const attrs = (day.attributes || []).map(function(a) {
+        return typeof a === 'object' ? a : { code: a, value: true };
+      }).filter(function(a) { return a.code !== attrCode; }); // remove entirely
       rcalCapSet(roomId, date, { attributes: attrs });
     });
     rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }), true);
