@@ -3114,9 +3114,8 @@
 
   function setRoomAttr(code, value, btn) {
     _editRoomAttrValues[code] = value;
-    // Update toggle buttons
-    const wrap = btn.parentElement;
-    wrap.querySelectorAll('.toggle-btn').forEach(function(b) { b.classList.remove('active'); });
+    const wrap = btn.closest('.toggle-wrap');
+    if (wrap) wrap.querySelectorAll('.toggle-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
   }
 
