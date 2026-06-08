@@ -734,7 +734,7 @@
 
 <!-- Modal: Edit room -->
 <div class="modal-overlay" id="modal-edit-room">
-  <div class="modal">
+  <div class="modal" style="max-height:88vh;overflow-y:auto">
     <h3>Edit room</h3>
     <div class="alert error" id="edit-room-error"></div>
     <input type="hidden" id="edit-room-id">
@@ -2053,32 +2053,42 @@
       html += '</tr>';
     });
 
-    // Totals row
+    // Totals row — only meaningful in Beds mode
+    const totalsLabel = rcalShowMode === 'beds'
+      ? (rcalView === 'day' ? 'TOTAL BEDS' : 'AVG BEDS')
+      : null;
     html += '<tr><td style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);' +
             'font-weight:600;font-size:0.72rem;color:var(--text-muted);position:sticky;left:0;z-index:1">' +
-            (rcalView === 'day' ? 'TOTAL BEDS' : 'AVG BEDS') + '</td>';
-    cols.forEach(function(col, ci) {
-      const tot  = colTotals[ci];
-      const max  = colMaxes[ci];
-      const over = max > 0 && tot > max;
-      const eq   = max > 0 && tot === max;
-      const bg   = over ? '#fff0f0' : eq ? '#f0fdf4' : 'var(--bg)';
-      const col2 = over ? 'var(--error)' : eq ? 'var(--success)' : 'var(--text-muted)';
-      html += '<td style="padding:3px 1px;text-align:center;background:' + bg + ';' +
-              'border:1px solid var(--border);font-weight:600;color:' + col2 + ';font-size:0.72rem">' +
-              tot + '</td>';
-    });
-    html += '</tr>';
-
-    // Max row
-    html += '<tr><td style="padding:3px 8px;background:var(--bg);border:1px solid var(--border);' +
-            'font-size:0.68rem;color:var(--text-muted);position:sticky;left:0;z-index:1">MAX</td>';
-    cols.forEach(function(col, ci) {
-      html += '<td style="padding:3px 1px;text-align:center;background:var(--bg);' +
-              'border:1px solid var(--border);font-size:0.68rem;color:var(--text-muted)">' +
-              (colMaxes[ci]||'?') + '</td>';
-    });
-    html += '</tr></tbody></table>';
+            (totalsLabel || '') + '</td>';
+    if (rcalShowMode === 'beds') {
+      cols.forEach(function(col, ci) {
+        const tot  = colTotals[ci];
+        const max  = colMaxes[ci];
+        const over = max > 0 && tot > max;
+        const eq   = max > 0 && tot === max;
+        const bg   = over ? '#fff0f0' : eq ? '#f0fdf4' : 'var(--bg)';
+        const col2 = over ? 'var(--error)' : eq ? 'var(--success)' : 'var(--text-muted)';
+        html += '<td style="padding:3px 1px;text-align:center;background:' + bg + ';' +
+                'border:1px solid var(--border);font-weight:600;color:' + col2 + ';font-size:0.72rem">' +
+                tot + '</td>';
+      });
+      html += '</tr>';
+      // Max row
+      html += '<tr><td style="padding:3px 8px;background:var(--bg);border:1px solid var(--border);' +
+              'font-size:0.68rem;color:var(--text-muted);position:sticky;left:0;z-index:1">MAX</td>';
+      cols.forEach(function(col, ci) {
+        html += '<td style="padding:3px 1px;text-align:center;background:var(--bg);' +
+                'border:1px solid var(--border);font-size:0.68rem;color:var(--text-muted)">' +
+                (colMaxes[ci]||'?') + '</td>';
+      });
+      html += '</tr>';
+    } else {
+      cols.forEach(function() {
+        html += '<td style="background:var(--bg);border:1px solid var(--border)"></td>';
+      });
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
 
     document.getElementById('rcal-grid').innerHTML = html;
   }
@@ -2093,13 +2103,15 @@
       rcalToggleStatus(roomId, dates);
       return;
     }
-    if (rcalShowMode === 'only_female') {
-      rcalToggleOnlyFemale(roomId, dates);
+
+    // Variable attribute mode — open cell modal to edit JSONB
+    const isSystemMode = rcalShowMode === 'beds' || rcalShowMode === 'status';
+    if (!isSystemMode) {
+      rcalOpenAttrEdit(el, roomId, dates, rcalShowMode);
       return;
     }
 
     // Beds mode
-    // If drag just finished over multiple cells, suppress inline edit — keep selection
     if (rcalDragMoved) {
       rcalDragMoved = false;
       return;
@@ -2388,6 +2400,84 @@
     const color = ratio > 0.5 ? '#fff' : 'var(--text)';
     el.innerHTML = '<span style="font-weight:500;font-size:0.78rem;color:' + color + '">' +
                    (beds || '—') + '</span>';
+  }
+
+  // ── Variable attribute cell editor ───────────────────────────────
+  function rcalOpenAttrEdit(el, roomId, dates, attrCode) {
+    const attrDef = (rcalAttrs || []).find(function(a) { return a.attribute_code === attrCode; });
+    if (!attrDef) return;
+
+    const day     = rcalGetDay(roomId, dates[0]);
+    const attrs   = (day.attributes || []);
+    const existing = attrs.find(function(a) { return (typeof a === 'object' ? a.code : a) === attrCode; });
+    const curVal  = existing ? (typeof existing === 'object' ? existing.value : true) : null;
+
+    // Build inline input directly on the cell
+    el.innerHTML = '';
+    el.style.padding = '0';
+    el.style.outline = '2px solid var(--brand)';
+
+    let input;
+    if (attrDef.attribute_type === 'boolean') {
+      // Just toggle directly
+      const newVal = !(curVal === true || curVal === 'true');
+      rcalSetAttrValue(roomId, dates, attrCode, newVal);
+      return;
+    } else if (attrDef.attribute_type === 'integer') {
+      input = document.createElement('input');
+      input.type = 'number'; input.min = '0';
+      input.value = curVal !== null ? curVal : '';
+      input.style.cssText = 'width:100%;height:100%;min-height:32px;padding:2px 4px;' +
+        'border:none;background:var(--brand-light);font-size:0.82rem;font-weight:600;' +
+        'text-align:center;outline:none;box-sizing:border-box;';
+    } else if (attrDef.attribute_type === 'select') {
+      input = document.createElement('select');
+      input.style.cssText = 'width:100%;height:100%;min-height:32px;padding:2px;' +
+        'border:none;background:var(--brand-light);font-size:0.8rem;outline:none;';
+      const blank = document.createElement('option');
+      blank.value = ''; blank.textContent = '—';
+      input.appendChild(blank);
+      (attrDef.options || []).forEach(function(o) {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o;
+        if (String(curVal) === o) opt.selected = true;
+        input.appendChild(opt);
+      });
+    }
+
+    if (!input) return;
+    el.appendChild(input);
+    input.focus();
+    if (input.select) input.select();
+
+    var committed = false;
+    function commit() {
+      if (committed) return;
+      committed = true;
+      const val = input.type === 'number' ? (parseInt(input.value) || null) : input.value || null;
+      if (val !== null) rcalSetAttrValue(roomId, dates, attrCode, val);
+      else rcalRenderGrid();
+    }
+
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === 'Escape') { commit(); }
+      if (e.key === 'Tab') { e.preventDefault(); commit(); }
+    });
+    input.addEventListener('blur', function() { setTimeout(commit, 100); });
+    if (input.tagName === 'SELECT') input.addEventListener('change', function() { commit(); });
+  }
+
+  function rcalSetAttrValue(roomId, dates, attrCode, value) {
+    dates.forEach(function(date) {
+      const day   = rcalGetDay(roomId, date) || { beds_available: 0, status: 'open', attributes: [] };
+      const attrs = (day.attributes || []).map(function(a) {
+        return typeof a === 'object' ? a : { code: a, value: true };
+      }).filter(function(a) { return a.code !== attrCode; });
+      attrs.push({ code: attrCode, value: value });
+      rcalCapSet(roomId, date, { attributes: attrs });
+    });
+    rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }), true);
+    rcalRenderGrid();
   }
 
   // Toggle helpers — write directly to rcalCap (no pending state, no yellow)
@@ -2961,16 +3051,20 @@
       Rooms.getByProperty(currentCompany.id, propertyId),
       Rooms.getAttributeTypes(currentCompany.id),
       sb.from('room_attributes')
-        .select('room_id, value, room_attribute_types(attribute_code, attribute_name, attribute_type)')
+        .select('room_id, attribute_id, value')
         .eq('company_id', currentCompany.id)
     ]);
-    const rooms = roomsRes.data || [];
-    const attrTypes = (attrsRes.data || []).filter(function(a) { return !a.is_variable && a.status === 'active'; });
+    const rooms    = roomsRes.data || [];
+    const allAttrs = attrsRes.data || [];
+    const attrTypes = allAttrs.filter(function(a) { return !a.is_variable && a.status === 'active'; });
+    // Build attribute_id -> code lookup
+    const attrIdToCode = {};
+    allAttrs.forEach(function(a) { attrIdToCode[a.id] = a.attribute_code; });
     // Build lookup: roomId -> {attributeCode: value}
     const roomAttrMap = {};
     (roomAttrsRes.data || []).forEach(function(ra) {
       if (!roomAttrMap[ra.room_id]) roomAttrMap[ra.room_id] = {};
-      const code = ra.room_attribute_types?.attribute_code;
+      const code = attrIdToCode[ra.attribute_id];
       if (code) roomAttrMap[ra.room_id][code] = ra.value;
     });
     // Store room data keyed by id for safe onclick lookup
