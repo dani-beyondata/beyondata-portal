@@ -406,20 +406,10 @@
           <div id="rcal-room-chips" style="display:flex;flex-wrap:wrap;gap:0.3rem"></div>
         </div>
 
-        <!-- Filter: Show mode -->
+        <!-- Filter: Show mode (auto-generated from system + variable attributes) -->
         <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
           <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600;min-width:44px">Show:</span>
-          <div style="display:flex;gap:0.3rem">
-            <button class="rcal-show-btn active" id="rcal-show-status"      data-show="status">
-              <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#22c55e;margin-right:4px"></span>Status
-            </button>
-            <button class="rcal-show-btn" id="rcal-show-beds"        data-show="beds">
-              <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#3D65A8;margin-right:4px"></span>Beds
-            </button>
-            <button class="rcal-show-btn" id="rcal-show-only_female" data-show="only_female">
-              <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ec4899;margin-right:4px"></span>Only Female
-            </button>
-          </div>
+          <div id="rcal-show-btns" style="display:flex;gap:0.3rem;flex-wrap:wrap"></div>
         </div>
 
         <!-- Grid -->
@@ -1706,6 +1696,7 @@
     rcalUpdateYearSel();
     rcalUpdatePeriodLabel();
     rcalRenderChips();
+    rcalRenderShowButtons();
     const yrSelEl = document.getElementById('rcal-year');
     if (yrSelEl) yrSelEl.style.display = rcalView === 'month' ? 'inline-block' : 'none';
     rcalRenderGrid();
@@ -1717,12 +1708,48 @@
     if (yrSel) yrSel.value = rcalYear;
   }
 
+  // System show modes always present
+  const RCAL_SYSTEM_MODES = [
+    { id: 'status', label: 'Status',        color: '#22c55e' },
+    { id: 'beds',   label: 'Beds',          color: '#3D65A8' }
+  ];
+
+  function rcalRenderShowButtons() {
+    const container = document.getElementById('rcal-show-btns');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // System modes
+    RCAL_SYSTEM_MODES.forEach(function(m) {
+      const btn = document.createElement('button');
+      btn.className = 'rcal-show-btn' + (rcalShowMode === m.id ? ' active' : '');
+      btn.id = 'rcal-show-' + m.id;
+      btn.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;' +
+        'background:' + m.color + ';margin-right:4px"></span>' + m.label;
+      btn.addEventListener('click', function() { rcalSetShow(m.id); });
+      container.appendChild(btn);
+    });
+
+    // Variable attributes — auto-generated
+    const varAttrs = (rcalAttrs || []).filter(function(a) { return a.is_variable && a.status === 'active'; });
+    varAttrs.forEach(function(a) {
+      const btn = document.createElement('button');
+      btn.className = 'rcal-show-btn' + (rcalShowMode === a.attribute_code ? ' active' : '');
+      btn.id = 'rcal-show-' + a.attribute_code;
+      // Pick a colour based on type
+      const color = a.attribute_type === 'boolean' ? '#ec4899'
+                  : a.attribute_type === 'integer' ? '#f59e0b'
+                  : '#8b5cf6';
+      btn.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;' +
+        'background:' + color + ';margin-right:4px"></span>' + a.attribute_name;
+      btn.addEventListener('click', function() { rcalSetShow(a.attribute_code); });
+      container.appendChild(btn);
+    });
+  }
+
   function rcalSetShow(mode) {
     rcalShowMode = mode;
-    ['status','beds','only_female'].forEach(function(m) {
-      const btn = document.getElementById('rcal-show-' + m);
-      if (btn) btn.classList.toggle('active', m === mode);
-    });
+    rcalRenderShowButtons(); // re-render to update active state
     rcalRenderGrid();
   }
 
@@ -1963,27 +1990,47 @@
             const textColor = ratio > 0.5 ? '#fff' : 'var(--text)';
             content = '<span style="font-weight:500;font-size:0.78rem;color:' + textColor + '">' + beds + '</span>';
           }
-        } else if (rcalShowMode === 'only_female') {
-          if (isUnset || isClosed) {
+        } else {
+          // Variable attribute show mode — generic handler
+          const attrDef = (rcalAttrs || []).find(function(a) { return a.attribute_code === rcalShowMode; });
+          if (!attrDef) {
+            bg = '#f4f6fb'; content = '';
+          } else if (isUnset || isClosed) {
             bg = isUnset ? '#f4f6fb' : '#e5e7eb';
-            border = '1px solid #e5e7eb';
-            content = '';
+            border = '1px solid #e5e7eb'; content = '';
           } else {
-            // Check ONLY_FEMALE across all dates in col — show partial if mixed
-            const femaleCount = col.dates.filter(function(dt) {
+            // Get attribute values across all dates in col
+            const vals = col.dates.map(function(dt) {
               const dayVal = rcalGetDay(room.id, dt);
               const attrs  = dayVal.attributes || [];
-              const attr   = attrs.find(function(a) { return (typeof a === 'object' ? a.code : a) === 'ONLY_FEMALE'; });
-              return attr ? (typeof attr === 'object' ? attr.value : true) : false;
-            }).length;
-            if (femaleCount === col.dates.length) {
-              bg = '#dcfce7'; border = '1px solid #86efac'; content = ''; // all female
-            } else if (femaleCount === 0) {
-              bg = '#fee2e2'; border = '1px solid #fca5a5'; content = ''; // none female
-            } else {
-              bg = 'repeating-linear-gradient(45deg,#dcfce7,#dcfce7 4px,#fee2e2 4px,#fee2e2 8px)';
-              border = '1px solid #d1d5db';
-              content = '<span style="font-size:0.65rem;color:#6b7280">' + femaleCount + '/' + col.dates.length + '</span>';
+              const attr   = attrs.find(function(a) { return (typeof a === 'object' ? a.code : a) === rcalShowMode; });
+              return attr ? (typeof attr === 'object' ? attr.value : true) : null;
+            }).filter(function(v) { return v !== null; });
+
+            if (vals.length === 0) {
+              bg = '#f4f6fb'; border = '1px solid #e5e7eb'; content = '';
+            } else if (attrDef.attribute_type === 'boolean') {
+              const trueCount = vals.filter(function(v) { return v === true || v === 'true'; }).length;
+              if (trueCount === vals.length) {
+                bg = '#dcfce7'; border = '1px solid #86efac'; content = '';
+              } else if (trueCount === 0) {
+                bg = '#fee2e2'; border = '1px solid #fca5a5'; content = '';
+              } else {
+                bg = 'repeating-linear-gradient(45deg,#dcfce7,#dcfce7 4px,#fee2e2 4px,#fee2e2 8px)';
+                content = '<span style="font-size:0.65rem;color:#6b7280">' + trueCount + '/' + vals.length + '</span>';
+              }
+            } else if (attrDef.attribute_type === 'integer') {
+              const numVals = vals.map(function(v) { return parseInt(v) || 0; });
+              const allSame = numVals.every(function(v) { return v === numVals[0]; });
+              const ratio   = Math.min((numVals[0] || 0) / 10, 1); // scale to 10 as reference
+              bg = 'rgba(245,158,11,' + (0.1 + ratio * 0.7).toFixed(2) + ')';
+              const textColor = ratio > 0.5 ? '#fff' : 'var(--text)';
+              content = '<span style="font-weight:500;font-size:0.78rem;color:' + textColor + '">' +
+                (allSame ? numVals[0] : '<span style="color:#d97706;font-weight:700">~</span>') + '</span>';
+            } else if (attrDef.attribute_type === 'select') {
+              const allSame = vals.every(function(v) { return v === vals[0]; });
+              bg = '#f3f4f6';
+              content = '<span style="font-size:0.7rem;color:var(--text)">' + (allSame ? vals[0] : '~') + '</span>';
             }
           }
         }
@@ -2580,10 +2627,7 @@
     btn.addEventListener('click', function() { rcalSetView(btn.dataset.view); });
   });
 
-  // Wire show mode buttons
-  document.querySelectorAll('[data-show]').forEach(function(btn) {
-    btn.addEventListener('click', function() { rcalSetShow(btn.dataset.show); });
-  });
+  // Show buttons wired dynamically in rcalRenderShowButtons
 
   document.getElementById('btn-rcal-save').addEventListener('click', async function() {
     const propertyId = document.getElementById('rcal-property').value;
