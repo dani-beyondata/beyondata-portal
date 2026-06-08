@@ -2929,9 +2929,13 @@
       const code = ra.room_attribute_types?.attribute_code;
       if (code) roomAttrMap[ra.room_id][code] = ra.value;
     });
-    document.getElementById('rooms-tbody').innerHTML = rooms.map(function(r) {
+    // Store room data keyed by id for safe onclick lookup
+  window._rcalRoomMap = {};
+  window._rcalRoomAttrMap = roomAttrMap;
+  rooms.forEach(function(r) { window._rcalRoomMap[r.id] = r; });
+
+  document.getElementById('rooms-tbody').innerHTML = rooms.map(function(r) {
     const rAttrs = roomAttrMap[r.id] || {};
-    // Build compact attribute pills
     const attrPills = attrTypes.slice(0,3).map(function(at) {
       const val = rAttrs[at.attribute_code];
       if (val === undefined || val === null) return '';
@@ -2952,8 +2956,8 @@
       '<td>' + (attrPills || '<span style="color:var(--text-muted);font-size:0.8rem">—</span>') + '</td>' +
       '<td>' + UI.statusBadge(r.status === 'active') + '</td>' +
       '<td style="white-space:nowrap">' + (isAdmin
-        ? '<button class="btn btn-secondary btn-sm" onclick='openEditRoom(' + JSON.stringify(r) + ',' + JSON.stringify(rAttrs) + ')'>Edit</button>' +
-          '<button class="btn btn-sm ' + (r.status === 'active' ? 'btn-danger' : 'btn-secondary') + '" style="margin-left:4px" onclick="toggleRoom('' + r.id + '','' + r.status + '')">' +
+        ? '<button class="btn btn-secondary btn-sm" data-room-id="' + r.id + '" onclick="openEditRoomById(this.dataset.roomId)">Edit</button>' +
+          '<button class="btn btn-sm ' + (r.status === 'active' ? 'btn-danger' : 'btn-secondary') + '" style="margin-left:4px" data-room-id="' + r.id + '" data-room-status="' + r.status + '" onclick="toggleRoom(this.dataset.roomId,this.dataset.roomStatus)">' +
           (r.status === 'active' ? 'Disable' : 'Enable') + '</button>'
         : '') + '</td>' +
       '</tr>';
@@ -3056,6 +3060,13 @@
   }
 
   let _editRoomAttrValues = {}; // current attribute values being edited
+
+  function openEditRoomById(roomId) {
+    const r     = window._rcalRoomMap[roomId];
+    const rAttrs = (window._rcalRoomAttrMap || {})[roomId] || {};
+    if (!r) return;
+    openEditRoom(r, rAttrs);
+  }
 
   function openEditRoom(r, rAttrs) {
     document.getElementById('edit-room-id').value   = r.id;
