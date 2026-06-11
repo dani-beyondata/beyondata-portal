@@ -2980,9 +2980,10 @@
   }
 
   async function saveAvailability() {
-    const propertyId = document.getElementById('avail-property-filter').value;
+    const propertyId   = document.getElementById('avail-property-filter').value; // UUID
+    const propertySlug = window._availPropertySlugMap?.[propertyId] || '';
     const rows = Object.entries(availPending).map(([date, fields]) => ({
-      company_id: currentCompany.id, property_uuid: propertyId, property_id: propertyId, date, ...fields,
+      company_id: currentCompany.id, property_uuid: propertyId, property_slug: propertySlug, date, ...fields,
       updated_at: new Date().toISOString()
     }));
     const btn = document.querySelector('#avail-save-bar button');
@@ -2997,6 +2998,8 @@
     await fetchAndRenderMonth();
   }
 
+  window._availPropertySlugMap = window._availPropertySlugMap || {};
+
   async function initAvailabilitySection() {
     const { data } = await Properties.getByCompany(currentCompany.id);
     const sel = document.getElementById('avail-property-filter');
@@ -3006,6 +3009,7 @@
         opt.value = p.id;
         opt.textContent = `${p.property_name} (${p.property_id})`;
         sel.appendChild(opt);
+        window._availPropertySlugMap[p.id] = p.property_id; // uuid -> slug
       });
     }
     await loadAvailability();
