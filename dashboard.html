@@ -1137,18 +1137,21 @@
   // ── SETTINGS ──────────────────────────────────────────────────────
   async function loadSettings() {
     const { data: params } = await Params.getAll(currentCompany.id);
+    const mode = params.occupancy_mode || 'both';
 
     document.getElementById('params-list').innerHTML = `
       <div class="param-row">
         <div class="param-info">
           <h4>Occupancy Mode</h4>
-          <p>Whether metrics are calculated per room or per bed.</p>
+          <p>Which metrics are shown in Power BI reports — per room, per bed, or both.</p>
         </div>
         <div class="toggle-wrap">
-          <button class="toggle-btn ${params.occupancy_mode === 'rooms' ? 'active' : ''}"
+          <button class="toggle-btn ${mode === 'rooms' ? 'active' : ''}"
             ${isAdmin ? `onclick="setParam('occupancy_mode','rooms')"` : 'disabled'}>Rooms</button>
-          <button class="toggle-btn ${params.occupancy_mode === 'beds' ? 'active' : ''}"
+          <button class="toggle-btn ${mode === 'beds' ? 'active' : ''}"
             ${isAdmin ? `onclick="setParam('occupancy_mode','beds')"` : 'disabled'}>Beds</button>
+          <button class="toggle-btn ${mode === 'both' ? 'active' : ''}"
+            ${isAdmin ? `onclick="setParam('occupancy_mode','both')"` : 'disabled'}>Both</button>
         </div>
       </div>
     `;
