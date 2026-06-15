@@ -40,7 +40,6 @@
     <div class="nav-section">
       <div class="nav-section-label">Catalogs</div>
       <div class="nav-item" data-section="channels"><span class="nav-icon">⊹</span>Channels</div>
-      <div class="nav-item" data-section="otas"><span class="nav-icon">✈</span>OTAs</div>
       <div class="nav-item" data-section="segments"><span class="nav-icon">◑</span>Segments</div>
       <div class="nav-item" data-section="purposes"><span class="nav-icon">◇</span>Booking Purposes</div>
       <div class="nav-item" data-section="markets"><span class="nav-icon">⊕</span>Markets</div>
@@ -525,37 +524,41 @@
     <div class="section" id="section-channels">
       <div class="section-header">
         <h2>Channels</h2>
-        <p>Distribution channels and cost configuration.</p>
+        <p>Distribution channels, cost configuration and OTA naming.</p>
       </div>
-      <div class="action-bar">
-        <h3 id="channels-count"></h3>
-        <button class="btn btn-primary" id="btn-add-channel">+ Add channel</button>
+      <div class="subtabs">
+        <button class="subtab active" onclick="showSubtab('channels','list')" id="subtab-channels-list">Channels</button>
+        <button class="subtab" onclick="showSubtab('channels','otas')" id="subtab-channels-otas">OTAs</button>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th>Code</th><th>Name</th><th>Type</th><th>Subtype</th><th>Avg Cost %</th><th>Status</th><th></th>
-          </tr></thead>
-          <tbody id="channels-tbody"></tbody>
-        </table>
-      </div>
-    </div>
 
-    <!-- OTAS -->
-    <div class="section" id="section-otas">
-      <div class="section-header">
-        <h2>OTAs</h2>
-        <p>Online travel agencies and their display names for reporting.</p>
+      <!-- Channels list subpage -->
+      <div class="subpage active" id="subpage-channels-list">
+        <div class="action-bar">
+          <h3 id="channels-count"></h3>
+          <button class="btn btn-primary" id="btn-add-channel">+ Add channel</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Code</th><th>Name</th><th>Type</th><th>Subtype</th><th>Avg Cost %</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="channels-tbody"></tbody>
+          </table>
+        </div>
       </div>
-      <div class="action-bar">
-        <h3 id="otas-count"></h3>
-        <button class="btn btn-primary" id="btn-add-ota">+ Add OTA</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>OTA ID</th><th>OTA Name</th><th></th></tr></thead>
-          <tbody id="otas-tbody"></tbody>
-        </table>
+
+      <!-- OTAs subpage -->
+      <div class="subpage" id="subpage-channels-otas">
+        <div class="action-bar">
+          <h3 id="otas-count"></h3>
+          <button class="btn btn-primary" id="btn-add-ota">+ Add OTA</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>OTA ID</th><th>OTA Name</th><th></th></tr></thead>
+            <tbody id="otas-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -985,7 +988,7 @@
       if (navItem) navItem.classList.add('active');
       document.getElementById('section-' + savedSection).classList.add('active');
       const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings,
-        channels: loadChannels, otas: loadOtas, segments: loadSegments, purposes: loadPurposes,
+        channels: loadChannels, segments: loadSegments, purposes: loadPurposes,
         markets: loadMarkets, extras: loadExtras, rooms: loadRooms,
         availability: initAvailabilitySection, countries: loadCountries,
         users: loadUsers, company: loadCompany };
@@ -1048,7 +1051,7 @@
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
       hashSet({ section: s, property: null });
-      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, otas: loadOtas, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany };
+      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany };
       loaders[s]?.();
     });
   });
@@ -1545,6 +1548,10 @@
       if (tab === 'list')       loadRoomsList();
       if (tab === 'attributes') loadRoomAttributes();
       if (tab === 'calendar')   rcalInit();
+    }
+    if (section === 'channels') {
+      if (tab === 'list') loadChannels();
+      if (tab === 'otas') loadOtas();
     }
   }
 
@@ -3755,7 +3762,7 @@
     const sectionEl = document.getElementById(`section-${section}`);
     if (sectionEl) sectionEl.classList.add('active');
     hashSet({ section: section });
-    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, otas: loadOtas, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany };
+    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany };
     loaders[section]?.();
     window.scrollTo(0, 0);
   }
