@@ -40,6 +40,7 @@
     <div class="nav-section">
       <div class="nav-section-label">Catalogs</div>
       <div class="nav-item" data-section="channels"><span class="nav-icon">⊹</span>Channels</div>
+      <div class="nav-item" data-section="otas"><span class="nav-icon">✈</span>OTAs</div>
       <div class="nav-item" data-section="segments"><span class="nav-icon">◑</span>Segments</div>
       <div class="nav-item" data-section="purposes"><span class="nav-icon">◇</span>Booking Purposes</div>
       <div class="nav-item" data-section="markets"><span class="nav-icon">⊕</span>Markets</div>
@@ -533,9 +534,27 @@
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>Code</th><th>Name</th><th>Type</th><th>Avg Cost %</th><th>Status</th><th></th>
+            <th>Code</th><th>Name</th><th>Type</th><th>Subtype</th><th>Avg Cost %</th><th>Status</th><th></th>
           </tr></thead>
           <tbody id="channels-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- OTAS -->
+    <div class="section" id="section-otas">
+      <div class="section-header">
+        <h2>OTAs</h2>
+        <p>Online travel agencies and their display names for reporting.</p>
+      </div>
+      <div class="action-bar">
+        <h3 id="otas-count"></h3>
+        <button class="btn btn-primary" id="btn-add-ota">+ Add OTA</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>OTA ID</th><th>OTA Name</th><th></th></tr></thead>
+          <tbody id="otas-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -849,16 +868,16 @@
   </div>
 </div>
 
-<!-- Modal: Add channel -->
+<!-- Modal: Add/Edit channel -->
 <div class="modal-overlay" id="modal-channel">
   <div class="modal">
-    <h3>Add channel</h3>
+    <h3 id="channel-modal-title">Add channel</h3>
     <div class="alert error" id="channel-error"></div>
     <div class="field"><label>Channel code</label><input type="number" id="ch-code" placeholder="11"></div>
     <div class="field"><label>Channel name</label><input type="text" id="ch-name" placeholder="e.g. Airbnb"></div>
     <div class="field">
-      <label>Type</label>
-      <select id="ch-type">
+      <label>Subtype</label>
+      <select id="ch-subtype">
         <option value="direct">Direct</option>
         <option value="ota">OTA</option>
         <option value="gds">GDS</option>
@@ -867,11 +886,26 @@
         <option value="corporate">Corporate</option>
         <option value="events">Events</option>
       </select>
+      <p class="field-hint">Type (Direct/Indirect) is derived automatically from the subtype.</p>
     </div>
     <div class="field"><label>Avg cost % (e.g. 0.15 for 15%)</label><input type="number" id="ch-cost" placeholder="0.15" step="0.01" min="0" max="1"></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-channel')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-channel">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add/Edit OTA -->
+<div class="modal-overlay" id="modal-ota">
+  <div class="modal">
+    <h3 id="ota-modal-title">Add OTA</h3>
+    <div class="alert error" id="ota-error"></div>
+    <div class="field"><label>OTA ID</label><input type="text" id="ota-id-input" placeholder="e.g. booking_com"></div>
+    <div class="field"><label>OTA Name</label><input type="text" id="ota-name-input" placeholder="e.g. Booking.com"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-ota')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-ota">Save</button>
     </div>
   </div>
 </div>
@@ -885,6 +919,7 @@
 <script src="js/companies.js"></script>
 <script src="js/properties.js"></script>
 <script src="js/channels.js"></script>
+<script src="js/otas.js"></script>
 <script src="js/users.js"></script>
 <script src="js/params.js"></script>
 <script src="js/segments.js"></script>
@@ -950,7 +985,7 @@
       if (navItem) navItem.classList.add('active');
       document.getElementById('section-' + savedSection).classList.add('active');
       const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings,
-        channels: loadChannels, segments: loadSegments, purposes: loadPurposes,
+        channels: loadChannels, otas: loadOtas, segments: loadSegments, purposes: loadPurposes,
         markets: loadMarkets, extras: loadExtras, rooms: loadRooms,
         availability: initAvailabilitySection, countries: loadCountries,
         users: loadUsers, company: loadCompany };
@@ -1013,7 +1048,7 @@
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
       hashSet({ section: s, property: null });
-      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany };
+      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, otas: loadOtas, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany };
       loaders[s]?.();
     });
   });
@@ -1165,24 +1200,27 @@
 
   // ── CHANNELS ──────────────────────────────────────────────────────
   async function loadChannels() {
-    UI.tableLoading('channels-tbody', 6);
+    UI.tableLoading('channels-tbody', 7);
     const { data, error } = await Channels.getByCompany(currentCompany.id);
 
     if (error || !data?.length) {
-      UI.tableEmpty('channels-tbody', 6, 'No channels yet.');
+      UI.tableEmpty('channels-tbody', 7, 'No channels yet.');
       document.getElementById('channels-count').textContent = '0 channels';
       return;
     }
 
+    window._channelsData = data;
     document.getElementById('channels-count').textContent = `${data.length} channels`;
     document.getElementById('channels-tbody').innerHTML = data.map(c => `
       <tr>
         <td>${UI.mono(c.channel_code)}</td>
         <td>${c.channel_name}</td>
         <td>${c.channel_type}</td>
+        <td>${c.channel_subtype}</td>
         <td>${(c.avg_cost_pct * 100).toFixed(0)}%</td>
         <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
-        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleChannel('${c.id}','${c.status}')">
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="editChannel('${c.id}')">Edit</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleChannel('${c.id}','${c.status}')">
           ${c.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
       </tr>
     `).join('');
@@ -1193,13 +1231,37 @@
     loadChannels();
   }
 
-  document.getElementById('btn-add-channel').addEventListener('click', () => UI.openModal('modal-channel'));
+  function editChannel(id) {
+    const c = (window._channelsData || []).find(x => x.id === id);
+    if (!c) return;
+    window._editingChannelId = id;
+    document.getElementById('channel-modal-title').textContent = 'Edit channel';
+    document.getElementById('ch-code').value = c.channel_code;
+    document.getElementById('ch-name').value = c.channel_name;
+    document.getElementById('ch-subtype').value = c.channel_subtype;
+    document.getElementById('ch-cost').value = c.avg_cost_pct;
+    UI.hideAlert('channel-error');
+    UI.openModal('modal-channel');
+  }
+
+  document.getElementById('btn-add-channel').addEventListener('click', () => {
+    window._editingChannelId = null;
+    document.getElementById('channel-modal-title').textContent = 'Add channel';
+    document.getElementById('ch-code').value = '';
+    document.getElementById('ch-name').value = '';
+    document.getElementById('ch-subtype').value = 'direct';
+    document.getElementById('ch-cost').value = '';
+    UI.hideAlert('channel-error');
+    UI.openModal('modal-channel');
+  });
 
   document.getElementById('btn-save-channel').addEventListener('click', async () => {
+    const subtype = document.getElementById('ch-subtype').value;
     const fields = {
       channel_code: parseInt(document.getElementById('ch-code').value),
       channel_name: document.getElementById('ch-name').value.trim(),
-      channel_type: document.getElementById('ch-type').value,
+      channel_subtype: subtype,
+      channel_type: subtype === 'direct' ? 'direct' : 'indirect',
       avg_cost_pct: parseFloat(document.getElementById('ch-cost').value) || 0,
     };
 
@@ -1209,13 +1271,80 @@
     }
 
     UI.setLoading('btn-save-channel', true, 'Save');
-    const { error } = await Channels.create(currentCompany.id, fields);
+    const { error } = window._editingChannelId
+      ? await Channels.update(window._editingChannelId, fields)
+      : await Channels.create(currentCompany.id, fields);
     UI.setLoading('btn-save-channel', false, 'Save');
 
     if (error) { UI.showAlert('channel-error', error.message); return; }
 
     UI.closeModal('modal-channel');
     loadChannels();
+  });
+
+  // ── OTAS ──────────────────────────────────────────────────────────
+  async function loadOtas() {
+    UI.tableLoading('otas-tbody', 3);
+    const { data, error } = await Otas.getByCompany(currentCompany.id);
+
+    if (error || !data?.length) {
+      UI.tableEmpty('otas-tbody', 3, 'No OTAs yet.');
+      document.getElementById('otas-count').textContent = '0 OTAs';
+      return;
+    }
+
+    window._otasData = data;
+    document.getElementById('otas-count').textContent = `${data.length} OTAs`;
+    document.getElementById('otas-tbody').innerHTML = data.map(o => `
+      <tr>
+        <td>${UI.mono(o.ota_id)}</td>
+        <td>${o.ota_name}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="editOta('${o.id}')">Edit</button>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  function editOta(id) {
+    const o = (window._otasData || []).find(x => x.id === id);
+    if (!o) return;
+    window._editingOtaId = id;
+    document.getElementById('ota-modal-title').textContent = 'Edit OTA';
+    document.getElementById('ota-id-input').value = o.ota_id;
+    document.getElementById('ota-name-input').value = o.ota_name;
+    UI.hideAlert('ota-error');
+    UI.openModal('modal-ota');
+  }
+
+  document.getElementById('btn-add-ota').addEventListener('click', () => {
+    window._editingOtaId = null;
+    document.getElementById('ota-modal-title').textContent = 'Add OTA';
+    document.getElementById('ota-id-input').value = '';
+    document.getElementById('ota-name-input').value = '';
+    UI.hideAlert('ota-error');
+    UI.openModal('modal-ota');
+  });
+
+  document.getElementById('btn-save-ota').addEventListener('click', async () => {
+    const fields = {
+      ota_id: document.getElementById('ota-id-input').value.trim(),
+      ota_name: document.getElementById('ota-name-input').value.trim(),
+    };
+
+    UI.hideAlert('ota-error');
+    if (!fields.ota_id || !fields.ota_name) {
+      UI.showAlert('ota-error', 'OTA ID and name are required.'); return;
+    }
+
+    UI.setLoading('btn-save-ota', true, 'Save');
+    const { error } = window._editingOtaId
+      ? await Otas.update(window._editingOtaId, fields)
+      : await Otas.create(currentCompany.id, fields);
+    UI.setLoading('btn-save-ota', false, 'Save');
+
+    if (error) { UI.showAlert('ota-error', error.message); return; }
+
+    UI.closeModal('modal-ota');
+    loadOtas();
   });
 
   // ── USERS ─────────────────────────────────────────────────────────
@@ -3626,7 +3755,7 @@
     const sectionEl = document.getElementById(`section-${section}`);
     if (sectionEl) sectionEl.classList.add('active');
     hashSet({ section: section });
-    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany };
+    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, otas: loadOtas, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany };
     loaders[section]?.();
     window.scrollTo(0, 0);
   }
