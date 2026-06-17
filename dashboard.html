@@ -1039,7 +1039,7 @@
         channels: loadChannels, segments: loadSegments, purposes: loadPurposes,
         markets: loadMarkets, extras: loadExtras, rooms: loadRooms,
         availability: initAvailabilitySection, countries: loadCountries,
-        users: loadUsers, company: loadCompany };
+        users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
       const loader = loaders[savedSection];
       if (loader) {
         await loader();
