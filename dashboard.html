@@ -55,6 +55,7 @@
       <div class="nav-item" data-section="company"><span class="nav-icon">⬡</span>Company</div>
       <div class="nav-item" data-section="users"><span class="nav-icon">◎</span>Users</div>
       <div class="nav-item" data-section="countries" id="nav-countries"><span class="nav-icon">◉</span>Countries</div>
+      <div class="nav-item" data-section="masters_setup"><span class="nav-icon">⚒</span>Masters Setup</div>
     </div>
   </div>
 
@@ -266,6 +267,52 @@
           <thead><tr><th>Code</th><th>Name</th><th>Continent</th></tr></thead>
           <tbody id="countries-tbody"></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- MASTERS SETUP -->
+    <div class="section" id="section-masters_setup">
+      <div class="section-header">
+        <h2>Masters Setup</h2>
+        <p>Upload a reservations export to find values missing from this company's master catalogs, and add them with one click.</p>
+      </div>
+
+      <div class="action-bar">
+        <h3>1. Upload reservations file</h3>
+      </div>
+      <div class="field" style="max-width:480px">
+        <input type="file" id="ms-file-input" accept=".csv">
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.4rem">
+          CSV only, for this first version. The file is read in your browser and is never uploaded or stored anywhere — only the column you pick below is used, in memory, for this session.
+        </p>
+      </div>
+      <div class="alert error" id="ms-file-error"></div>
+
+      <div id="ms-after-upload" style="display:none">
+        <div class="action-bar" style="margin-top:1.5rem">
+          <h3>2. Choose master &amp; column</h3>
+        </div>
+        <div class="field" style="max-width:480px">
+          <label>Master catalog</label>
+          <select id="ms-master-select">
+            <option value="booking_purposes">Booking Purposes</option>
+          </select>
+        </div>
+        <div class="field" style="max-width:480px">
+          <label>Column from your file</label>
+          <select id="ms-column-select"></select>
+          <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.4rem" id="ms-column-hint"></p>
+        </div>
+
+        <div class="action-bar" style="margin-top:1.5rem">
+          <h3 id="ms-results-count">3. Review distinct values</h3>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Value in file</th><th>Rows</th><th>Status</th><th></th></tr></thead>
+            <tbody id="ms-results-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -932,6 +979,7 @@
 <script src="js/availability.js"></script>
 <script src="js/extras_catalog.js"></script>
 <script src="js/countries.js"></script>
+<script src="js/masters_setup.js"></script>
 <script>
   let currentProfile = null;
   let currentCompany = null;
@@ -1051,7 +1099,7 @@
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
       hashSet({ section: s, property: null });
-      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany };
+      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
       loaders[s]?.();
     });
   });
@@ -3762,7 +3810,7 @@
     const sectionEl = document.getElementById(`section-${section}`);
     if (sectionEl) sectionEl.classList.add('active');
     hashSet({ section: section });
-    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany };
+    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
     loaders[section]?.();
     window.scrollTo(0, 0);
   }
