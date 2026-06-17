@@ -189,6 +189,91 @@ const MastersSetup = (() => {
     return escapeHtml(s);
   }
 
+  // --- property pre-check --------------------------------------------------
+  // The gold ETL output always stamps a property_id column on every row
+  // (from the filename, not from anything the user picks). If that code
+  // isn't already a registered property for this company, the rest of
+  // Masters Setup doesn't make sense to run yet -- block and offer to add
+  // the property first, reusing the existing Properties tab's add-property
+  // modal rather than building a second one.
+  async function checkProperties(records) {
+    const banner = document.getElementById('ms-property-banner');
+    banner.style.display = 'none';
+    banner.innerHTML = '';
+
+    if (!records.some(r => 'property_id' in r)) return true; // no such column, nothing to check
+
+    const fileCodes = new Set(
+      records.map(r => String(r['property_id'] || '').trim()).filter(Boolean)
+    );
+    if (fileCodes.size === 0) return true;
+
+    const { data, error } = await Properties.getByCompany(currentCompany.id);
+    if (error) {
+      UI.showAlert('ms-file-error', `Could not check properties: ${error.message}`);
+      return false;
+    }
+    const existingCodes = new Set((data || []).map(p => p.property_id));
+    const missing = [...fileCodes].filter(code => !existingCodes.has(code));
+
+    if (missing.length === 0) return true;
+
+    banner.style.display = 'block';
+    banner.innerHTML = `
+      <div class="alert error show" style="margin-bottom:1rem">
+        This file references ${missing.length} property code(s) not yet registered for this company:
+        ${missing.map(escapeHtml).join(', ')}.
+        Add the missing property before reviewing master values below.
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem">
+        ${missing.map(code => `
+          <button class="btn btn-primary btn-sm" data-action="add-property" data-code="${escapeAttr(code)}">
+            + Add property "${escapeHtml(code)}"
+          </button>
+        `).join('')}
+      </div>`;
+
+    banner.querySelectorAll('button[data-action="add-property"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const code = btn.getAttribute('data-code');
+        document.getElementById('prop-id').value = code;
+        document.getElementById('prop-name').value = '';
+        document.getElementById('prop-city').value = '';
+        document.getElementById('prop-country').value = '';
+        document.getElementById('prop-rooms').value = '';
+        document.getElementById('prop-beds').value = '';
+        UI.hideAlert('prop-error');
+        UI.openModal('modal-property');
+      });
+    });
+
+    return false;
+  }
+
+  // Re-run the property check after the Add Property modal saves, since the
+  // existing handler in dashboard.html doesn't know Masters Setup exists.
+  // We don't touch that handler -- instead, watch for the modal closing and
+  // re-check from here, which keeps the two features decoupled.
+  function watchPropertyModalClose() {
+    const modal = document.getElementById('modal-property');
+    if (!modal || modal._msWatched) return;
+    modal._msWatched = true;
+    const observer = new MutationObserver(() => {
+      const isOpen = modal.classList.contains('show');
+      if (!isOpen && parsedRows) {
+        checkProperties(parsedRows).then(ok => {
+          if (ok) {
+            document.getElementById('ms-after-upload').style.display = 'block';
+            const masterSelect = document.getElementById('ms-master-select');
+            const columnSelect = document.getElementById('ms-column-select');
+            renderResults(masterSelect.value, columnSelect.value);
+          }
+        });
+      }
+    });
+    observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+  }
+
   function handleFileSelected(file) {
     UI.hideAlert('ms-file-error');
     if (!file) return;
@@ -198,7 +283,7 @@ const MastersSetup = (() => {
     }
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const { headers, records } = parseCSV(e.target.result);
       if (headers.length === 0) {
         UI.showAlert('ms-file-error', 'Could not find any columns in this file.');
@@ -206,6 +291,13 @@ const MastersSetup = (() => {
       }
       parsedHeaders = headers;
       parsedRows = records;
+
+      watchPropertyModalClose();
+      const propertiesOk = await checkProperties(records);
+      if (!propertiesOk) {
+        document.getElementById('ms-after-upload').style.display = 'none';
+        return; // block here until the missing property is added
+      }
 
       const masterSelect = document.getElementById('ms-master-select');
       const columnSelect = document.getElementById('ms-column-select');
@@ -235,6 +327,7 @@ const MastersSetup = (() => {
     parsedHeaders = null;
     fileInput.value = '';
     document.getElementById('ms-after-upload').style.display = 'none';
+    document.getElementById('ms-property-banner').style.display = 'none';
     UI.hideAlert('ms-file-error');
 
     fileInput.onchange = (e) => handleFileSelected(e.target.files[0]);
