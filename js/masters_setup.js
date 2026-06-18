@@ -23,25 +23,26 @@ const MastersSetup = (() => {
 
   // Maps a master table's key to the matching logic needed to compare
   // distinct file values against existing master rows for this company.
+  // Matching always happens against raw_value -- the literal text the
+  // source file contains -- never against display_name, since display_name
+  // is the cleaned-up label we choose to show in reports and may not match
+  // the file's wording at all.
   const MASTER_CONFIG = {
     booking_purposes: {
       table: 'booking_purposes',
-      nameColumn: 'purpose_name',
-      codeColumn: 'purpose_code',
+      matchColumn: 'raw_value',
       async fetchExisting(companyId) {
         const { data, error } = await sb
           .from('booking_purposes')
-          .select('id, purpose_code, purpose_name, status')
+          .select('id, raw_value, display_name, status')
           .eq('company_id', companyId);
         if (error) throw error;
         return data || [];
       },
-      async addValue(companyId, value, existingRows) {
-        const maxCode = existingRows.reduce((m, r) => Math.max(m, r.purpose_code || 0), 0);
-        const nextCode = maxCode + 1;
+      async addValue(companyId, rawValue, displayName) {
         const { error } = await BookingPurposes.create(companyId, {
-          purpose_code: nextCode,
-          purpose_name: value,
+          raw_value: rawValue,
+          display_name: displayName,
         });
         if (error) throw error;
       },
@@ -129,8 +130,8 @@ const MastersSetup = (() => {
       return;
     }
 
-    const existingByName = new Map(
-      existing.map(r => [String(r[config.nameColumn]).toLowerCase().trim(), r])
+    const existingByValue = new Map(
+      existing.map(r => [String(r[config.matchColumn]).toLowerCase().trim(), r])
     );
 
     document.getElementById('ms-results-count').textContent =
@@ -142,18 +143,27 @@ const MastersSetup = (() => {
     }
 
     tbody.innerHTML = distinct.map(([value, count]) => {
-      const match = existingByName.get(value.toLowerCase().trim());
+      const match = existingByValue.get(value.toLowerCase().trim());
       let statusHtml, actionHtml;
 
       if (!match) {
         statusHtml = `<span class="badge" style="background:#fef3c7;color:#92400e">Not in master</span>`;
-        actionHtml = `<button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add to master</button>`;
+        // Two-step add: the raw value is fixed (it's exactly what the file
+        // contains), but the display name is a judgment call -- ask for it
+        // inline rather than guessing or reusing the raw text silently.
+        actionHtml = `
+          <div style="display:flex;gap:0.4rem;align-items:center">
+            <input type="text" placeholder="Display name to show in reports"
+                   data-role="display-name-input" data-value="${escapeAttr(value)}"
+                   style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:180px">
+            <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
+          </div>`;
       } else if (match.status !== 'active') {
         statusHtml = `<span class="badge" style="background:#fee2e2;color:#991b1b">Exists, inactive</span>`;
         actionHtml = `<span style="color:var(--text-muted);font-size:0.85rem">Reactivate from the ${masterKey.replace('_',' ')} section</span>`;
       } else {
         statusHtml = `<span class="badge" style="background:#d1fae5;color:#065f46">Active in master</span>`;
-        actionHtml = '';
+        actionHtml = `<span style="color:var(--text-muted);font-size:0.85rem">Shown as "${escapeHtml(match.display_name)}"</span>`;
       }
 
       return `
@@ -168,15 +178,25 @@ const MastersSetup = (() => {
     tbody.querySelectorAll('button[data-action="add"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const value = btn.getAttribute('data-value');
+        const row = btn.closest('tr');
+        const input = row.querySelector('input[data-role="display-name-input"]');
+        const displayName = input.value.trim();
+        if (!displayName) {
+          input.style.borderColor = '#dc2626';
+          input.placeholder = 'Required before adding';
+          return;
+        }
         btn.disabled = true;
+        input.disabled = true;
         btn.textContent = 'Adding...';
         try {
-          await config.addValue(currentCompany.id, value, existing);
+          await config.addValue(currentCompany.id, value, displayName);
           await renderResults(masterKey, column); // refresh full table to reflect new state
         } catch (e) {
           UI.showAlert('ms-file-error', `Could not add "${value}": ${e.message}`);
           btn.disabled = false;
-          btn.textContent = '+ Add to master';
+          input.disabled = false;
+          btn.textContent = '+ Add';
         }
       });
     });
