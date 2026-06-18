@@ -169,7 +169,7 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Code</th><th>Name</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Raw value</th><th>Display name</th><th>Status</th><th></th></tr></thead>
           <tbody id="segments-tbody"></tbody>
         </table>
       </div>
@@ -297,6 +297,7 @@
           <label>Master catalog</label>
           <select id="ms-master-select">
             <option value="booking_purposes">Booking Purposes</option>
+            <option value="segments">Segments</option>
           </select>
         </div>
         <div class="field" style="max-width:480px">
@@ -684,8 +685,8 @@
   <div class="modal">
     <h3>Add segment</h3>
     <div class="alert error" id="segment-error"></div>
-    <div class="field"><label>Code</label><input type="number" id="seg-code" placeholder="11"></div>
-    <div class="field"><label>Name</label><input type="text" id="seg-name" placeholder="e.g. Wholesale"></div>
+    <div class="field"><label>Raw value (as it appears in the file)</label><input type="text" id="seg-code" placeholder="e.g. Wholesale"></div>
+    <div class="field"><label>Display name (shown in reports)</label><input type="text" id="seg-name" placeholder="e.g. Wholesale"></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-segment')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-segment">Save</button>
@@ -1512,8 +1513,8 @@
     document.getElementById('segments-count').textContent = `${data.length} segments`;
     document.getElementById('segments-tbody').innerHTML = data.map(s => `
       <tr>
-        <td>${UI.mono(s.segment_code)}</td>
-        <td>${s.segment_name}</td>
+        <td>${UI.mono(s.raw_value)}</td>
+        <td>${s.display_name}</td>
         <td>${UI.badge(s.status, s.status === 'active' ? 'active' : 'inactive')}</td>
         <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleSegment('${s.id}','${s.status}')">
           ${s.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
@@ -1529,12 +1530,12 @@
   document.getElementById('btn-add-segment').addEventListener('click', () => UI.openModal('modal-segment'));
 
   document.getElementById('btn-save-segment').addEventListener('click', async () => {
-    const segment_code = parseInt(document.getElementById('seg-code').value);
-    const segment_name = document.getElementById('seg-name').value.trim();
+    const raw_value = document.getElementById('seg-code').value.trim();
+    const display_name = document.getElementById('seg-name').value.trim();
     UI.hideAlert('segment-error');
-    if (!segment_code || !segment_name) { UI.showAlert('segment-error', 'Code and name are required.'); return; }
+    if (!raw_value || !display_name) { UI.showAlert('segment-error', 'Raw value and display name are required.'); return; }
     UI.setLoading('btn-save-segment', true, 'Save');
-    const { error } = await Segments.create(currentCompany.id, { segment_code, segment_name });
+    const { error } = await Segments.create(currentCompany.id, { raw_value, display_name });
     UI.setLoading('btn-save-segment', false, 'Save');
     if (error) { UI.showAlert('segment-error', error.message); return; }
     UI.closeModal('modal-segment');
