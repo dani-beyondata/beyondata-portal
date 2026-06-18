@@ -20,6 +20,7 @@ const MastersSetup = (() => {
   const COLUMN_GUESS = {
     booking_purposes: ['booking_purpose_id', 'booking_purpose', 'purpose'],
     segments: ['segment_id', 'segment'],
+    client_country_mapping: ['client_country', 'country', 'nationality'],
   };
 
   // Maps a master table's key to the matching logic needed to compare
@@ -28,10 +29,16 @@ const MastersSetup = (() => {
   // source file contains -- never against display_name, since display_name
   // is the cleaned-up label we choose to show in reports and may not match
   // the file's wording at all.
+  //
+  // actionType controls how "Add to master" is presented:
+  //   'text'           -- free-text display name input (booking_purposes, segments)
+  //   'country_select' -- a dropdown of real ISO countries (client_country_mapping),
+  //                        since the target value must be a valid FK, not arbitrary text
   const MASTER_CONFIG = {
     booking_purposes: {
       table: 'booking_purposes',
       matchColumn: 'raw_value',
+      actionType: 'text',
       async fetchExisting(companyId) {
         const { data, error } = await sb
           .from('booking_purposes')
@@ -51,6 +58,7 @@ const MastersSetup = (() => {
     segments: {
       table: 'segments',
       matchColumn: 'raw_value',
+      actionType: 'text',
       async fetchExisting(companyId) {
         const { data, error } = await sb
           .from('segments')
@@ -63,6 +71,27 @@ const MastersSetup = (() => {
         const { error } = await Segments.create(companyId, {
           raw_value: rawValue,
           display_name: displayName,
+        });
+        if (error) throw error;
+      },
+    },
+    client_country_mapping: {
+      table: 'client_country_mapping',
+      matchColumn: 'raw_value',
+      actionType: 'country_select',
+      async fetchExisting(companyId) {
+        const { data, error } = await sb
+          .from('client_country_mapping')
+          .select('id, raw_value, country_code')
+          .eq('company_id', companyId);
+        if (error) throw error;
+        return data || [];
+      },
+      // displayValue here is the chosen country_code, not free text
+      async addValue(companyId, rawValue, countryCode) {
+        const { error } = await ClientCountryMapping.create(companyId, {
+          raw_value: rawValue,
+          country_code: countryCode,
         });
         if (error) throw error;
       },
@@ -150,6 +179,17 @@ const MastersSetup = (() => {
       return;
     }
 
+    // Only fetch the countries list when actually needed (country_select type)
+    let countryOptions = [];
+    if (config.actionType === 'country_select') {
+      const { data, error } = await Countries.getAll();
+      if (error) {
+        UI.tableEmpty('ms-results-tbody', 4, `Error loading countries list: ${error.message}`);
+        return;
+      }
+      countryOptions = data || [];
+    }
+
     const existingByValue = new Map(
       existing.map(r => [String(r[config.matchColumn]).toLowerCase().trim(), r])
     );
@@ -162,22 +202,61 @@ const MastersSetup = (() => {
       return;
     }
 
+    const countryOptionsHtml = countryOptions.map(c =>
+      `<option value="${escapeAttr(c.country_code)}">${escapeHtml(c.country_name)} (${c.country_code})</option>`
+    ).join('');
+
     tbody.innerHTML = distinct.map(([value, count]) => {
       const match = existingByValue.get(value.toLowerCase().trim());
       let statusHtml, actionHtml;
 
       if (!match) {
         statusHtml = `<span class="badge" style="background:#fef3c7;color:#92400e">Not in master</span>`;
-        // Two-step add: the raw value is fixed (it's exactly what the file
-        // contains), but the display name is a judgment call -- ask for it
-        // inline rather than guessing or reusing the raw text silently.
-        actionHtml = `
-          <div style="display:flex;gap:0.4rem;align-items:center">
-            <input type="text" placeholder="Display name to show in reports"
-                   data-role="display-name-input" data-value="${escapeAttr(value)}"
-                   style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:180px">
-            <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
-          </div>`;
+
+        if (config.actionType === 'country_select') {
+          // The matched value must be a real ISO code (FK constraint), so
+          // this is a dropdown of actual countries, never free text.
+          actionHtml = `
+            <div style="display:flex;gap:0.4rem;align-items:center">
+              <select data-role="country-select" data-value="${escapeAttr(value)}"
+                      style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:200px">
+                <option value="">Select country...</option>
+                ${countryOptionsHtml}
+              </select>
+              <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
+            </div>`;
+        } else {
+          // Two-step add: the raw value is fixed (it's exactly what the file
+          // contains), but the display name is a judgment call -- ask for it
+          // inline rather than guessing or reusing the raw text silently.
+          actionHtml = `
+            <div style="display:flex;gap:0.4rem;align-items:center">
+              <input type="text" placeholder="Display name to show in reports"
+                     data-role="display-name-input" data-value="${escapeAttr(value)}"
+                     style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:180px">
+              <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
+            </div>`;
+        }
+      } else if (config.actionType === 'country_select') {
+        // client_country_mapping has no status column -- a row either
+        // exists (resolved) or doesn't (unresolved). If it exists but has
+        // no country_code yet, treat it like unresolved.
+        if (!match.country_code) {
+          statusHtml = `<span class="badge" style="background:#fef3c7;color:#92400e">Seen, not resolved</span>`;
+          actionHtml = `
+            <div style="display:flex;gap:0.4rem;align-items:center">
+              <select data-role="country-select" data-value="${escapeAttr(value)}" data-existing-id="${escapeAttr(match.id)}"
+                      style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:200px">
+                <option value="">Select country...</option>
+                ${countryOptionsHtml}
+              </select>
+              <button class="btn btn-primary btn-sm" data-action="resolve" data-value="${escapeAttr(value)}" data-existing-id="${escapeAttr(match.id)}">+ Save</button>
+            </div>`;
+        } else {
+          const countryLabel = countryOptions.find(c => c.country_code === match.country_code);
+          statusHtml = `<span class="badge" style="background:#d1fae5;color:#065f46">Mapped</span>`;
+          actionHtml = `<span style="color:var(--text-muted);font-size:0.85rem">${countryLabel ? escapeHtml(countryLabel.country_name) : match.country_code}</span>`;
+        }
       } else if (match.status !== 'active') {
         statusHtml = `<span class="badge" style="background:#fee2e2;color:#991b1b">Exists, inactive</span>`;
         actionHtml = `<span style="color:var(--text-muted);font-size:0.85rem">Reactivate from the ${masterKey.replace('_',' ')} section</span>`;
@@ -199,24 +278,66 @@ const MastersSetup = (() => {
       btn.addEventListener('click', async () => {
         const value = btn.getAttribute('data-value');
         const row = btn.closest('tr');
-        const input = row.querySelector('input[data-role="display-name-input"]');
-        const displayName = input.value.trim();
-        if (!displayName) {
-          input.style.borderColor = '#dc2626';
-          input.placeholder = 'Required before adding';
-          return;
+
+        let secondValue;
+        let inputEl;
+        if (config.actionType === 'country_select') {
+          inputEl = row.querySelector('select[data-role="country-select"]');
+          secondValue = inputEl.value;
+          if (!secondValue) {
+            inputEl.style.borderColor = '#dc2626';
+            return;
+          }
+        } else {
+          inputEl = row.querySelector('input[data-role="display-name-input"]');
+          secondValue = inputEl.value.trim();
+          if (!secondValue) {
+            inputEl.style.borderColor = '#dc2626';
+            inputEl.placeholder = 'Required before adding';
+            return;
+          }
         }
+
         btn.disabled = true;
-        input.disabled = true;
+        inputEl.disabled = true;
         btn.textContent = 'Adding...';
         try {
-          await config.addValue(currentCompany.id, value, displayName);
+          await config.addValue(currentCompany.id, value, secondValue);
           await renderResults(masterKey, column); // refresh full table to reflect new state
         } catch (e) {
           UI.showAlert('ms-file-error', `Could not add "${value}": ${e.message}`);
           btn.disabled = false;
-          input.disabled = false;
+          inputEl.disabled = false;
           btn.textContent = '+ Add';
+        }
+      });
+    });
+
+    // "resolve" handles the case where a raw_value row already exists
+    // (seen before, e.g. inserted with no country_code) and just needs its
+    // country_code filled in via update rather than a fresh insert.
+    tbody.querySelectorAll('button[data-action="resolve"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const existingId = btn.getAttribute('data-existing-id');
+        const row = btn.closest('tr');
+        const select = row.querySelector('select[data-role="country-select"]');
+        const countryCode = select.value;
+        if (!countryCode) {
+          select.style.borderColor = '#dc2626';
+          return;
+        }
+        btn.disabled = true;
+        select.disabled = true;
+        btn.textContent = 'Saving...';
+        try {
+          const { error } = await ClientCountryMapping.update(existingId, { country_code: countryCode });
+          if (error) throw error;
+          await renderResults(masterKey, column);
+        } catch (e) {
+          UI.showAlert('ms-file-error', `Could not save: ${e.message}`);
+          btn.disabled = false;
+          select.disabled = false;
+          btn.textContent = '+ Save';
         }
       });
     });
