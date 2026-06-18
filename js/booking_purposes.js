@@ -7,7 +7,7 @@ const BookingPurposes = (() => {
       .from('booking_purposes')
       .select('*')
       .eq('company_id', companyId)
-      .order('purpose_code');
+      .order('display_name');
     return { data, error };
   }
 
