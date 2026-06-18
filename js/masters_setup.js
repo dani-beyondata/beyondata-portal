@@ -164,6 +164,26 @@ const MastersSetup = (() => {
     return [...counts.entries()].sort((a, b) => b[1] - a[1]); // most frequent first
   }
 
+  // First-pass country guess: exact name match first, then "one name
+  // contains the other" as a looser fallback (catches cases like
+  // "United States of America" containing "united states"). This is
+  // intentionally simple -- it only pre-selects a suggestion in the
+  // dropdown, never auto-saves, so a wrong guess costs nothing beyond
+  // picking a different option before clicking Add.
+  function guessCountryCode(rawValue, countryOptions) {
+    const needle = rawValue.toLowerCase().trim();
+    const exact = countryOptions.find(c => c.country_name.toLowerCase().trim() === needle);
+    if (exact) return exact.country_code;
+
+    const contains = countryOptions.find(c => {
+      const name = c.country_name.toLowerCase().trim();
+      return needle.includes(name) || name.includes(needle);
+    });
+    if (contains) return contains.country_code;
+
+    return null;
+  }
+
   async function renderResults(masterKey, column) {
     const tbody = document.getElementById('ms-results-tbody');
     UI.tableLoading('ms-results-tbody', 4);
@@ -202,9 +222,11 @@ const MastersSetup = (() => {
       return;
     }
 
-    const countryOptionsHtml = countryOptions.map(c =>
-      `<option value="${escapeAttr(c.country_code)}">${escapeHtml(c.country_name)} (${c.country_code})</option>`
-    ).join('');
+    function buildCountryOptionsHtml(guessedCode) {
+      return countryOptions.map(c =>
+        `<option value="${escapeAttr(c.country_code)}" ${c.country_code === guessedCode ? 'selected' : ''}>${escapeHtml(c.country_name)} (${c.country_code})</option>`
+      ).join('');
+    }
 
     tbody.innerHTML = distinct.map(([value, count]) => {
       const match = existingByValue.get(value.toLowerCase().trim());
@@ -215,15 +237,21 @@ const MastersSetup = (() => {
 
         if (config.actionType === 'country_select') {
           // The matched value must be a real ISO code (FK constraint), so
-          // this is a dropdown of actual countries, never free text.
+          // this is a dropdown of actual countries, never free text. We
+          // pre-select a best-guess match by name so the common case
+          // (raw value already looks like a country name) just needs a
+          // confirming click, but the guess is never auto-saved.
+          const guessedCode = guessCountryCode(value, countryOptions);
+          const guessedCountry = countryOptions.find(c => c.country_code === guessedCode);
           actionHtml = `
             <div style="display:flex;gap:0.4rem;align-items:center">
               <select data-role="country-select" data-value="${escapeAttr(value)}"
                       style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:200px">
-                <option value="">Select country...</option>
-                ${countryOptionsHtml}
+                <option value="" ${guessedCode ? '' : 'selected'}>Select country...</option>
+                ${buildCountryOptionsHtml(guessedCode)}
               </select>
               <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
+              ${guessedCountry ? `<span style="color:var(--text-muted);font-size:0.8rem">suggested</span>` : ''}
             </div>`;
         } else {
           // Two-step add: the raw value is fixed (it's exactly what the file
@@ -243,12 +271,13 @@ const MastersSetup = (() => {
         // no country_code yet, treat it like unresolved.
         if (!match.country_code) {
           statusHtml = `<span class="badge" style="background:#fef3c7;color:#92400e">Seen, not resolved</span>`;
+          const guessedCode = guessCountryCode(value, countryOptions);
           actionHtml = `
             <div style="display:flex;gap:0.4rem;align-items:center">
               <select data-role="country-select" data-value="${escapeAttr(value)}" data-existing-id="${escapeAttr(match.id)}"
                       style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:200px">
-                <option value="">Select country...</option>
-                ${countryOptionsHtml}
+                <option value="" ${guessedCode ? '' : 'selected'}>Select country...</option>
+                ${buildCountryOptionsHtml(guessedCode)}
               </select>
               <button class="btn btn-primary btn-sm" data-action="resolve" data-value="${escapeAttr(value)}" data-existing-id="${escapeAttr(match.id)}">+ Save</button>
             </div>`;
