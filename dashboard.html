@@ -231,6 +231,7 @@
             <button class="btn btn-primary" id="btn-add-group">+ Add group</button>
           </div>
         </div>
+        <div class="alert" id="populate-defaults-result" style="margin-bottom:1rem"></div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Code</th><th>Group Name</th><th>Status</th><th></th></tr></thead>
@@ -677,6 +678,28 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-property')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-property">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Populate default markets -->
+<div class="modal-overlay" id="modal-populate-defaults">
+  <div class="modal">
+    <h3>Populate to default values</h3>
+    <p style="font-size:0.9rem;color:var(--text-muted);line-height:1.5;margin-bottom:1rem">
+      This creates one market group per continent and maps every country to its continent's group,
+      all marked as targeted:
+    </p>
+    <ul style="font-size:0.85rem;color:var(--text-muted);margin:0 0 1rem 1.2rem;line-height:1.6">
+      <li>Africa, Asia, Europe, North America, Oceania, South America, Antarctica</li>
+    </ul>
+    <p style="font-size:0.9rem;color:var(--text-muted);line-height:1.5;margin-bottom:1rem">
+      Existing groups and mappings are updated, not deleted — a good starting point you can edit
+      from afterward.
+    </p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-populate-defaults')">Cancel</button>
+      <button class="btn btn-primary" id="btn-confirm-populate-defaults">Populate defaults</button>
     </div>
   </div>
 </div>
@@ -3689,27 +3712,24 @@
 
   document.getElementById('btn-add-group').addEventListener('click', () => UI.openModal('modal-group'));
 
-  document.getElementById('btn-populate-defaults').addEventListener('click', async () => {
-    const confirmed = confirm(
-      'This will create one market group per continent (Africa, Asia, Europe, North America, ' +
-      'Oceania, South America, Antarctica) and map every country to its continent group, all ' +
-      'marked as targeted. Existing groups and mappings are updated, not deleted -- this is meant ' +
-      'as a starting point to edit from. Continue?'
-    );
-    if (!confirmed) return;
+  document.getElementById('btn-populate-defaults').addEventListener('click', () => {
+    UI.openModal('modal-populate-defaults');
+  });
 
-    const btn = document.getElementById('btn-populate-defaults');
+  document.getElementById('btn-confirm-populate-defaults').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-confirm-populate-defaults');
     btn.disabled = true;
     btn.textContent = 'Populating...';
     const { error, groupCount, mappedCount } = await Markets.populateDefaults(currentCompany.id);
     btn.disabled = false;
-    btn.textContent = 'Populate to default values';
+    btn.textContent = 'Populate defaults';
+    UI.closeModal('modal-populate-defaults');
 
     if (error) {
-      alert(`Could not populate defaults: ${error.message}`);
+      UI.showAlert('populate-defaults-result', `Could not populate defaults: ${error.message}`, 'error');
       return;
     }
-    alert(`Created/updated ${groupCount} market groups and mapped ${mappedCount} countries.`);
+    UI.showAlert('populate-defaults-result', `Created/updated ${groupCount} market groups and mapped ${mappedCount} countries.`, 'success');
     loadMarkets();
   });
 
