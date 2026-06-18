@@ -19,6 +19,7 @@ const MastersSetup = (() => {
   // different column.
   const COLUMN_GUESS = {
     booking_purposes: ['booking_purpose_id', 'booking_purpose', 'purpose'],
+    segments: ['segment_id', 'segment'],
   };
 
   // Maps a master table's key to the matching logic needed to compare
@@ -41,6 +42,25 @@ const MastersSetup = (() => {
       },
       async addValue(companyId, rawValue, displayName) {
         const { error } = await BookingPurposes.create(companyId, {
+          raw_value: rawValue,
+          display_name: displayName,
+        });
+        if (error) throw error;
+      },
+    },
+    segments: {
+      table: 'segments',
+      matchColumn: 'raw_value',
+      async fetchExisting(companyId) {
+        const { data, error } = await sb
+          .from('segments')
+          .select('id, raw_value, display_name, status')
+          .eq('company_id', companyId);
+        if (error) throw error;
+        return data || [];
+      },
+      async addValue(companyId, rawValue, displayName) {
+        const { error } = await Segments.create(companyId, {
           raw_value: rawValue,
           display_name: displayName,
         });
