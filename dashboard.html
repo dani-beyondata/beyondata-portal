@@ -200,12 +200,30 @@
         <p>Define market groups and map countries to them.</p>
       </div>
       <div class="subtabs" id="markets-subtabs">
-        <button class="subtab active" onclick="showSubtab('markets','groups')" id="subtab-markets-groups">Market Groups</button>
+        <button class="subtab active" onclick="showSubtab('markets','client-mapping')" id="subtab-markets-client-mapping">Client Country Mapping</button>
+        <button class="subtab" onclick="showSubtab('markets','groups')" id="subtab-markets-groups">Market Groups</button>
         <button class="subtab" onclick="showSubtab('markets','mapping')" id="subtab-markets-mapping">Country Mapping</button>
       </div>
 
+      <!-- Client Country Mapping subpage -->
+      <div class="subpage active" id="subpage-markets-client-mapping">
+        <div class="action-bar">
+          <h3 id="client-mapping-count"></h3>
+        </div>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem">
+          Raw country text seen in uploaded files, mapped to a real country. Fix a mismatch by changing the
+          dropdown and saving, or deactivate a raw value you no longer want matched.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Raw value (from file)</th><th>Mapped country</th><th>Status</th><th></th></tr></thead>
+            <tbody id="client-mapping-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Market Groups subpage -->
-      <div class="subpage active" id="subpage-markets-groups">
+      <div class="subpage" id="subpage-markets-groups">
         <div class="action-bar">
           <h3 id="groups-count"></h3>
           <button class="btn btn-primary" id="btn-add-group">+ Add group</button>
@@ -309,6 +327,9 @@
 
         <div class="action-bar" style="margin-top:1.5rem">
           <h3 id="ms-results-count">3. Review distinct values</h3>
+          <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;color:var(--text-muted);cursor:pointer">
+            <input type="checkbox" id="ms-unresolved-only"> Show only unresolved
+          </label>
         </div>
         <div class="table-wrap">
           <table>
@@ -1604,6 +1625,9 @@
     if (section === 'channels') {
       if (tab === 'list') loadChannels();
       if (tab === 'otas') loadOtas();
+    }
+    if (section === 'markets') {
+      if (tab === 'client-mapping') loadClientCountryMapping();
     }
   }
 
@@ -3578,8 +3602,65 @@
   let allMapping = [];
 
   async function loadMarkets() {
+    await loadClientCountryMapping();
     await loadGroups();
     await loadCountryMapping();
+  }
+
+  async function loadClientCountryMapping() {
+    UI.tableLoading('client-mapping-tbody', 4);
+    const { data: rows, error } = await ClientCountryMapping.getByCompany(currentCompany.id);
+    if (error || !rows?.length) {
+      UI.tableEmpty('client-mapping-tbody', 4, 'No client country values seen yet -- these appear after uploading a file in Masters Setup.');
+      document.getElementById('client-mapping-count').textContent = '0 values';
+      return;
+    }
+    const { data: countries } = await Countries.getAll();
+    const countryByCode = new Map((countries || []).map(c => [c.country_code, c.country_name]));
+
+    document.getElementById('client-mapping-count').textContent = `${rows.length} values`;
+    document.getElementById('client-mapping-tbody').innerHTML = rows.map(r => {
+      const options = (countries || []).map(c =>
+        `<option value="${c.country_code}" ${c.country_code === r.country_code ? 'selected' : ''}>${c.country_name} (${c.country_code})</option>`
+      ).join('');
+      return `
+        <tr>
+          <td>${UI.mono(r.raw_value)}</td>
+          <td>
+            <select data-role="ccm-country" data-id="${r.id}" style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px">
+              <option value="">Unset</option>
+              ${options}
+            </select>
+          </td>
+          <td>${UI.badge(r.status, r.status === 'active' ? 'active' : 'inactive')}</td>
+          <td>
+            <button class="btn btn-secondary btn-sm" data-action="ccm-save" data-id="${r.id}">Save</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleClientCountryMapping('${r.id}','${r.status}')">
+              ${r.status === 'active' ? 'Deactivate' : 'Activate'}</button>
+          </td>
+        </tr>`;
+    }).join('');
+
+    document.querySelectorAll('button[data-action="ccm-save"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const select = document.querySelector(`select[data-role="ccm-country"][data-id="${id}"]`);
+        const countryCode = select.value || null;
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        const { error } = await ClientCountryMapping.update(id, { country_code: countryCode });
+        if (error) {
+          alert(`Could not save: ${error.message}`);
+        }
+        loadClientCountryMapping();
+      });
+    });
+  }
+
+  async function toggleClientCountryMapping(id, status) {
+    const newStatus = status === 'active' ? 'inactive' : 'active';
+    await ClientCountryMapping.update(id, { status: newStatus });
+    loadClientCountryMapping();
   }
 
   async function loadGroups() {
