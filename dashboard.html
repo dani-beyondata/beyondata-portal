@@ -187,7 +187,7 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Code</th><th>Name</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Raw value</th><th>Display name</th><th>Status</th><th></th></tr></thead>
           <tbody id="purposes-tbody"></tbody>
         </table>
       </div>
@@ -698,8 +698,8 @@
   <div class="modal">
     <h3>Add booking purpose</h3>
     <div class="alert error" id="purpose-error"></div>
-    <div class="field"><label>Code</label><input type="number" id="pur-code" placeholder="6"></div>
-    <div class="field"><label>Name</label><input type="text" id="pur-name" placeholder="e.g. Sports Group"></div>
+    <div class="field"><label>Raw value (as it appears in the file)</label><input type="text" id="pur-code" placeholder="e.g. Sports Group"></div>
+    <div class="field"><label>Display name (shown in reports)</label><input type="text" id="pur-name" placeholder="e.g. Sports Group"></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-purpose')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-purpose">Save</button>
@@ -1555,8 +1555,8 @@
     document.getElementById('purposes-count').textContent = `${data.length} purposes`;
     document.getElementById('purposes-tbody').innerHTML = data.map(p => `
       <tr>
-        <td>${UI.mono(p.purpose_code)}</td>
-        <td>${p.purpose_name}</td>
+        <td>${UI.mono(p.raw_value)}</td>
+        <td>${p.display_name}</td>
         <td>${UI.badge(p.status, p.status === 'active' ? 'active' : 'inactive')}</td>
         <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="togglePurpose('${p.id}','${p.status}')">
           ${p.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
@@ -1572,12 +1572,12 @@
   document.getElementById('btn-add-purpose').addEventListener('click', () => UI.openModal('modal-purpose'));
 
   document.getElementById('btn-save-purpose').addEventListener('click', async () => {
-    const purpose_code = parseInt(document.getElementById('pur-code').value);
-    const purpose_name = document.getElementById('pur-name').value.trim();
+    const raw_value = document.getElementById('pur-code').value.trim();
+    const display_name = document.getElementById('pur-name').value.trim();
     UI.hideAlert('purpose-error');
-    if (!purpose_code || !purpose_name) { UI.showAlert('purpose-error', 'Code and name are required.'); return; }
+    if (!raw_value || !display_name) { UI.showAlert('purpose-error', 'Raw value and display name are required.'); return; }
     UI.setLoading('btn-save-purpose', true, 'Save');
-    const { error } = await BookingPurposes.create(currentCompany.id, { purpose_code, purpose_name });
+    const { error } = await BookingPurposes.create(currentCompany.id, { raw_value, display_name });
     UI.setLoading('btn-save-purpose', false, 'Save');
     if (error) { UI.showAlert('purpose-error', error.message); return; }
     UI.closeModal('modal-purpose');
