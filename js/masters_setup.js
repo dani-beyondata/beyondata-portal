@@ -82,7 +82,7 @@ const MastersSetup = (() => {
       async fetchExisting(companyId) {
         const { data, error } = await sb
           .from('client_country_mapping')
-          .select('id, raw_value, country_code')
+          .select('id, raw_value, country_code, status')
           .eq('company_id', companyId);
         if (error) throw error;
         return data || [];
@@ -214,11 +214,33 @@ const MastersSetup = (() => {
       existing.map(r => [String(r[config.matchColumn]).toLowerCase().trim(), r])
     );
 
-    document.getElementById('ms-results-count').textContent =
-      `3. Review distinct values (${distinct.length} found in file)`;
+    // A value is "resolved" if it has a match that's both active and
+    // actually complete (a country mapping with no country_code yet is
+    // not resolved, even though a row technically exists for it).
+    function isResolved(value) {
+      const match = existingByValue.get(value.toLowerCase().trim());
+      if (!match) return false;
+      if (config.actionType === 'country_select') {
+        return !!match.country_code && match.status === 'active';
+      }
+      return match.status === 'active';
+    }
+
+    const showUnresolvedOnly = document.getElementById('ms-unresolved-only')?.checked;
+    const visibleDistinct = showUnresolvedOnly
+      ? distinct.filter(([value]) => !isResolved(value))
+      : distinct;
+
+    document.getElementById('ms-results-count').textContent = showUnresolvedOnly
+      ? `3. Review distinct values (${visibleDistinct.length} unresolved of ${distinct.length} found in file)`
+      : `3. Review distinct values (${distinct.length} found in file)`;
 
     if (distinct.length === 0) {
       UI.tableEmpty('ms-results-tbody', 4, 'No non-blank values found in that column.');
+      return;
+    }
+    if (visibleDistinct.length === 0) {
+      UI.tableEmpty('ms-results-tbody', 4, 'Nothing unresolved -- every value in this file is already mapped.');
       return;
     }
 
@@ -228,7 +250,7 @@ const MastersSetup = (() => {
       ).join('');
     }
 
-    tbody.innerHTML = distinct.map(([value, count]) => {
+    tbody.innerHTML = visibleDistinct.map(([value, count]) => {
       const match = existingByValue.get(value.toLowerCase().trim());
       let statusHtml, actionHtml;
 
@@ -266,11 +288,13 @@ const MastersSetup = (() => {
             </div>`;
         }
       } else if (config.actionType === 'country_select') {
-        // client_country_mapping has no status column -- a row either
-        // exists (resolved) or doesn't (unresolved). If it exists but has
-        // no country_code yet, treat it like unresolved.
-        if (!match.country_code) {
-          statusHtml = `<span class="badge" style="background:#fef3c7;color:#92400e">Seen, not resolved</span>`;
+        // A row needs attention if it has no country_code yet, OR it was
+        // previously deactivated (e.g. fixed in the Markets tab after a
+        // mismapping) -- both cases route back into the resolve flow.
+        if (!match.country_code || match.status !== 'active') {
+          statusHtml = match.status !== 'active'
+            ? `<span class="badge" style="background:#fee2e2;color:#991b1b">Inactive -- needs review</span>`
+            : `<span class="badge" style="background:#fef3c7;color:#92400e">Seen, not resolved</span>`;
           const guessedCode = guessCountryCode(value, countryOptions);
           actionHtml = `
             <div style="display:flex;gap:0.4rem;align-items:center">
@@ -359,7 +383,7 @@ const MastersSetup = (() => {
         select.disabled = true;
         btn.textContent = 'Saving...';
         try {
-          const { error } = await ClientCountryMapping.update(existingId, { country_code: countryCode });
+          const { error } = await ClientCountryMapping.update(existingId, { country_code: countryCode, status: 'active' });
           if (error) throw error;
           await renderResults(masterKey, column);
         } catch (e) {
@@ -518,9 +542,15 @@ const MastersSetup = (() => {
     fileInput.value = '';
     document.getElementById('ms-after-upload').style.display = 'none';
     document.getElementById('ms-property-banner').style.display = 'none';
+    document.getElementById('ms-unresolved-only').checked = false;
     UI.hideAlert('ms-file-error');
 
     fileInput.onchange = (e) => handleFileSelected(e.target.files[0]);
+
+    document.getElementById('ms-unresolved-only').onchange = () => {
+      if (!parsedRows) return;
+      renderResults(masterSelect.value, columnSelect.value);
+    };
 
     masterSelect.onchange = () => {
       if (!parsedHeaders) return;
