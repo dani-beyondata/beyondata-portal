@@ -7,7 +7,7 @@ const Segments = (() => {
       .from('segments')
       .select('*')
       .eq('company_id', companyId)
-      .order('segment_code');
+      .order('display_name');
     return { data, error };
   }
 
