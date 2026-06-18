@@ -226,7 +226,10 @@
       <div class="subpage" id="subpage-markets-groups">
         <div class="action-bar">
           <h3 id="groups-count"></h3>
-          <button class="btn btn-primary" id="btn-add-group">+ Add group</button>
+          <div style="display:flex;gap:0.5rem">
+            <button class="btn btn-secondary" id="btn-populate-defaults">Populate to default values</button>
+            <button class="btn btn-primary" id="btn-add-group">+ Add group</button>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
@@ -3685,6 +3688,30 @@
   }
 
   document.getElementById('btn-add-group').addEventListener('click', () => UI.openModal('modal-group'));
+
+  document.getElementById('btn-populate-defaults').addEventListener('click', async () => {
+    const confirmed = confirm(
+      'This will create one market group per continent (Africa, Asia, Europe, North America, ' +
+      'Oceania, South America, Antarctica) and map every country to its continent group, all ' +
+      'marked as targeted. Existing groups and mappings are updated, not deleted -- this is meant ' +
+      'as a starting point to edit from. Continue?'
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btn-populate-defaults');
+    btn.disabled = true;
+    btn.textContent = 'Populating...';
+    const { error, groupCount, mappedCount } = await Markets.populateDefaults(currentCompany.id);
+    btn.disabled = false;
+    btn.textContent = 'Populate to default values';
+
+    if (error) {
+      alert(`Could not populate defaults: ${error.message}`);
+      return;
+    }
+    alert(`Created/updated ${groupCount} market groups and mapped ${mappedCount} countries.`);
+    loadMarkets();
+  });
 
   document.getElementById('btn-save-group').addEventListener('click', async () => {
     const group_code = parseInt(document.getElementById('grp-code').value);
