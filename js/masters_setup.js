@@ -104,30 +104,21 @@ const MastersSetup = (() => {
     // switch matchColumn to 'raw_value' and update fetchExisting + addValue.
     room_categories: {
       table: 'room_categories',
-      matchColumn: 'category_name',
+      matchColumn: 'raw_value',
       actionType: 'text',
       async fetchExisting(companyId) {
         const { data, error } = await sb
           .from('room_categories')
-          .select('id, category_code, category_name, status')
+          .select('id, raw_value, display_name, status')
           .eq('company_id', companyId);
         if (error) throw error;
         return data || [];
       },
-      // Stores the raw Mews text as category_name so the match works on
-      // re-upload. The user can rename to a clean display name in the
-      // Room Categories tab afterward. category_code is a synthetic number
-      // used as a stable FK until the schema migrates to raw_value/display_name.
-      async addValue(companyId, rawValue, _displayName) {
-        const { data: existing } = await sb
-          .from('room_categories')
-          .select('category_code')
-          .eq('company_id', companyId);
-        const maxCode = (existing || []).reduce((m, r) => Math.max(m, parseInt(r.category_code) || 0), 0);
+      async addValue(companyId, rawValue, displayName) {
         const { error } = await sb.from('room_categories').insert({
           company_id: companyId,
-          category_code: String(maxCode + 1),
-          category_name: rawValue,
+          raw_value: rawValue,
+          display_name: displayName || rawValue,
           status: 'active',
         });
         if (error) throw error;
