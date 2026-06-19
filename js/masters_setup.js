@@ -21,7 +21,7 @@ const MastersSetup = (() => {
     booking_purposes: ['booking_purpose_id', 'booking_purpose', 'purpose'],
     segments: ['segment_id', 'segment'],
     client_country_mapping: ['client_country', 'country', 'nationality'],
-    room_categories: ['space_category', 'category', 'room_category'],
+    room_categories: ['room_category_raw', 'space_category', 'category', 'room_category'],
   };
 
   // Maps a master table's key to the matching logic needed to compare
@@ -114,9 +114,11 @@ const MastersSetup = (() => {
         if (error) throw error;
         return data || [];
       },
-      async addValue(companyId, rawValue, displayName) {
-        // Generate a simple numeric code as the category_code (temporary,
-        // until the schema is migrated to raw_value/display_name)
+      // Stores the raw Mews text as category_name so the match works on
+      // re-upload. The user can rename to a clean display name in the
+      // Room Categories tab afterward. category_code is a synthetic number
+      // used as a stable FK until the schema migrates to raw_value/display_name.
+      async addValue(companyId, rawValue, _displayName) {
         const { data: existing } = await sb
           .from('room_categories')
           .select('category_code')
@@ -125,7 +127,7 @@ const MastersSetup = (() => {
         const { error } = await sb.from('room_categories').insert({
           company_id: companyId,
           category_code: String(maxCode + 1),
-          category_name: displayName || rawValue,
+          category_name: rawValue,
           status: 'active',
         });
         if (error) throw error;
