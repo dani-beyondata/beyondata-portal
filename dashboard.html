@@ -3290,8 +3290,8 @@
     document.getElementById('room-categories-count').textContent = `${allRoomCategories.length} categories`;
     document.getElementById('room-categories-tbody').innerHTML = allRoomCategories.map(c => `
       <tr>
-        <td>${UI.mono(c.category_name)}</td>
-        <td style="color:var(--text-muted);font-style:italic">${c.category_name}</td>
+        <td>${UI.mono(c.raw_value)}</td>
+        <td >${c.display_name || '<em style="color:var(--text-muted)">not set</em>'}</td>
         <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
         <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleRoomCategory('${c.id}','${c.status}')">
           ${c.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
@@ -3310,17 +3310,9 @@
     const raw_value = document.getElementById('rcat-code').value.trim();
     const display_name = document.getElementById('rcat-name').value.trim();
     UI.hideAlert('room-cat-error');
-    if (!raw_value) { UI.showAlert('room-cat-error', 'Raw value is required.'); return; }
-    // Auto-generate a numeric category_code as a stable FK (temporary until
-    // schema migrates to raw_value/display_name). Store raw_value as
-    // category_name so Masters Setup matching works on re-upload.
-    const { data: existing } = await Rooms.getCategories(currentCompany.id);
-    const maxCode = (existing || []).reduce((m, r) => Math.max(m, parseInt(r.category_code) || 0), 0);
+    if (!raw_value || !display_name) { UI.showAlert('room-cat-error', 'Both raw value and display name are required.'); return; }
     UI.setLoading('btn-save-room-category', true, 'Save');
-    const { error } = await Rooms.createCategory(currentCompany.id, {
-      category_code: String(maxCode + 1),
-      category_name: raw_value,
-    });
+    const { error } = await Rooms.createCategory(currentCompany.id, { raw_value, display_name });
     UI.setLoading('btn-save-room-category', false, 'Save');
     if (error) { UI.showAlert('room-cat-error', error.message); return; }
     UI.closeModal('modal-room-category');
@@ -3375,7 +3367,7 @@
     return '<tr>' +
       '<td>' + UI.mono(r.room_code) + '</td>' +
       '<td>' + r.room_name + '</td>' +
-      '<td>' + (r.room_categories?.category_name ?? '—') + '</td>' +
+      '<td>' + (r.room_categories?.display_name ?? '—') + '</td>' +
       '<td>' + r.beds_per_room + '</td>' +
       '<td>' + (attrPills || '<span style="color:var(--text-muted);font-size:0.8rem">—</span>') + '</td>' +
       '<td>' + UI.statusBadge(r.status === 'active') + '</td>' +
@@ -3502,7 +3494,7 @@
     const sel = document.getElementById('edit-room-category-id');
     sel.innerHTML = '<option value="">— Select —</option>' +
       allRoomCategories.map(function(c) {
-        return '<option value="' + c.id + '"' + (r.category_id === c.id ? ' selected' : '') + '>' + c.category_name + '</option>';
+        return '<option value="' + c.id + '"' + (r.category_id === c.id ? ' selected' : '') + '>' + (c.display_name || c.raw_value) + '</option>';
       }).join('');
 
     // Render dynamic constant attributes
@@ -3612,7 +3604,7 @@
     const sel = document.getElementById('room-category-id');
     sel.innerHTML = '<option value="">— Select category —</option>' +
       allRoomCategories.filter(c => c.status === 'active').map(c =>
-        `<option value="${c.id}">${c.category_name}</option>`
+        `<option value="${c.id}">${c.display_name || c.raw_value}</option>`
       ).join('');
     UI.hideAlert('room-error');
     UI.openModal('modal-room');
