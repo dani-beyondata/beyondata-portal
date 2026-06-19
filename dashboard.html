@@ -847,8 +847,8 @@
   <div class="modal">
     <h3>Add room</h3>
     <div class="alert error" id="room-error"></div>
-    <div class="field"><label>Room code</label><input type="text" id="room-code" placeholder="e.g. 105"></div>
-    <div class="field"><label>Room name</label><input type="text" id="room-name" placeholder="e.g. 105 - Patio"></div>
+    <div class="field"><label>Raw value (Mews space number)</label><input type="text" id="room-code" placeholder="e.g. B-204-D"></div>
+    <div class="field"><label>Display name (for reports)</label><input type="text" id="room-name" placeholder="e.g. B-204-D"></div>
     <div class="field">
       <label>Category</label>
       <select id="room-category-id"><option value="">— Select category —</option></select>
@@ -882,8 +882,8 @@
     <h3>Edit room</h3>
     <div class="alert error" id="edit-room-error"></div>
     <input type="hidden" id="edit-room-id">
-    <div class="field"><label>Room code</label><input type="text" id="edit-room-code" disabled style="opacity:0.6;cursor:not-allowed"></div>
-    <div class="field"><label>Room name</label><input type="text" id="edit-room-name"></div>
+    <div class="field"><label>Raw value (Mews space number)</label><input type="text" id="edit-room-code" disabled style="opacity:0.6;cursor:not-allowed"></div>
+    <div class="field"><label>Display name (for reports)</label><input type="text" id="edit-room-name"></div>
     <div class="field">
       <label>Category</label>
       <select id="edit-room-category-id"></select>
@@ -3410,8 +3410,8 @@
     }).join('');
 
     return '<tr>' +
-      '<td>' + UI.mono(r.room_code) + '</td>' +
-      '<td>' + r.room_name + '</td>' +
+      '<td>' + UI.mono(r.raw_value || r.room_code) + '</td>' +
+      '<td>' + (r.display_name || r.room_name || '') + '</td>' +
       '<td>' + (r.room_categories?.display_name ?? '—') + '</td>' +
       '<td>' + r.beds_per_room + '</td>' +
       '<td>' + (attrPills || '<span style="color:var(--text-muted);font-size:0.8rem">—</span>') + '</td>' +
@@ -3531,8 +3531,8 @@
 
   function openEditRoom(r, rAttrs) {
     document.getElementById('edit-room-id').value   = r.id;
-    document.getElementById('edit-room-code').value = r.room_code;
-    document.getElementById('edit-room-name').value = r.room_name;
+    document.getElementById('edit-room-code').value = r.raw_value || r.room_code;
+    document.getElementById('edit-room-name').value = r.display_name || r.room_name || '';
     document.getElementById('edit-room-beds').value = r.beds_per_room;
     _editRoomAttrValues = Object.assign({}, rAttrs || {});
 
@@ -3611,16 +3611,16 @@
 
   document.getElementById('btn-update-room').addEventListener('click', async function() {
     const id          = document.getElementById('edit-room-id').value;
-    const room_name   = document.getElementById('edit-room-name').value.trim();
+    const display_name = document.getElementById('edit-room-name').value.trim();
     const category_id = document.getElementById('edit-room-category-id').value || null;
     const beds_per_room = parseInt(document.getElementById('edit-room-beds').value) || 1;
 
     UI.hideAlert('edit-room-error');
-    if (!room_name) { UI.showAlert('edit-room-error', 'Room name is required.'); return; }
+    if (!display_name) { UI.showAlert('edit-room-error', 'Display name is required.'); return; }
     UI.setLoading('btn-update-room', true, 'Save changes');
 
     // Save core room fields
-    const { error } = await Rooms.update(id, { room_name, category_id, beds_per_room });
+    const { error } = await Rooms.update(id, { display_name, category_id, beds_per_room });
     if (error) { UI.setLoading('btn-update-room', false, 'Save changes'); UI.showAlert('edit-room-error', error.message); return; }
 
     // Save room attributes — upsert each
@@ -3656,15 +3656,15 @@
   });
 
   document.getElementById('btn-save-room').addEventListener('click', async () => {
-    const propertyId  = document.getElementById('rooms-property-filter').value;
-    const room_code   = document.getElementById('room-code').value.trim();
-    const room_name   = document.getElementById('room-name').value.trim();
-    const category_id = document.getElementById('room-category-id').value || null;
+    const propertyId   = document.getElementById('rooms-property-filter').value;
+    const raw_value    = document.getElementById('room-code').value.trim();
+    const display_name = document.getElementById('room-name').value.trim();
+    const category_id  = document.getElementById('room-category-id').value || null;
     const beds_per_room = parseInt(document.getElementById('room-beds').value) || 1;
     UI.hideAlert('room-error');
-    if (!room_code || !room_name) { UI.showAlert('room-error', 'Code and name are required.'); return; }
+    if (!raw_value || !display_name) { UI.showAlert('room-error', 'Raw value and display name are required.'); return; }
     UI.setLoading('btn-save-room', true, 'Save');
-    const { error } = await Rooms.create(currentCompany.id, propertyId, { room_code, room_name, category_id, beds_per_room });
+    const { error } = await Rooms.create(currentCompany.id, propertyId, { raw_value, display_name, category_id, beds_per_room });
     UI.setLoading('btn-save-room', false, 'Save');
     if (error) { UI.showAlert('room-error', error.message); return; }
     UI.closeModal('modal-room');
