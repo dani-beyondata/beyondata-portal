@@ -823,8 +823,26 @@
   </div>
 </div>
 
-<!-- Modal: Add room -->
-<div class="modal-overlay" id="modal-room">
+<!-- Modal: Edit room category -->
+<div class="modal-overlay" id="modal-edit-room-category">
+  <div class="modal">
+    <h3>Edit room category</h3>
+    <div class="alert error" id="room-cat-edit-error"></div>
+    <input type="hidden" id="rcat-edit-id">
+    <div class="field">
+      <label>Raw value (Mews text)</label>
+      <input type="text" id="rcat-edit-code" readonly style="background:var(--bg-subtle,#f5f6f8);color:var(--text-muted)">
+      <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem">Cannot be changed — this is the exact text from the source file.</p>
+    </div>
+    <div class="field"><label>Display name (for reports)</label><input type="text" id="rcat-edit-name" placeholder="e.g. S_M_8"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-room-category')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-edit-room-category">Save</button>
+    </div>
+  </div>
+</div>
+
+
   <div class="modal">
     <h3>Add room</h3>
     <div class="alert error" id="room-error"></div>
@@ -3291,10 +3309,13 @@
     document.getElementById('room-categories-tbody').innerHTML = allRoomCategories.map(c => `
       <tr>
         <td>${UI.mono(c.raw_value)}</td>
-        <td >${c.display_name || '<em style="color:var(--text-muted)">not set</em>'}</td>
+        <td>${c.display_name || '<em style="color:var(--text-muted)">not set</em>'}</td>
         <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
-        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleRoomCategory('${c.id}','${c.status}')">
-          ${c.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+        <td style="display:flex;gap:0.4rem">${isAdmin ? `
+          <button class="btn btn-secondary btn-sm" onclick="editRoomCategory('${c.id}','${c.raw_value.replace(/'/g,"\\'")}','${(c.display_name||'').replace(/'/g,"\\'")}')">Edit</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleRoomCategory('${c.id}','${c.status}')">
+            ${c.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}
+        </td>
       </tr>
     `).join('');
   }
@@ -3303,6 +3324,29 @@
     await Rooms.toggleCategory(id, status);
     loadRoomCategories();
   }
+
+  function editRoomCategory(id, rawValue, displayName) {
+    document.getElementById('rcat-edit-id').value = id;
+    document.getElementById('rcat-edit-code').value = rawValue;
+    document.getElementById('rcat-edit-name').value = displayName;
+    UI.hideAlert('room-cat-edit-error');
+    UI.openModal('modal-edit-room-category');
+  }
+
+  document.getElementById('btn-save-edit-room-category').addEventListener('click', async () => {
+    const id = document.getElementById('rcat-edit-id').value;
+    const display_name = document.getElementById('rcat-edit-name').value.trim();
+    UI.hideAlert('room-cat-edit-error');
+    if (!display_name) { UI.showAlert('room-cat-edit-error', 'Display name is required.'); return; }
+    UI.setLoading('btn-save-edit-room-category', true, 'Save');
+    const { error } = await sb.from('room_categories')
+      .update({ display_name, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    UI.setLoading('btn-save-edit-room-category', false, 'Save');
+    if (error) { UI.showAlert('room-cat-edit-error', error.message); return; }
+    UI.closeModal('modal-edit-room-category');
+    loadRoomCategories();
+  });
 
   document.getElementById('btn-add-room-category').addEventListener('click', () => UI.openModal('modal-room-category'));
 
