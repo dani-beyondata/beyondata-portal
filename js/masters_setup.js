@@ -22,6 +22,7 @@ const MastersSetup = (() => {
     segments: ['segment_id', 'segment'],
     client_country_mapping: ['client_country', 'country', 'nationality'],
     room_categories: ['room_category_raw', 'space_category', 'category', 'room_category'],
+    rooms: ['room_name_raw', 'space_number', 'room_name'],
   };
 
   // Maps a master table's key to the matching logic needed to compare
@@ -119,6 +120,38 @@ const MastersSetup = (() => {
           company_id: companyId,
           raw_value: rawValue,
           display_name: displayName || rawValue,
+          status: 'active',
+        });
+        if (error) throw error;
+      },
+    },
+    // rooms: matches room_name_raw against rooms.raw_value. When adding,
+    // looks up room_category_raw from the same file row and pre-assigns
+    // category_id by matching against the registered room_categories.
+    // The property_uuid is derived from the file's property_id column
+    // matched against the company's registered properties.
+    rooms: {
+      table: 'rooms',
+      matchColumn: 'raw_value',
+      actionType: 'room',
+      async fetchExisting(companyId) {
+        const { data, error } = await sb
+          .from('rooms')
+          .select('id, raw_value, display_name, status, category_id')
+          .eq('company_id', companyId);
+        if (error) throw error;
+        return data || [];
+      },
+      async addValue(companyId, rawValue, displayName, extraFields) {
+        // extraFields: { category_id, beds_per_room, property_uuid }
+        const { error } = await sb.from('rooms').insert({
+          company_id: companyId,
+          raw_value: rawValue,
+          display_name: displayName || rawValue,
+          category_id: extraFields?.category_id || null,
+          beds_per_room: extraFields?.beds_per_room || 1,
+          property_uuid: extraFields?.property_uuid || null,
+          property_id: extraFields?.property_id || null,
           status: 'active',
         });
         if (error) throw error;
@@ -238,6 +271,33 @@ const MastersSetup = (() => {
       countryOptions = data || [];
     }
 
+    // For rooms: pre-build a lookup of room_name_raw -> {room_category_raw,
+    // beds_per_room_derived, property_id} from the parsed file rows, so we
+    // can show a pre-assigned category suggestion for each room.
+    let roomInfoMap = new Map();
+    let registeredCategories = [];
+    let propertyUuidMap = new Map(); // property_id string -> property UUID
+    if (config.actionType === 'room') {
+      parsedRows.forEach(r => {
+        const name = String(r['room_name_raw'] || '').trim();
+        if (name && !roomInfoMap.has(name)) {
+          roomInfoMap.set(name, {
+            room_category_raw: String(r['room_category_raw'] || '').trim(),
+            beds_per_room: parseInt(r['beds_per_room_derived']) || 1,
+            property_id: String(r['property_id'] || '').trim(),
+          });
+        }
+      });
+      // Fetch registered room_categories to resolve category_id
+      const { data: cats } = await sb.from('room_categories')
+        .select('id, raw_value, display_name').eq('company_id', currentCompany.id);
+      registeredCategories = cats || [];
+      // Fetch registered properties to resolve property_uuid
+      const { data: props } = await sb.from('properties')
+        .select('id, property_id').eq('company_id', currentCompany.id);
+      (props || []).forEach(p => propertyUuidMap.set(p.property_id, p.id));
+    }
+
     const existingByValue = new Map(
       existing.map(r => [String(r[config.matchColumn]).toLowerCase().trim(), r])
     );
@@ -303,6 +363,31 @@ const MastersSetup = (() => {
               <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
               ${guessedCountry ? `<span style="color:var(--text-muted);font-size:0.8rem">suggested</span>` : ''}
             </div>`;
+        } else if (config.actionType === 'room') {
+          // Pre-assign category from the file's room_category_raw column,
+          // matched against registered room_categories. Show the suggested
+          // category and beds count derived from the file, plus a display
+          // name input. User just confirms and clicks Add.
+          const info = roomInfoMap.get(value) || {};
+          const suggestedCat = registeredCategories.find(
+            c => c.raw_value === info.room_category_raw
+          );
+          const catLabel = suggestedCat
+            ? `<span style="font-size:0.8rem;color:var(--text-muted)">${escapeHtml(suggestedCat.display_name || suggestedCat.raw_value)}</span>`
+            : `<span style="font-size:0.8rem;color:#dc2626">Category not registered yet</span>`;
+          actionHtml = `
+            <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
+              <input type="text" placeholder="Display name"
+                     data-role="display-name-input" data-value="${escapeAttr(value)}"
+                     data-category-id="${escapeAttr(suggestedCat?.id || '')}"
+                     data-beds="${info.beds_per_room || 1}"
+                     data-property-id="${escapeAttr(info.property_id || '')}"
+                     style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:150px"
+                     value="${escapeAttr(value)}">
+              ${catLabel}
+              <span style="font-size:0.8rem;color:var(--text-muted)">${info.beds_per_room || 1} bed(s)</span>
+              <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
+            </div>`;
         } else {
           // Two-step add: the raw value is fixed (it's exactly what the file
           // contains), but the display name is a judgment call -- ask for it
@@ -362,6 +447,7 @@ const MastersSetup = (() => {
 
         let secondValue;
         let inputEl;
+        let extraFields = null;
         if (config.actionType === 'country_select') {
           inputEl = row.querySelector('select[data-role="country-select"]');
           secondValue = inputEl.value;
@@ -377,13 +463,22 @@ const MastersSetup = (() => {
             inputEl.placeholder = 'Required before adding';
             return;
           }
+          // For rooms, pass the pre-assigned category, beds, and property
+          if (config.actionType === 'room') {
+            extraFields = {
+              category_id: inputEl.dataset.categoryId || null,
+              beds_per_room: parseInt(inputEl.dataset.beds) || 1,
+              property_id: inputEl.dataset.propertyId || null,
+              property_uuid: propertyUuidMap.get(inputEl.dataset.propertyId) || null,
+            };
+          }
         }
 
         btn.disabled = true;
         inputEl.disabled = true;
         btn.textContent = 'Adding...';
         try {
-          await config.addValue(currentCompany.id, value, secondValue);
+          await config.addValue(currentCompany.id, value, secondValue, extraFields);
           await renderResults(masterKey, column); // refresh full table to reflect new state
         } catch (e) {
           UI.showAlert('ms-file-error', `Could not add "${value}": ${e.message}`);
@@ -568,6 +663,7 @@ const MastersSetup = (() => {
     ],
     nights: [
       { value: 'room_categories', label: 'Room Categories' },
+      { value: 'rooms',           label: 'Rooms' },
     ],
   };
 
