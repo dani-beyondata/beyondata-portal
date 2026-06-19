@@ -5,7 +5,7 @@ const Rooms = (() => {
   // ── Categories ──────────────────────────────────────────────────
   async function getCategories(companyId) {
     const { data, error } = await sb.from('room_categories')
-      .select('*').eq('company_id', companyId).order('category_name');
+      .select('*').eq('company_id', companyId).order('display_name');
     return { data, error };
   }
 
@@ -23,7 +23,7 @@ const Rooms = (() => {
   // ── Rooms ────────────────────────────────────────────────────────
   async function getByProperty(companyId, propertyId) {
     const { data, error } = await sb.from('rooms')
-      .select('*, room_categories(category_name)')
+      .select('*, room_categories(raw_value, display_name)')
       .eq('company_id', companyId).eq('property_uuid', propertyId).order('room_code');
     return { data, error };
   }
