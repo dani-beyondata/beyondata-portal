@@ -22,7 +22,7 @@ const MastersSetup = (() => {
     segments: ['segment_id', 'segment'],
     client_country_mapping: ['client_country', 'country', 'nationality'],
     room_categories: ['room_category_raw', 'space_category', 'category', 'room_category'],
-    rooms: ['room_name_raw', 'space_number', 'room_name'],
+    rooms: ['room_code_raw', 'room_code', 'room_number'],
   };
 
   // Maps a master table's key to the matching logic needed to compare
@@ -125,7 +125,7 @@ const MastersSetup = (() => {
         if (error) throw error;
       },
     },
-    // rooms: matches room_name_raw against rooms.raw_value. When adding,
+    // rooms: matches room_code_raw against rooms.raw_value. When adding,
     // looks up room_category_raw from the same file row and pre-assigns
     // category_id by matching against the registered room_categories.
     // The property_uuid is derived from the file's property_id column
@@ -271,7 +271,7 @@ const MastersSetup = (() => {
       countryOptions = data || [];
     }
 
-    // For rooms: pre-build a lookup of room_name_raw -> {room_category_raw,
+    // For rooms: pre-build a lookup of room_code_raw -> {room_category_raw,
     // beds_per_room_derived, property_id} from the parsed file rows, so we
     // can show a pre-assigned category suggestion for each room.
     let roomInfoMap = new Map();
@@ -279,7 +279,7 @@ const MastersSetup = (() => {
     let propertyUuidMap = new Map(); // property_id string -> property UUID
     if (config.actionType === 'room') {
       parsedRows.forEach(r => {
-        const name = String(r['room_name_raw'] || '').trim();
+        const name = String(r['room_code_raw'] || '').trim();
         if (name && !roomInfoMap.has(name)) {
           roomInfoMap.set(name, {
             room_category_raw: String(r['room_category_raw'] || '').trim(),
