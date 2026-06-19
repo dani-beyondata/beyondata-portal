@@ -21,6 +21,7 @@ const MastersSetup = (() => {
     booking_purposes: ['booking_purpose_id', 'booking_purpose', 'purpose'],
     segments: ['segment_id', 'segment'],
     client_country_mapping: ['client_country', 'country', 'nationality'],
+    room_categories: ['space_category', 'category', 'room_category'],
   };
 
   // Maps a master table's key to the matching logic needed to compare
@@ -92,6 +93,40 @@ const MastersSetup = (() => {
         const { error } = await ClientCountryMapping.create(companyId, {
           raw_value: rawValue,
           country_code: countryCode,
+        });
+        if (error) throw error;
+      },
+    },
+    // room_categories: matches against space_category from the nights gold file.
+    // NOTE: this uses the current DB schema (category_name as the match field,
+    // no raw_value column yet). When room_categories is migrated to the
+    // raw_value/display_name pattern (same as booking_purposes/segments),
+    // switch matchColumn to 'raw_value' and update fetchExisting + addValue.
+    room_categories: {
+      table: 'room_categories',
+      matchColumn: 'category_name',
+      actionType: 'text',
+      async fetchExisting(companyId) {
+        const { data, error } = await sb
+          .from('room_categories')
+          .select('id, category_code, category_name, status')
+          .eq('company_id', companyId);
+        if (error) throw error;
+        return data || [];
+      },
+      async addValue(companyId, rawValue, displayName) {
+        // Generate a simple numeric code as the category_code (temporary,
+        // until the schema is migrated to raw_value/display_name)
+        const { data: existing } = await sb
+          .from('room_categories')
+          .select('category_code')
+          .eq('company_id', companyId);
+        const maxCode = (existing || []).reduce((m, r) => Math.max(m, parseInt(r.category_code) || 0), 0);
+        const { error } = await sb.from('room_categories').insert({
+          company_id: companyId,
+          category_code: String(maxCode + 1),
+          category_name: displayName || rawValue,
+          status: 'active',
         });
         if (error) throw error;
       },
@@ -529,6 +564,22 @@ const MastersSetup = (() => {
     reader.readAsText(file);
   }
 
+  // Masters available per file type.
+  // 'reservations' file: booking_purposes, segments, client_country_mapping
+  // 'nights' file: room_categories (space_category column)
+  const MASTERS_BY_FILE_TYPE = {
+    reservations: [
+      { value: 'booking_purposes',      label: 'Booking Purposes' },
+      { value: 'segments',              label: 'Segments' },
+      { value: 'client_country_mapping',label: 'Client Country Mapping' },
+    ],
+    nights: [
+      { value: 'room_categories', label: 'Room Categories' },
+    ],
+  };
+
+  let currentFileType = 'reservations';
+
   function init() {
     const fileInput = document.getElementById('ms-file-input');
     const masterSelect = document.getElementById('ms-master-select');
@@ -540,10 +591,15 @@ const MastersSetup = (() => {
     parsedRows = null;
     parsedHeaders = null;
     fileInput.value = '';
+    currentFileType = 'reservations';
     document.getElementById('ms-after-upload').style.display = 'none';
     document.getElementById('ms-property-banner').style.display = 'none';
     document.getElementById('ms-unresolved-only').checked = false;
+    document.getElementById('ms-upload-label').textContent = '1. Upload reservations file';
+    document.getElementById('ms-tab-reservations').classList.add('active');
+    document.getElementById('ms-tab-nights').classList.remove('active');
     UI.hideAlert('ms-file-error');
+    updateMasterOptions();
 
     fileInput.onchange = (e) => handleFileSelected(e.target.files[0]);
 
@@ -567,7 +623,31 @@ const MastersSetup = (() => {
     };
   }
 
-  return { init };
+  function updateMasterOptions() {
+    const masterSelect = document.getElementById('ms-master-select');
+    const options = MASTERS_BY_FILE_TYPE[currentFileType] || [];
+    masterSelect.innerHTML = options.map(o =>
+      `<option value="${o.value}">${o.label}</option>`
+    ).join('');
+  }
+
+  return { init, switchFileType(type) {
+    currentFileType = type;
+    parsedRows = null;
+    parsedHeaders = null;
+    const fileInput = document.getElementById('ms-file-input');
+    fileInput.value = '';
+    document.getElementById('ms-after-upload').style.display = 'none';
+    document.getElementById('ms-property-banner').style.display = 'none';
+    document.getElementById('ms-unresolved-only').checked = false;
+    UI.hideAlert('ms-file-error');
+    document.getElementById('ms-upload-label').textContent =
+      type === 'nights' ? '1. Upload nights file' : '1. Upload reservations file';
+    document.getElementById('ms-tab-reservations').classList.toggle('active', type === 'reservations');
+    document.getElementById('ms-tab-nights').classList.toggle('active', type === 'nights');
+    updateMasterOptions();
+  }};
 })();
 
 function initMastersSetup() { MastersSetup.init(); }
+function msSwitchFileType(type) { MastersSetup.switchFileType(type); }
