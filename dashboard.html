@@ -409,7 +409,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Code</th><th>Name</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Raw value (Mews)</th><th>Display name</th><th>Status</th><th></th></tr></thead>
             <tbody id="room-categories-tbody"></tbody>
           </table>
         </div>
@@ -814,8 +814,8 @@
   <div class="modal">
     <h3>Add room category</h3>
     <div class="alert error" id="room-cat-error"></div>
-    <div class="field"><label>Code</label><input type="text" id="rcat-code" placeholder="e.g. deluxe"></div>
-    <div class="field"><label>Name</label><input type="text" id="rcat-name" placeholder="e.g. Deluxe"></div>
+    <div class="field"><label>Raw value (Mews text)</label><input type="text" id="rcat-code" placeholder="e.g. Bed in a shared mixed dormitory for 8 people"></div>
+    <div class="field"><label>Display name (for reports)</label><input type="text" id="rcat-name" placeholder="e.g. Mixed Dorm 8"></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-room-category')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-room-category">Save</button>
@@ -3290,8 +3290,8 @@
     document.getElementById('room-categories-count').textContent = `${allRoomCategories.length} categories`;
     document.getElementById('room-categories-tbody').innerHTML = allRoomCategories.map(c => `
       <tr>
-        <td>${UI.mono(c.category_code)}</td>
-        <td>${c.category_name}</td>
+        <td>${UI.mono(c.category_name)}</td>
+        <td style="color:var(--text-muted);font-style:italic">${c.category_name}</td>
         <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
         <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleRoomCategory('${c.id}','${c.status}')">
           ${c.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
@@ -3307,12 +3307,20 @@
   document.getElementById('btn-add-room-category').addEventListener('click', () => UI.openModal('modal-room-category'));
 
   document.getElementById('btn-save-room-category').addEventListener('click', async () => {
-    const category_code = document.getElementById('rcat-code').value.trim().toLowerCase().replace(/\s+/g,'-');
-    const category_name = document.getElementById('rcat-name').value.trim();
+    const raw_value = document.getElementById('rcat-code').value.trim();
+    const display_name = document.getElementById('rcat-name').value.trim();
     UI.hideAlert('room-cat-error');
-    if (!category_code || !category_name) { UI.showAlert('room-cat-error', 'Code and name are required.'); return; }
+    if (!raw_value) { UI.showAlert('room-cat-error', 'Raw value is required.'); return; }
+    // Auto-generate a numeric category_code as a stable FK (temporary until
+    // schema migrates to raw_value/display_name). Store raw_value as
+    // category_name so Masters Setup matching works on re-upload.
+    const { data: existing } = await Rooms.getCategories(currentCompany.id);
+    const maxCode = (existing || []).reduce((m, r) => Math.max(m, parseInt(r.category_code) || 0), 0);
     UI.setLoading('btn-save-room-category', true, 'Save');
-    const { error } = await Rooms.createCategory(currentCompany.id, { category_code, category_name });
+    const { error } = await Rooms.createCategory(currentCompany.id, {
+      category_code: String(maxCode + 1),
+      category_name: raw_value,
+    });
     UI.setLoading('btn-save-room-category', false, 'Save');
     if (error) { UI.showAlert('room-cat-error', error.message); return; }
     UI.closeModal('modal-room-category');
