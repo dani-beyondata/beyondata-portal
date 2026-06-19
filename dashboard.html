@@ -296,16 +296,22 @@
     <div class="section" id="section-masters_setup">
       <div class="section-header">
         <h2>Masters Setup</h2>
-        <p>Upload a reservations export to find values missing from this company's master catalogs, and add them with one click.</p>
+        <p>Upload an export file to find values missing from this company's master catalogs, and add them with one click.</p>
+      </div>
+
+      <!-- File type selector -->
+      <div class="subtabs" id="ms-file-type-tabs" style="margin-bottom:1.5rem">
+        <button class="subtab active" id="ms-tab-reservations" onclick="msSwitchFileType('reservations')">Reservations file</button>
+        <button class="subtab" id="ms-tab-nights" onclick="msSwitchFileType('nights')">Nights file</button>
       </div>
 
       <div class="action-bar">
-        <h3>1. Upload reservations file</h3>
+        <h3 id="ms-upload-label">1. Upload reservations file</h3>
       </div>
       <div class="field" style="max-width:480px">
         <input type="file" id="ms-file-input" accept=".csv">
         <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.4rem">
-          CSV only, for this first version. The file is read in your browser and is never uploaded or stored anywhere — only the column you pick below is used, in memory, for this session.
+          CSV only. The file is read in your browser and is never uploaded or stored anywhere — only the column you pick below is used, in memory, for this session.
         </p>
       </div>
       <div class="alert error" id="ms-file-error"></div>
