@@ -1,5 +1,4008 @@
-{
-  "message": "Bad credentials",
-  "documentation_url": "https://docs.github.com/rest",
-  "status": "401"
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BeyonData — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/modals.css">
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="brand-name">BEYON<span>DATA</span></div>
+    <span class="company-pill" id="company-pill">—</span>
+  </div>
+  <div class="topbar-right">
+    <span class="user-label" id="user-label"></span>
+    <button class="btn btn-sm" id="btn-switch" style="display:none;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.85);border:1px solid rgba(255,255,255,0.2)">← Companies</button>
+    <button class="btn btn-sm" id="btn-signout" style="background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.85);border:1px solid rgba(255,255,255,0.2)">Sign out</button>
+  </div>
+</div>
+
+<!-- Layout -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="nav-section">
+      <div class="nav-section-label">General</div>
+      <div class="nav-item active" data-section="overview"><span class="nav-icon">◈</span>Overview</div>
+      <div class="nav-item" data-section="properties"><span class="nav-icon">⊞</span>Properties</div>
+      <div class="nav-item" data-section="settings"><span class="nav-icon">⚙</span>Settings</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Catalogs</div>
+      <div class="nav-item" data-section="channels"><span class="nav-icon">⊹</span>Channels</div>
+      <div class="nav-item" data-section="segments"><span class="nav-icon">◑</span>Segments</div>
+      <div class="nav-item" data-section="purposes"><span class="nav-icon">◇</span>Booking Purposes</div>
+      <div class="nav-item" data-section="markets"><span class="nav-icon">⊕</span>Markets</div>
+      <div class="nav-item" data-section="extras"><span class="nav-icon">✦</span>Extras</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Hotel Setup</div>
+      <div class="nav-item" data-section="rooms"><span class="nav-icon">⊡</span>Rooms</div>
+      <div class="nav-item" data-section="availability"><span class="nav-icon">▦</span>Availability</div>
+    </div>
+    <div class="nav-section" id="nav-admin">
+      <div class="nav-section-label">Admin</div>
+      <div class="nav-item" data-section="company"><span class="nav-icon">⬡</span>Company</div>
+      <div class="nav-item" data-section="users"><span class="nav-icon">◎</span>Users</div>
+      <div class="nav-item" data-section="countries" id="nav-countries"><span class="nav-icon">◉</span>Countries</div>
+      <div class="nav-item" data-section="masters_setup"><span class="nav-icon">⚒</span>Masters Setup</div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- OVERVIEW -->
+    <div class="section active" id="section-overview">
+      <div class="section-header">
+        <h2 id="overview-title">Overview</h2>
+        <p>Company summary and key information.</p>
+      </div>
+
+      <!-- General -->
+      <div style="margin-bottom:0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">General</div>
+      <div class="cards-grid" style="margin-bottom:1.5rem">
+        <div class="card card-link" onclick="navTo('properties')"><div class="card-label">Properties</div><div class="card-value" id="stat-properties">—</div></div>
+        <div class="card card-link" onclick="navTo('users')"><div class="card-label">Users</div><div class="card-value" id="stat-users">—</div></div>
+        <div class="card card-link" onclick="navTo('settings')"><div class="card-label">Occupancy Mode</div><div class="card-value" id="stat-occ-mode">—</div><div class="card-sub">Current setting</div></div>
+      </div>
+
+      <!-- Catalogs -->
+      <div style="margin-bottom:0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">Catalogs</div>
+      <div class="cards-grid" style="margin-bottom:1.5rem">
+        <div class="card card-link" onclick="navTo('channels')"><div class="card-label">Channels</div><div class="card-value" id="stat-channels">—</div></div>
+        <div class="card card-link" onclick="navTo('segments')"><div class="card-label">Segments</div><div class="card-value" id="stat-segments">—</div></div>
+        <div class="card card-link" onclick="navTo('purposes')"><div class="card-label">Booking Purposes</div><div class="card-value" id="stat-purposes">—</div></div>
+        <div class="card card-link" onclick="navTo('extras')"><div class="card-label">Extras</div><div class="card-value" id="stat-extras">—</div></div>
+        <div class="card card-link" onclick="navTo('markets')"><div class="card-label">Market Groups</div><div class="card-value" id="stat-market-groups">—</div></div>
+        <div class="card card-link" onclick="navTo('markets')"><div class="card-label">Country Mappings</div><div class="card-value" id="stat-country-mappings">—</div><div class="card-sub">Assigned to a group</div></div>
+      </div>
+
+      <!-- Hotel Setup -->
+      <div style="margin-bottom:0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">Hotel Setup</div>
+      <div class="cards-grid" style="margin-bottom:1.5rem">
+        <div class="card card-link" onclick="navTo('rooms')"><div class="card-label">Room Categories</div><div class="card-value" id="stat-room-categories">—</div></div>
+        <div class="card card-link" onclick="navTo('rooms')"><div class="card-label">Total Rooms</div><div class="card-value" id="stat-rooms">—</div><div class="card-sub">Across all properties</div></div>
+        <div class="card card-link" onclick="navTo('availability')"><div class="card-label">Open Days This Month</div><div class="card-value" id="stat-open-days">—</div><div class="card-sub" id="stat-open-days-sub"></div></div>
+      </div>
+    </div>
+
+    <!-- PROPERTIES -->
+    <div class="section" id="section-properties">
+      <div class="section-header">
+        <h2>Properties</h2>
+        <p>Hotels and properties for this company.</p>
+      </div>
+      <div class="action-bar">
+        <h3 id="prop-count"></h3>
+        <button class="btn btn-primary" id="btn-add-property">+ Add property</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Property ID</th><th>Name</th><th>City</th><th>Country</th>
+            <th>Rooms</th><th>Beds</th><th>Source</th><th>Status</th><th></th>
+          </tr></thead>
+          <tbody id="properties-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="section" id="section-settings">
+      <div class="section-header">
+        <h2>Settings</h2>
+        <p>Company parameters and configuration.</p>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header"><h3>Parameters</h3></div>
+        <div id="params-list"></div>
+      </div>
+    </div>
+
+    <!-- COMPANY -->
+    <div class="section" id="section-company">
+      <div class="section-header">
+        <h2>Company</h2>
+        <p>Edit company details.</p>
+      </div>
+      <div class="table-wrap" style="max-width:520px">
+        <div class="table-header"><h3>Details</h3></div>
+        <div style="padding:1.25rem">
+          <div class="alert error" id="company-error"></div>
+          <div class="alert success" id="company-success"></div>
+          <div class="field"><label>Company name</label><input type="text" id="company-name"></div>
+          <div class="field"><label>Slug</label><input type="text" id="company-slug"></div>
+          <div class="field">
+            <label>Status</label>
+            <select id="company-active">
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+          <div style="margin-top:0.5rem">
+            <button class="btn btn-primary" id="btn-save-company">Save changes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEGMENTS -->
+    <div class="section" id="section-segments">
+      <div class="section-header">
+        <h2>Segments</h2>
+        <p>Guest and reservation segments.</p>
+      </div>
+      <div class="action-bar">
+        <h3 id="segments-count"></h3>
+        <button class="btn btn-primary" id="btn-add-segment">+ Add segment</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Raw value</th><th>Display name</th><th>Status</th><th></th></tr></thead>
+          <tbody id="segments-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- BOOKING PURPOSES -->
+    <div class="section" id="section-purposes">
+      <div class="section-header">
+        <h2>Booking Purposes</h2>
+        <p>Reason for stay classification.</p>
+      </div>
+      <div class="action-bar">
+        <h3 id="purposes-count"></h3>
+        <button class="btn btn-primary" id="btn-add-purpose">+ Add purpose</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Raw value</th><th>Display name</th><th>Status</th><th></th></tr></thead>
+          <tbody id="purposes-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MARKETS -->
+    <div class="section" id="section-markets">
+      <div class="section-header">
+        <h2>Markets</h2>
+        <p>Define market groups and map countries to them.</p>
+      </div>
+      <div class="subtabs" id="markets-subtabs">
+        <button class="subtab active" onclick="showSubtab('markets','client-mapping')" id="subtab-markets-client-mapping">Client Country Mapping</button>
+        <button class="subtab" onclick="showSubtab('markets','groups')" id="subtab-markets-groups">Market Groups</button>
+        <button class="subtab" onclick="showSubtab('markets','mapping')" id="subtab-markets-mapping">Country Mapping</button>
+      </div>
+
+      <!-- Client Country Mapping subpage -->
+      <div class="subpage active" id="subpage-markets-client-mapping">
+        <div class="action-bar">
+          <h3 id="client-mapping-count"></h3>
+        </div>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem">
+          Raw country text seen in uploaded files, mapped to a real country. Fix a mismatch by changing the
+          dropdown and saving, or deactivate a raw value you no longer want matched.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Raw value (from file)</th><th>Mapped country</th><th>Status</th><th></th></tr></thead>
+            <tbody id="client-mapping-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Market Groups subpage -->
+      <div class="subpage" id="subpage-markets-groups">
+        <div class="action-bar">
+          <h3 id="groups-count"></h3>
+          <div style="display:flex;gap:0.5rem">
+            <button class="btn btn-secondary" id="btn-populate-defaults">Populate to default values</button>
+            <button class="btn btn-primary" id="btn-add-group">+ Add group</button>
+          </div>
+        </div>
+        <div class="alert" id="populate-defaults-result" style="margin-bottom:1rem"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Group Name</th><th>Status</th><th></th></tr></thead>
+            <tbody id="groups-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Country Mapping subpage -->
+      <div class="subpage" id="subpage-markets-mapping">
+        <div class="search-bar">
+          <div class="search-wrap">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" class="search-input" placeholder="Search country..." id="country-search" oninput="filterCountryMapping()">
+          </div>
+          <select class="filter-select" id="continent-filter" onchange="filterCountryMapping()">
+            <option value="">All continents</option>
+            <option>Europe</option>
+            <option>Asia</option>
+            <option>North America</option>
+            <option>South America</option>
+            <option>Africa</option>
+            <option>Oceania</option>
+          </select>
+          <select class="filter-select" id="targeted-filter" onchange="filterCountryMapping()">
+            <option value="">All countries</option>
+            <option value="true">Targeted only</option>
+            <option value="false">Not targeted</option>
+          </select>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:0.75rem">
+            <span id="mapping-changes-label" style="font-size:0.8rem;color:var(--text-muted);display:none">Unsaved changes</span>
+            <button class="btn btn-primary btn-sm" id="btn-save-mapping-all" style="display:none" onclick="saveAllMappings()">Save changes</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Country</th><th>Continent</th><th>Targeted <span style="font-size:0.7rem;font-weight:400;color:var(--text-muted)">(click to toggle)</span></th><th>Market Group</th></tr></thead>
+            <tbody id="mapping-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- COUNTRIES (system admin only) -->
+    <div class="section" id="section-countries">
+      <div class="section-header">
+        <h2>Countries</h2>
+        <p>System-wide country catalog. Only visible to system admin.</p>
+      </div>
+      <div class="action-bar">
+        <h3 id="countries-count"></h3>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Code</th><th>Name</th><th>Continent</th></tr></thead>
+          <tbody id="countries-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MASTERS SETUP -->
+    <div class="section" id="section-masters_setup">
+      <div class="section-header">
+        <h2>Masters Setup</h2>
+        <p>Upload an export file to find values missing from this company's master catalogs, and add them with one click.</p>
+      </div>
+
+      <!-- File type selector -->
+      <div class="subtabs" id="ms-file-type-tabs" style="margin-bottom:1.5rem">
+        <button class="subtab active" id="ms-tab-reservations" onclick="msSwitchFileType('reservations')">Reservations file</button>
+        <button class="subtab" id="ms-tab-nights" onclick="msSwitchFileType('nights')">Nights file</button>
+      </div>
+
+      <div class="action-bar">
+        <h3 id="ms-upload-label">1. Upload reservations file</h3>
+      </div>
+      <div class="field" style="max-width:480px">
+        <input type="file" id="ms-file-input" accept=".csv">
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.4rem">
+          CSV only. The file is read in your browser and is never uploaded or stored anywhere — only the column you pick below is used, in memory, for this session.
+        </p>
+      </div>
+      <div class="alert error" id="ms-file-error"></div>
+      <div id="ms-property-banner" style="display:none"></div>
+
+      <div id="ms-after-upload" style="display:none">
+        <div class="action-bar" style="margin-top:1.5rem">
+          <h3>2. Choose master &amp; column</h3>
+        </div>
+        <div class="field" style="max-width:480px">
+          <label>Master catalog</label>
+          <select id="ms-master-select">
+            <option value="booking_purposes">Booking Purposes</option>
+            <option value="segments">Segments</option>
+            <option value="client_country_mapping">Client Country Mapping</option>
+          </select>
+        </div>
+        <div class="field" style="max-width:480px">
+          <label>Column from your file</label>
+          <select id="ms-column-select"></select>
+          <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.4rem" id="ms-column-hint"></p>
+        </div>
+
+        <div class="action-bar" style="margin-top:1.5rem">
+          <h3 id="ms-results-count">3. Review distinct values</h3>
+          <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;color:var(--text-muted);cursor:pointer">
+            <input type="checkbox" id="ms-unresolved-only"> Show only unresolved
+          </label>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Value in file</th><th>Rows</th><th>Status</th><th></th></tr></thead>
+            <tbody id="ms-results-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXTRAS CATALOG -->
+    <div class="section" id="section-extras">
+      <div class="section-header">
+        <h2>Extras</h2>
+        <p>Extra services and products catalog.</p>
+      </div>
+
+      <!-- Search + filter bar -->
+      <div class="search-bar" style="margin-bottom:1rem">
+        <div class="search-wrap">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" class="search-input" placeholder="Search extra code..." id="extras-search" oninput="filterExtras()">
+        </div>
+        <select class="filter-select" id="extras-category-filter" onchange="filterExtras()">
+          <option value="">All categories</option>
+        </select>
+        <select class="filter-select" id="extras-timing-filter" onchange="filterExtras()">
+          <option value="">All timings</option>
+          <option value="during_stay">During stay</option>
+          <option value="bookable_in_advance">Bookable in advance</option>
+          <option value="at_checkout">At checkout</option>
+        </select>
+        <div style="margin-left:auto">
+          <button class="btn btn-primary" id="btn-add-extra">+ Add extra</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Code</th><th>Category</th><th>Subcategory</th>
+            <th>Default €</th><th>Charge timing</th><th>Status</th><th></th>
+          </tr></thead>
+          <tbody id="extras-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ROOMS -->
+    <div class="section" id="section-rooms">
+      <div class="section-header">
+        <h2>Rooms</h2>
+        <p>Room inventory and categories per property.</p>
+      </div>
+      <div class="subtabs">
+        <button class="subtab active" onclick="showSubtab('rooms','categories')" id="subtab-rooms-categories">Room Categories</button>
+        <button class="subtab" onclick="showSubtab('rooms','attributes')" id="subtab-rooms-attributes">Room Attributes</button>
+        <button class="subtab" onclick="showSubtab('rooms','list')" id="subtab-rooms-list">Rooms</button>
+        <button class="subtab" onclick="showSubtab('rooms','calendar')" id="subtab-rooms-calendar">Room Calendar</button>
+      </div>
+
+      <!-- Room Categories subpage -->
+      <div class="subpage active" id="subpage-rooms-categories">
+        <div class="action-bar">
+          <h3 id="room-categories-count"></h3>
+          <button class="btn btn-primary" id="btn-add-room-category">+ Add category</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Raw value (Mews)</th><th>Display name</th><th>Status</th><th></th></tr></thead>
+            <tbody id="room-categories-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Rooms subpage -->
+      <div class="subpage" id="subpage-rooms-list">
+        <div class="action-bar" style="margin-bottom:0.75rem">
+          <div style="display:flex;align-items:center;gap:0.75rem">
+            <label style="font-size:0.8rem;color:var(--text-muted);font-weight:500">Property:</label>
+            <select class="filter-select" id="rooms-property-filter" onchange="hashSet({property:this.value});loadRoomsList()">
+            </select>
+          </div>
+          <button class="btn btn-primary" id="btn-add-room">+ Add room</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Beds</th><th>Attributes</th><th>Status</th><th></th></tr></thead>
+            <tbody id="rooms-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Room Attributes subpage -->
+      <div class="subpage" id="subpage-rooms-attributes">
+        <div class="action-bar">
+          <h3 id="room-attr-count"></h3>
+          <button class="btn btn-primary" id="btn-add-room-attr">+ Add attribute</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Variable</th><th>Options</th><th>Description</th><th>Status</th><th></th></tr></thead>
+            <tbody id="room-attr-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Room Calendar subpage -->
+      <div class="subpage" id="subpage-rooms-calendar">
+
+        <!-- Controls row -->
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem">
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <label style="font-size:0.8rem;color:var(--text-muted);font-weight:500">Property:</label>
+            <select class="filter-select" id="rcal-property" onchange="hashSet({property:this.value});rcalLoad()"></select>
+          </div>
+          <!-- View selector -->
+          <div class="toggle-wrap">
+            <button class="toggle-btn active" id="rcal-view-day"   data-view="day">Day</button>
+            <button class="toggle-btn"        id="rcal-view-week"  data-view="week">Week</button>
+            <button class="toggle-btn"        id="rcal-view-month" data-view="month">Month</button>
+          </div>
+          <!-- Navigation -->
+          <div class="cal-nav">
+            <button class="cal-nav-btn" onclick="rcalNavPrev()">&#8592;</button>
+            <div class="cal-month-label" id="rcal-period-label" style="font-size:0.9rem;min-width:140px;text-align:center"></div>
+            <button class="cal-nav-btn" onclick="rcalNavNext()">&#8594;</button>
+          </div>
+          <select class="cal-year-select" id="rcal-year" onchange="rcalChangeYear(this.value)" style="display:none"></select>
+          <span id="rcal-saving-indicator"
+            style="font-size:0.78rem;color:var(--success);font-weight:500;opacity:0;transition:opacity 0.3s;margin-left:0.5rem">
+            ✓ Saved
+          </span>
+          <div id="rcal-save-bar" style="display:none;margin-left:auto">
+            <div class="save-bar">
+              <span>&#9888; Unsaved changes</span>
+              <button class="btn btn-primary btn-sm" style="margin-left:1rem" id="btn-rcal-save">Save</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter: Rooms -->
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem">
+          <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600;min-width:44px">Rooms:</span>
+          <div id="rcal-room-chips" style="display:flex;flex-wrap:wrap;gap:0.3rem"></div>
+        </div>
+
+        <!-- Filter: Show mode (auto-generated from system + variable attributes) -->
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
+          <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600;min-width:44px">Show:</span>
+          <div id="rcal-show-btns" style="display:flex;gap:0.3rem;flex-wrap:wrap"></div>
+        </div>
+
+        <!-- Grid -->
+        <div style="position:relative">
+          <div id="rcal-loading" style="display:none;position:absolute;inset:0;background:rgba(255,255,255,0.75);
+            z-index:10;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-lg)">
+            <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:var(--brand);font-weight:500">
+              <div style="width:16px;height:16px;border:2px solid var(--brand-light);border-top-color:var(--brand);
+                border-radius:50%;animation:spin 0.7s linear infinite"></div>
+              Loading...
+            </div>
+          </div>
+          <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--white)">
+            <div id="rcal-grid"></div>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="cal-legend" style="margin-top:0.75rem">
+          <div class="cal-legend-item"><span class="cal-legend-box" style="background:var(--white);border-color:var(--border)"></span>Open</div>
+          <div class="cal-legend-item"><span class="cal-legend-box" style="background:#fff5f5;border-color:#fecaca"></span>Closed</div>
+          <div class="cal-legend-item"><span class="cal-legend-box" style="background:#fffbeb;border-color:#fde68a"></span>Unsaved</div>
+          <div class="cal-legend-item"><span class="cal-legend-box" style="background:#fff0f0;border-color:#fca5a5"></span>Over limit</div>
+          <span style="font-size:0.75rem;color:var(--text-muted);margin-left:0.5rem">
+            Click cell &#8594; edit &#160;|&#160; Click room name &#8594; edit whole row
+          </span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- AVAILABILITY CALENDAR -->
+    <div class="section" id="section-availability">
+      <div class="section-header">
+        <h2>Availability Calendar</h2>
+        <p>Click a day to toggle open/closed · Edit room count per day.</p>
+      </div>
+
+      <!-- Property + month controls -->
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <label style="font-size:0.8rem;color:var(--text-muted);font-weight:500">Property:</label>
+          <select class="filter-select" id="avail-property-filter" onchange="hashSet({property:this.value});loadAvailability()"></select>
+        </div>
+        <div id="avail-save-bar" style="display:none;margin-left:auto">
+          <div class="save-bar">
+            <span>⚠ Unsaved changes</span>
+            <button class="btn btn-primary btn-sm" style="margin-left:1rem" onclick="saveAvailability()">Save changes</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cal-wrap">
+        <div class="cal-controls">
+          <div class="cal-nav">
+            <button class="cal-nav-btn" onclick="changeAvailMonth(-1)">←</button>
+            <div class="cal-month-label" id="avail-month-label"></div>
+            <button class="cal-nav-btn" onclick="changeAvailMonth(1)">→</button>
+          </div>
+          <select class="cal-year-select" id="avail-year-select" onchange="changeAvailYear(this.value)"></select>
+          <div class="cal-stats">
+            <div class="cal-stat"><span class="cal-dot cal-dot-open"></span>Open: <strong id="avail-stat-open">0</strong></div>
+            <div class="cal-stat"><span class="cal-dot cal-dot-closed"></span>Closed: <strong id="avail-stat-closed">0</strong></div>
+            <div class="cal-stat">🛏 Avg beds: <strong id="avail-stat-beds">0</strong></div>
+          </div>
+        </div>
+
+        <div class="bulk-bar">
+          <span class="bulk-label">Month:</span>
+          <button class="btn btn-secondary btn-sm" onclick="bulkAvailMonth('open')">✓ Open all</button>
+          <button class="btn btn-danger btn-sm" onclick="bulkAvailMonth('closed')">✗ Close all</button>
+          <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
+          <span style="font-size:0.78rem;color:var(--text-muted)">Rooms:</span>
+          <input type="number" class="rooms-input" id="bulk-rooms-val" placeholder="—" min="0" max="999">
+          <span style="font-size:0.78rem;color:var(--text-muted)">Beds:</span>
+          <input type="number" class="rooms-input" id="bulk-beds-val" placeholder="—" min="0" max="999">
+          <button class="btn btn-secondary btn-sm" onclick="bulkAvailMonth(null)">Apply to month</button>
+        </div>
+        <div class="bulk-bar" id="selection-bar" style="display:none;background:var(--brand-light);border-color:var(--brand)">
+          <span class="bulk-label" style="color:var(--brand)">Selected:</span>
+          <span id="selection-count" style="font-size:0.8rem;color:var(--brand);font-weight:500">0 days</span>
+          <button class="btn btn-secondary btn-sm" onclick="clearSelection()">Clear</button>
+          <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
+          <button class="btn btn-secondary btn-sm" onclick="bulkSelection('open')">✓ Open</button>
+          <button class="btn btn-danger btn-sm" onclick="bulkSelection('closed')">✗ Close</button>
+          <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
+          <span style="font-size:0.78rem;color:var(--text-muted)">Rooms:</span>
+          <input type="number" class="rooms-input" id="sel-rooms-val" placeholder="—" min="0" max="999">
+          <span style="font-size:0.78rem;color:var(--text-muted)">Beds:</span>
+          <input type="number" class="rooms-input" id="sel-beds-val" placeholder="—" min="0" max="999">
+          <button class="btn btn-primary btn-sm" onclick="bulkSelection(null)">Apply to selection</button>
+        </div>
+
+        <div class="cal-grid" id="avail-cal-grid"></div>
+
+        <div class="cal-legend">
+          <div class="cal-legend-item">
+            <span class="cal-legend-box" style="background:var(--white);border-color:var(--border)"></span>Open
+          </div>
+          <div class="cal-legend-item">
+            <span class="cal-legend-box" style="background:#fff5f5;border-color:#fecaca"></span>Closed
+          </div>
+          <div class="cal-legend-item">
+            <span class="cal-legend-box" style="background:#fffbeb;border-color:#fde68a"></span>Unsaved
+          </div>
+          <span style="font-size:0.75rem;color:var(--text-muted);margin-left:0.5rem">Click day to toggle · Edit room count inline</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHANNELS -->
+    <div class="section" id="section-channels">
+      <div class="section-header">
+        <h2>Channels</h2>
+        <p>Distribution channels, cost configuration and OTA naming.</p>
+      </div>
+      <div class="subtabs">
+        <button class="subtab active" onclick="showSubtab('channels','list')" id="subtab-channels-list">Channels</button>
+        <button class="subtab" onclick="showSubtab('channels','otas')" id="subtab-channels-otas">OTAs</button>
+      </div>
+
+      <!-- Channels list subpage -->
+      <div class="subpage active" id="subpage-channels-list">
+        <div class="action-bar">
+          <h3 id="channels-count"></h3>
+          <button class="btn btn-primary" id="btn-add-channel">+ Add channel</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Code</th><th>Name</th><th>Type</th><th>Subtype</th><th>Avg Cost %</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="channels-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- OTAs subpage -->
+      <div class="subpage" id="subpage-channels-otas">
+        <div class="action-bar">
+          <h3 id="otas-count"></h3>
+          <button class="btn btn-primary" id="btn-add-ota">+ Add OTA</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>OTA ID</th><th>OTA Name</th><th></th></tr></thead>
+            <tbody id="otas-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div class="section" id="section-users">
+      <div class="section-header">
+        <h2>Users</h2>
+        <p>Manage who has access to this company's portal.</p>
+      </div>
+      <div class="action-bar">
+        <h3 id="users-count"></h3>
+        <button class="btn btn-primary" id="btn-invite-user">+ Add user</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Name</th><th>Role</th><th>Status</th><th></th>
+          </tr></thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal: Add property -->
+<div class="modal-overlay" id="modal-property">
+  <div class="modal">
+    <h3>Add property</h3>
+    <div class="alert error" id="prop-error"></div>
+    <div class="field"><label>Property ID</label><input type="text" id="prop-id" placeholder="e.g. TCH_003"></div>
+    <div class="field"><label>Name</label><input type="text" id="prop-name" placeholder="e.g. Hotel Norte"></div>
+    <div class="field"><label>City</label><input type="text" id="prop-city" placeholder="e.g. Bilbao"></div>
+    <div class="field"><label>Country code</label><input type="text" id="prop-country" placeholder="ES" maxlength="2" style="text-transform:uppercase"></div>
+    <div class="field"><label>Total rooms</label><input type="number" id="prop-rooms" placeholder="0" min="0"></div>
+    <div class="field"><label>Total beds</label><input type="number" id="prop-beds" placeholder="0" min="0"></div>
+    <div class="field">
+      <label>Data source</label>
+      <select id="prop-source"><option value="api">API</option><option value="upload">File upload</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-property')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-property">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Populate default markets -->
+<div class="modal-overlay" id="modal-populate-defaults">
+  <div class="modal">
+    <h3>Populate to default values</h3>
+    <p style="font-size:0.9rem;color:var(--text-muted);line-height:1.5;margin-bottom:1rem">
+      This creates one market group per continent and maps every country to its continent's group,
+      all marked as targeted:
+    </p>
+    <ul style="font-size:0.85rem;color:var(--text-muted);margin:0 0 1rem 1.2rem;line-height:1.6">
+      <li>Africa, Asia, Europe, North America, Oceania, South America, Antarctica</li>
+    </ul>
+    <p style="font-size:0.9rem;color:var(--text-muted);line-height:1.5;margin-bottom:1rem">
+      Existing groups and mappings are updated, not deleted — a good starting point you can edit
+      from afterward.
+    </p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-populate-defaults')">Cancel</button>
+      <button class="btn btn-primary" id="btn-confirm-populate-defaults">Populate defaults</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal: Edit property -->
+<div class="modal-overlay" id="modal-edit-property">
+  <div class="modal">
+    <h3>Edit property</h3>
+    <div class="alert error" id="edit-prop-error"></div>
+    <input type="hidden" id="edit-prop-uuid">
+    <div class="field"><label>Property ID</label><input type="text" id="edit-prop-id" disabled style="opacity:0.6;cursor:not-allowed"></div>
+    <div class="field"><label>Name</label><input type="text" id="edit-prop-name"></div>
+    <div class="field"><label>City</label><input type="text" id="edit-prop-city"></div>
+    <div class="field"><label>Country code</label><input type="text" id="edit-prop-country" maxlength="2" style="text-transform:uppercase"></div>
+    <div class="field"><label>Total rooms</label><input type="number" id="edit-prop-rooms" min="0"></div>
+    <div class="field"><label>Total beds</label><input type="number" id="edit-prop-beds" min="0"></div>
+    <div class="field">
+      <label>Data source</label>
+      <select id="edit-prop-source"><option value="api">API</option><option value="upload">File upload</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-property')">Cancel</button>
+      <button class="btn btn-primary" id="btn-update-property">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add segment -->
+<div class="modal-overlay" id="modal-segment">
+  <div class="modal">
+    <h3>Add segment</h3>
+    <div class="alert error" id="segment-error"></div>
+    <div class="field"><label>Raw value (as it appears in the file)</label><input type="text" id="seg-code" placeholder="e.g. Wholesale"></div>
+    <div class="field"><label>Display name (shown in reports)</label><input type="text" id="seg-name" placeholder="e.g. Wholesale"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-segment')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-segment">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add booking purpose -->
+<div class="modal-overlay" id="modal-purpose">
+  <div class="modal">
+    <h3>Add booking purpose</h3>
+    <div class="alert error" id="purpose-error"></div>
+    <div class="field"><label>Raw value (as it appears in the file)</label><input type="text" id="pur-code" placeholder="e.g. Sports Group"></div>
+    <div class="field"><label>Display name (shown in reports)</label><input type="text" id="pur-name" placeholder="e.g. Sports Group"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-purpose')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-purpose">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add user -->
+<div class="modal-overlay" id="modal-user">
+  <div class="modal">
+    <h3>Add user</h3>
+    <div class="alert error" id="user-error"></div>
+    <div class="alert success" id="user-success"></div>
+    <div class="field"><label>Full name</label><input type="text" id="invite-name" placeholder="Ana García"></div>
+    <div class="field"><label>Email</label><input type="email" id="invite-email" placeholder="ana@hotel.com"></div>
+    <div class="field"><label>Password</label><input type="password" id="invite-password" placeholder="Temporary password"></div>
+    <div class="field">
+      <label>Role</label>
+      <select id="invite-role">
+        <option value="company_user">User</option>
+        <option value="company_admin">Admin</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-user')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-user">Create user</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add extra -->
+<div class="modal-overlay" id="modal-extra">
+  <div class="modal">
+    <h3>Add extra</h3>
+    <div class="alert error" id="extra-error"></div>
+    <div class="field"><label>Code</label><input type="text" id="extra-code" placeholder="e.g. SPA_ACCESS" style="text-transform:uppercase"></div>
+    <div class="field"><label>Category</label><input type="text" id="extra-category" placeholder="e.g. WELLNESS"></div>
+    <div class="field"><label>Subcategory</label><input type="text" id="extra-subcategory" placeholder="e.g. SPA"></div>
+    <div class="field"><label>Default amount (€)</label><input type="number" id="extra-amount" placeholder="0" step="0.01" min="0"></div>
+    <div class="field">
+      <label>Charge timing</label>
+      <select id="extra-timing">
+        <option value="during_stay">During stay</option>
+        <option value="bookable_in_advance">Bookable in advance</option>
+        <option value="at_checkout">At checkout</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-extra')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-extra">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add room category -->
+<div class="modal-overlay" id="modal-room-category">
+  <div class="modal">
+    <h3>Add room category</h3>
+    <div class="alert error" id="room-cat-error"></div>
+    <div class="field"><label>Raw value (Mews text)</label><input type="text" id="rcat-code" placeholder="e.g. Bed in a shared mixed dormitory for 8 people"></div>
+    <div class="field"><label>Display name (for reports)</label><input type="text" id="rcat-name" placeholder="e.g. Mixed Dorm 8"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-room-category')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-room-category">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit room category -->
+<div class="modal-overlay" id="modal-edit-room-category">
+  <div class="modal">
+    <h3>Edit room category</h3>
+    <div class="alert error" id="room-cat-edit-error"></div>
+    <input type="hidden" id="rcat-edit-id">
+    <div class="field">
+      <label>Raw value (Mews text)</label>
+      <input type="text" id="rcat-edit-code" readonly style="background:var(--bg-subtle,#f5f6f8);color:var(--text-muted)">
+      <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem">Cannot be changed — this is the exact text from the source file.</p>
+    </div>
+    <div class="field"><label>Display name (for reports)</label><input type="text" id="rcat-edit-name" placeholder="e.g. S_M_8"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-room-category')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-edit-room-category">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add room -->
+<div class="modal-overlay" id="modal-room">
+  <div class="modal">
+    <h3>Add room</h3>
+    <div class="alert error" id="room-error"></div>
+    <div class="field"><label>Raw value (Mews space number)</label><input type="text" id="room-code" placeholder="e.g. B-204-D"></div>
+    <div class="field"><label>Display name (for reports)</label><input type="text" id="room-name" placeholder="e.g. B-204-D"></div>
+    <div class="field">
+      <label>Category</label>
+      <select id="room-category-id"><option value="">— Select category —</option></select>
+    </div>
+    <div class="field"><label>Beds per room</label><input type="number" id="room-beds" value="2" min="1" max="10"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-room')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-room">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add market group -->
+<div class="modal-overlay" id="modal-group">
+  <div class="modal">
+    <h3>Add market group</h3>
+    <div class="alert error" id="group-error"></div>
+    <div class="field"><label>Code</label><input type="number" id="grp-code" placeholder="9"></div>
+    <div class="field"><label>Group name</label><input type="text" id="grp-name" placeholder="e.g. Middle East"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-group')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-group">Save</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal: Edit room -->
+<div class="modal-overlay" id="modal-edit-room">
+  <div class="modal" style="max-height:88vh;overflow-y:auto">
+    <h3>Edit room</h3>
+    <div class="alert error" id="edit-room-error"></div>
+    <input type="hidden" id="edit-room-id">
+    <div class="field"><label>Raw value (Mews space number)</label><input type="text" id="edit-room-code" disabled style="opacity:0.6;cursor:not-allowed"></div>
+    <div class="field"><label>Display name (for reports)</label><input type="text" id="edit-room-name"></div>
+    <div class="field">
+      <label>Category</label>
+      <select id="edit-room-category-id"></select>
+    </div>
+    <div class="field"><label>Beds per room</label><input type="number" id="edit-room-beds" min="1" max="20"></div>
+    <!-- Dynamic constant attributes -->
+    <div id="edit-room-attrs-section"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-edit-room')">Cancel</button>
+      <button class="btn btn-primary" id="btn-update-room">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add room attribute -->
+<div class="modal-overlay" id="modal-room-attr">
+  <div class="modal">
+    <h3>Add room attribute</h3>
+    <div class="alert error" id="room-attr-error"></div>
+    <div class="field"><label>Code</label><input type="text" id="rattr-code" placeholder="e.g. BED_TYPE" style="text-transform:uppercase"></div>
+    <div class="field"><label>Name</label><input type="text" id="rattr-name" placeholder="e.g. Bed type"></div>
+    <div class="field">
+      <label>Type</label>
+      <select id="rattr-type" onchange="rattrTypeChanged()">
+        <option value="boolean">Boolean (Yes / No)</option>
+        <option value="integer">Integer (number)</option>
+        <option value="select">Select (dropdown with options)</option>
+      </select>
+    </div>
+    <div class="field" id="rattr-options-field" style="display:none">
+      <label>Options <span style="font-size:0.75rem;color:var(--text-muted)">(comma separated)</span></label>
+      <input type="text" id="rattr-options" placeholder="e.g. single, double, king">
+    </div>
+    <div class="field">
+      <label>Constant or Variable?</label>
+      <div class="toggle-wrap">
+        <button class="toggle-btn active" id="rattr-var-no"  onclick="rattrVarChanged(false)">Constant (per room)</button>
+        <button class="toggle-btn"        id="rattr-var-yes" onclick="rattrVarChanged(true)">Variable (per day)</button>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.3rem" id="rattr-var-hint">
+        This attribute is a fixed property of the room.
+      </div>
+    </div>
+    <div class="field"><label>Description (optional)</label><input type="text" id="rattr-desc" placeholder="Brief description"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-room-attr')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-room-attr">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Room calendar cell edit -->
+<div class="modal-overlay" id="modal-rcal-cell">
+  <div class="modal">
+    <h3 id="rcal-cell-title">Edit day</h3>
+    <div class="alert error" id="rcal-cell-error"></div>
+    <input type="hidden" id="rcal-cell-room-id">
+    <input type="hidden" id="rcal-cell-date">
+    <div class="field">
+      <label>Status</label>
+      <div class="toggle-wrap">
+        <button class="toggle-btn" id="rcal-status-open"   onclick="rcalSetStatus('open')">Open</button>
+        <button class="toggle-btn" id="rcal-status-closed" onclick="rcalSetStatus('closed')">Closed</button>
+      </div>
+    </div>
+    <div class="field" id="rcal-beds-wrap">
+      <label>Beds available</label>
+      <input type="number" id="rcal-cell-beds" min="0" max="999" style="width:100px">
+    </div>
+    <div class="field">
+      <label>Attributes</label>
+      <div id="rcal-cell-attrs" style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.3rem"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-rcal-cell')">Cancel</button>
+      <button class="btn btn-primary" id="btn-rcal-cell-save">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Room calendar row edit -->
+<div class="modal-overlay" id="modal-rcal-row">
+  <div class="modal">
+    <h3 id="rcal-row-title">Edit entire row</h3>
+    <input type="hidden" id="rcal-row-room-id">
+    <div class="field">
+      <label>Status (all days this month)</label>
+      <select id="rcal-row-status">
+        <option value="">— No change —</option>
+        <option value="open">Open all</option>
+        <option value="closed">Close all</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Beds available (all days)</label>
+      <input type="number" id="rcal-row-beds" min="0" max="999" placeholder="Leave blank to keep existing" style="width:160px">
+    </div>
+    <div class="field">
+      <label>Attributes (all days)</label>
+      <div id="rcal-row-attrs" style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.3rem"></div>
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.3rem">Leave all unchecked to keep existing</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-rcal-row')">Cancel</button>
+      <button class="btn btn-primary" id="btn-rcal-row-save">Apply to month</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add/Edit channel -->
+<div class="modal-overlay" id="modal-channel">
+  <div class="modal">
+    <h3 id="channel-modal-title">Add channel</h3>
+    <div class="alert error" id="channel-error"></div>
+    <div class="field"><label>Channel code</label><input type="number" id="ch-code" placeholder="11"></div>
+    <div class="field"><label>Channel name</label><input type="text" id="ch-name" placeholder="e.g. Airbnb"></div>
+    <div class="field">
+      <label>Subtype</label>
+      <select id="ch-subtype">
+        <option value="direct">Direct</option>
+        <option value="ota">OTA</option>
+        <option value="gds">GDS</option>
+        <option value="agency">Agency</option>
+        <option value="affiliate">Affiliate</option>
+        <option value="corporate">Corporate</option>
+        <option value="events">Events</option>
+      </select>
+      <p class="field-hint">Type (Direct/Indirect) is derived automatically from the subtype.</p>
+    </div>
+    <div class="field"><label>Avg cost % (e.g. 0.15 for 15%)</label><input type="number" id="ch-cost" placeholder="0.15" step="0.01" min="0" max="1"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-channel')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-channel">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add/Edit OTA -->
+<div class="modal-overlay" id="modal-ota">
+  <div class="modal">
+    <h3 id="ota-modal-title">Add OTA</h3>
+    <div class="alert error" id="ota-error"></div>
+    <div class="field"><label>OTA ID</label><input type="text" id="ota-id-input" placeholder="e.g. booking_com"></div>
+    <div class="field"><label>OTA Name</label><input type="text" id="ota-name-input" placeholder="e.g. Booking.com"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-ota')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-ota">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- JS: libs first, then modules, then page logic -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/companies.js"></script>
+<script src="js/properties.js"></script>
+<script src="js/channels.js"></script>
+<script src="js/otas.js"></script>
+<script src="js/users.js"></script>
+<script src="js/params.js"></script>
+<script src="js/segments.js"></script>
+<script src="js/booking_purposes.js"></script>
+<script src="js/markets.js"></script>
+<script src="js/rooms.js"></script>
+<script src="js/availability.js"></script>
+<script src="js/extras_catalog.js"></script>
+<script src="js/countries.js"></script>
+<script src="js/client_country_mapping.js"></script>
+<script src="js/masters_setup.js"></script>
+<script>
+  let currentProfile = null;
+  let currentCompany = null;
+  let isAdmin = false;
+
+  // ── INIT ──────────────────────────────────────────────────────────
+  async function init() {
+    const session = await Auth.requireAuth();
+    if (!session) return;
+
+    currentProfile = await Auth.getProfile(session.user.id);
+    if (!currentProfile) { window.location.href = 'index.html'; return; }
+
+    isAdmin = ['system_admin','company_admin'].includes(currentProfile.role);
+
+    // Resolve company
+    if (currentProfile.role === 'system_admin') {
+      const selectedId = sessionStorage.getItem('selected_company_id');
+      if (!selectedId) { window.location.href = 'company-select.html'; return; }
+      const { data } = await Companies.getById(selectedId);
+      currentCompany = data;
+      document.getElementById('btn-switch').style.display = 'inline-flex';
+    } else {
+      currentCompany = currentProfile.companies;
+    }
+
+    if (!currentCompany) { window.location.href = 'index.html'; return; }
+
+    // Hide admin nav for plain users
+    if (currentProfile.role === 'company_user') {
+      document.getElementById('nav-admin').style.display = 'none';
+    }
+    if (currentProfile.role !== 'system_admin') {
+      const navCountries = document.getElementById('nav-countries');
+      if (navCountries) navCountries.style.display = 'none';
+    }
+
+    document.getElementById('company-pill').textContent = currentCompany.name;
+    document.getElementById('user-label').textContent   = currentProfile.full_name || session.user.email;
+    document.title = `BeyonData — ${currentCompany.name}`;
+
+    // Write company to hash
+    hashSet({ company: currentCompany.slug });
+
+    // Restore section + property from hash
+    const savedHash    = hashGet();
+    const savedSection = savedHash.section;
+    const savedProp    = savedHash.property;
+
+    if (savedSection && document.getElementById('section-' + savedSection)) {
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      const navItem = document.querySelector('.nav-item[data-section="' + savedSection + '"]');
+      if (navItem) navItem.classList.add('active');
+      document.getElementById('section-' + savedSection).classList.add('active');
+      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings,
+        channels: loadChannels, segments: loadSegments, purposes: loadPurposes,
+        markets: loadMarkets, extras: loadExtras, rooms: loadRooms,
+        availability: initAvailabilitySection, countries: loadCountries,
+        users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
+      const loader = loaders[savedSection];
+      if (loader) {
+        await loader();
+        if (savedProp) {
+          setTimeout(function() {
+            ['rooms-property-filter','avail-property-filter','rcal-property'].forEach(function(id) {
+              const sel = document.getElementById(id);
+              if (sel && sel.value !== savedProp) {
+                sel.value = savedProp;
+                if (id === 'rooms-property-filter') loadRoomsList();
+                if (id === 'avail-property-filter') loadAvailability();
+                if (id === 'rcal-property')         rcalLoad();
+              }
+            });
+          }, 300);
+        }
+      }
+    } else {
+      loadOverview();
+    }
+  }
+
+  // ── URL HASH STATE ───────────────────────────────────────────────
+  function hashGet() {
+    const hash = window.location.hash.slice(1);
+    const params = {};
+    hash.split('&').forEach(function(part) {
+      const [k, v] = part.split('=');
+      if (k && v) params[decodeURIComponent(k)] = decodeURIComponent(v);
+    });
+    return params;
+  }
+
+  function hashSet(updates) {
+    const current = hashGet();
+    const merged  = Object.assign({}, current, updates);
+    // Remove null/undefined values
+    Object.keys(merged).forEach(function(k) {
+      if (merged[k] == null) delete merged[k];
+    });
+    const str = Object.entries(merged)
+      .map(function(e) { return encodeURIComponent(e[0]) + '=' + encodeURIComponent(e[1]); })
+      .join('&');
+    history.replaceState(null, '', '#' + str);
+  }
+
+  function hashClear() {
+    history.replaceState(null, '', window.location.pathname);
+  }
+
+  // ── NAVIGATION ────────────────────────────────────────────────────
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      item.classList.add('active');
+      const s = item.dataset.section;
+      document.getElementById(`section-${s}`).classList.add('active');
+      hashSet({ section: s, property: null });
+      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
+      loaders[s]?.();
+    });
+  });
+
+  // ── OVERVIEW ──────────────────────────────────────────────────────
+  async function loadOverview() {
+    document.getElementById('overview-title').textContent = currentCompany.name;
+    const cid = currentCompany.id;
+
+    // Fire all queries in parallel
+    const [
+      propRes, userRes, chRes, segRes, purRes, extRes,
+      mktRes, mapRes, rcatRes, roomRes, paramRes, availRes
+    ] = await Promise.all([
+      sb.from('properties').select('id', { count: 'exact', head: true }).eq('company_id', cid),
+      sb.from('profiles').select('id', { count: 'exact', head: true }).eq('company_id', cid),
+      sb.from('channels').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      sb.from('segments').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      sb.from('booking_purposes').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      sb.from('extras_catalog').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      sb.from('market_groups').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      sb.from('country_mapping').select('id', { count: 'exact', head: true }).eq('company_id', cid).not('market_group_id','is',null),
+      sb.from('room_categories').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      sb.from('rooms').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status','active'),
+      Params.getAll(cid),
+      // Open days this month across all properties
+      sb.from('availability_calendar')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', cid)
+        .eq('status', 'open')
+        .gte('date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10))
+        .lte('date', new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).toISOString().slice(0,10))
+    ]);
+
+    // General
+    document.getElementById('stat-properties').textContent = propRes.count ?? 0;
+    document.getElementById('stat-users').textContent      = userRes.count ?? 0;
+    document.getElementById('stat-occ-mode').textContent   = paramRes.data?.occupancy_mode ?? '—';
+
+    // Catalogs
+    document.getElementById('stat-channels').textContent        = chRes.count ?? 0;
+    document.getElementById('stat-segments').textContent        = segRes.count ?? 0;
+    document.getElementById('stat-purposes').textContent        = purRes.count ?? 0;
+    document.getElementById('stat-extras').textContent          = extRes.count ?? 0;
+    document.getElementById('stat-market-groups').textContent   = mktRes.count ?? 0;
+    document.getElementById('stat-country-mappings').textContent = mapRes.count ?? 0;
+
+    // Hotel Setup
+    document.getElementById('stat-room-categories').textContent = rcatRes.count ?? 0;
+    document.getElementById('stat-rooms').textContent           = roomRes.count ?? 0;
+
+    const now = new Date();
+    const monthName = now.toLocaleString('en', { month: 'long' });
+    document.getElementById('stat-open-days').textContent     = availRes.count ?? 0;
+    document.getElementById('stat-open-days-sub').textContent = `${monthName} ${now.getFullYear()}`;
+  }
+
+  // ── PROPERTIES ────────────────────────────────────────────────────
+  async function loadProperties() {
+    UI.tableLoading('properties-tbody', 8);
+    const { data, error } = await Properties.getByCompany(currentCompany.id);
+
+    if (error || !data?.length) {
+      UI.tableEmpty('properties-tbody', 8, 'No properties yet.');
+      document.getElementById('prop-count').textContent = '0 properties';
+      return;
+    }
+
+    document.getElementById('prop-count').textContent = `${data.length} properties`;
+    document.getElementById('properties-tbody').innerHTML = data.map(p => `
+      <tr>
+        <td>${UI.mono(p.property_id)}</td>
+        <td>${p.property_name}</td>
+        <td>${p.city || '—'}</td>
+        <td>${p.country || '—'}</td>
+        <td>${p.total_rooms ?? '—'}</td>
+        <td>${p.total_beds ?? '—'}</td>
+        <td>${UI.sourceBadge(p.data_source)}</td>
+        <td>${UI.statusBadge(p.active)}</td>
+        <td style="white-space:nowrap">
+          ${isAdmin ? `
+            <button class="btn btn-secondary btn-sm" onclick='openEditProperty(${JSON.stringify(p)})'>Edit</button>
+            <button class="btn btn-sm ${p.active ? 'btn-danger' : 'btn-secondary'}" 
+              onclick="toggleProperty('${p.id}',${p.active})" style="margin-left:4px">
+              ${p.active ? 'Disable' : 'Enable'}
+            </button>
+          ` : ''}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  document.getElementById('btn-add-property').addEventListener('click', () => UI.openModal('modal-property'));
+
+  document.getElementById('btn-save-property').addEventListener('click', async () => {
+    const fields = {
+      property_id:   document.getElementById('prop-id').value.trim().toUpperCase(),
+      property_name: document.getElementById('prop-name').value.trim(),
+      city:          document.getElementById('prop-city').value.trim(),
+      country:       document.getElementById('prop-country').value.trim().toUpperCase(),
+      total_rooms:   parseInt(document.getElementById('prop-rooms').value) || null,
+      total_beds:    parseInt(document.getElementById('prop-beds').value) || null,
+      data_source:   document.getElementById('prop-source').value,
+    };
+
+    UI.hideAlert('prop-error');
+    if (!fields.property_id || !fields.property_name) {
+      UI.showAlert('prop-error', 'Property ID and name are required.'); return;
+    }
+
+    UI.setLoading('btn-save-property', true, 'Save');
+    const { error } = await Properties.create(currentCompany.id, fields);
+    UI.setLoading('btn-save-property', false, 'Save');
+
+    if (error) { UI.showAlert('prop-error', error.message); return; }
+
+    UI.closeModal('modal-property');
+    loadProperties();
+  });
+
+  // ── SETTINGS ──────────────────────────────────────────────────────
+  async function loadSettings() {
+    const { data: params } = await Params.getAll(currentCompany.id);
+    const mode = params.occupancy_mode || 'both';
+
+    document.getElementById('params-list').innerHTML = `
+      <div class="param-row">
+        <div class="param-info">
+          <h4>Occupancy Mode</h4>
+          <p>Which metrics are shown in Power BI reports — per room, per bed, or both.</p>
+        </div>
+        <div class="toggle-wrap">
+          <button class="toggle-btn ${mode === 'rooms' ? 'active' : ''}"
+            ${isAdmin ? `onclick="setParam('occupancy_mode','rooms')"` : 'disabled'}>Rooms</button>
+          <button class="toggle-btn ${mode === 'beds' ? 'active' : ''}"
+            ${isAdmin ? `onclick="setParam('occupancy_mode','beds')"` : 'disabled'}>Beds</button>
+          <button class="toggle-btn ${mode === 'both' ? 'active' : ''}"
+            ${isAdmin ? `onclick="setParam('occupancy_mode','both')"` : 'disabled'}>Both</button>
+        </div>
+      </div>
+    `;
+  }
+
+  async function setParam(key, value) {
+    await Params.set(currentCompany.id, key, value);
+    loadSettings();
+    loadOverview();
+  }
+
+  // ── CHANNELS ──────────────────────────────────────────────────────
+  async function loadChannels() {
+    UI.tableLoading('channels-tbody', 7);
+    const { data, error } = await Channels.getByCompany(currentCompany.id);
+
+    if (error || !data?.length) {
+      UI.tableEmpty('channels-tbody', 7, 'No channels yet.');
+      document.getElementById('channels-count').textContent = '0 channels';
+      return;
+    }
+
+    window._channelsData = data;
+    document.getElementById('channels-count').textContent = `${data.length} channels`;
+    document.getElementById('channels-tbody').innerHTML = data.map(c => `
+      <tr>
+        <td>${UI.mono(c.channel_code)}</td>
+        <td>${c.channel_name}</td>
+        <td>${c.channel_type}</td>
+        <td>${c.channel_subtype}</td>
+        <td>${(c.avg_cost_pct * 100).toFixed(0)}%</td>
+        <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="editChannel('${c.id}')">Edit</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleChannel('${c.id}','${c.status}')">
+          ${c.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function toggleChannel(id, status) {
+    await Channels.toggleStatus(id, status);
+    loadChannels();
+  }
+
+  function editChannel(id) {
+    const c = (window._channelsData || []).find(x => x.id === id);
+    if (!c) return;
+    window._editingChannelId = id;
+    document.getElementById('channel-modal-title').textContent = 'Edit channel';
+    document.getElementById('ch-code').value = c.channel_code;
+    document.getElementById('ch-name').value = c.channel_name;
+    document.getElementById('ch-subtype').value = c.channel_subtype;
+    document.getElementById('ch-cost').value = c.avg_cost_pct;
+    UI.hideAlert('channel-error');
+    UI.openModal('modal-channel');
+  }
+
+  document.getElementById('btn-add-channel').addEventListener('click', () => {
+    window._editingChannelId = null;
+    document.getElementById('channel-modal-title').textContent = 'Add channel';
+    document.getElementById('ch-code').value = '';
+    document.getElementById('ch-name').value = '';
+    document.getElementById('ch-subtype').value = 'direct';
+    document.getElementById('ch-cost').value = '';
+    UI.hideAlert('channel-error');
+    UI.openModal('modal-channel');
+  });
+
+  document.getElementById('btn-save-channel').addEventListener('click', async () => {
+    const subtype = document.getElementById('ch-subtype').value;
+    const fields = {
+      channel_code: parseInt(document.getElementById('ch-code').value),
+      channel_name: document.getElementById('ch-name').value.trim(),
+      channel_subtype: subtype,
+      channel_type: subtype === 'direct' ? 'direct' : 'indirect',
+      avg_cost_pct: parseFloat(document.getElementById('ch-cost').value) || 0,
+    };
+
+    UI.hideAlert('channel-error');
+    if (!fields.channel_code || !fields.channel_name) {
+      UI.showAlert('channel-error', 'Channel code and name are required.'); return;
+    }
+
+    UI.setLoading('btn-save-channel', true, 'Save');
+    const { error } = window._editingChannelId
+      ? await Channels.update(window._editingChannelId, fields)
+      : await Channels.create(currentCompany.id, fields);
+    UI.setLoading('btn-save-channel', false, 'Save');
+
+    if (error) { UI.showAlert('channel-error', error.message); return; }
+
+    UI.closeModal('modal-channel');
+    loadChannels();
+  });
+
+  // ── OTAS ──────────────────────────────────────────────────────────
+  async function loadOtas() {
+    UI.tableLoading('otas-tbody', 3);
+    const { data, error } = await Otas.getByCompany(currentCompany.id);
+
+    if (error || !data?.length) {
+      UI.tableEmpty('otas-tbody', 3, 'No OTAs yet.');
+      document.getElementById('otas-count').textContent = '0 OTAs';
+      return;
+    }
+
+    window._otasData = data;
+    document.getElementById('otas-count').textContent = `${data.length} OTAs`;
+    document.getElementById('otas-tbody').innerHTML = data.map(o => `
+      <tr>
+        <td>${UI.mono(o.ota_id)}</td>
+        <td>${o.ota_name}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="editOta('${o.id}')">Edit</button>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  function editOta(id) {
+    const o = (window._otasData || []).find(x => x.id === id);
+    if (!o) return;
+    window._editingOtaId = id;
+    document.getElementById('ota-modal-title').textContent = 'Edit OTA';
+    document.getElementById('ota-id-input').value = o.ota_id;
+    document.getElementById('ota-name-input').value = o.ota_name;
+    UI.hideAlert('ota-error');
+    UI.openModal('modal-ota');
+  }
+
+  document.getElementById('btn-add-ota').addEventListener('click', () => {
+    window._editingOtaId = null;
+    document.getElementById('ota-modal-title').textContent = 'Add OTA';
+    document.getElementById('ota-id-input').value = '';
+    document.getElementById('ota-name-input').value = '';
+    UI.hideAlert('ota-error');
+    UI.openModal('modal-ota');
+  });
+
+  document.getElementById('btn-save-ota').addEventListener('click', async () => {
+    const fields = {
+      ota_id: document.getElementById('ota-id-input').value.trim(),
+      ota_name: document.getElementById('ota-name-input').value.trim(),
+    };
+
+    UI.hideAlert('ota-error');
+    if (!fields.ota_id || !fields.ota_name) {
+      UI.showAlert('ota-error', 'OTA ID and name are required.'); return;
+    }
+
+    UI.setLoading('btn-save-ota', true, 'Save');
+    const { error } = window._editingOtaId
+      ? await Otas.update(window._editingOtaId, fields)
+      : await Otas.create(currentCompany.id, fields);
+    UI.setLoading('btn-save-ota', false, 'Save');
+
+    if (error) { UI.showAlert('ota-error', error.message); return; }
+
+    UI.closeModal('modal-ota');
+    loadOtas();
+  });
+
+  // ── USERS ─────────────────────────────────────────────────────────
+  async function loadUsers() {
+    UI.tableLoading('users-tbody', 4);
+    const { data, error } = await Users.getByCompany(currentCompany.id);
+
+    if (error || !data?.length) {
+      UI.tableEmpty('users-tbody', 4, 'No users yet.');
+      document.getElementById('users-count').textContent = '0 users';
+      return;
+    }
+
+    document.getElementById('users-count').textContent = `${data.length} users`;
+    document.getElementById('users-tbody').innerHTML = data.map(u => `
+      <tr>
+        <td>${u.full_name || '—'}</td>
+        <td>${UI.roleBadge(u.role)}</td>
+        <td>${UI.statusBadge(u.active)}</td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="toggleUser('${u.id}',${u.active})">
+            ${u.active ? 'Deactivate' : 'Activate'}
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  async function toggleUser(id, active) {
+    await Users.toggleActive(id, active);
+    loadUsers();
+  }
+
+  document.getElementById('btn-invite-user').addEventListener('click', () => UI.openModal('modal-user'));
+
+  document.getElementById('btn-save-user').addEventListener('click', async () => {
+    const full_name = document.getElementById('invite-name').value.trim();
+    const email     = document.getElementById('invite-email').value.trim();
+    const password  = document.getElementById('invite-password').value;
+    const role      = document.getElementById('invite-role').value;
+
+    UI.hideAlert('user-error');
+    UI.hideAlert('user-success');
+
+    if (!email || !password) { UI.showAlert('user-error', 'Email and password are required.'); return; }
+
+    UI.setLoading('btn-save-user', true, 'Create user');
+    const { error } = await Users.create(currentCompany.id, email, password, full_name, role);
+    UI.setLoading('btn-save-user', false, 'Create user');
+
+    if (error) { UI.showAlert('user-error', error.message); return; }
+
+    UI.showAlert('user-success', `User ${email} created successfully.`, 'success');
+    document.getElementById('invite-name').value     = '';
+    document.getElementById('invite-email').value    = '';
+    document.getElementById('invite-password').value = '';
+    loadUsers();
+    loadOverview();
+  });
+
+  // ── PROPERTY EDIT/TOGGLE ──────────────────────────────────────────
+  function openEditProperty(p) {
+    document.getElementById('edit-prop-uuid').value    = p.id;
+    document.getElementById('edit-prop-id').value      = p.property_id;
+    document.getElementById('edit-prop-name').value    = p.property_name;
+    document.getElementById('edit-prop-city').value    = p.city || '';
+    document.getElementById('edit-prop-country').value = p.country || '';
+    document.getElementById('edit-prop-rooms').value   = p.total_rooms || '';
+    document.getElementById('edit-prop-beds').value    = p.total_beds || '';
+    document.getElementById('edit-prop-source').value  = p.data_source;
+    UI.hideAlert('edit-prop-error');
+    UI.openModal('modal-edit-property');
+  }
+
+  document.getElementById('btn-update-property').addEventListener('click', async () => {
+    const id = document.getElementById('edit-prop-uuid').value;
+    const fields = {
+      property_name: document.getElementById('edit-prop-name').value.trim(),
+      city:          document.getElementById('edit-prop-city').value.trim(),
+      country:       document.getElementById('edit-prop-country').value.trim().toUpperCase(),
+      total_rooms:   parseInt(document.getElementById('edit-prop-rooms').value) || null,
+      total_beds:    parseInt(document.getElementById('edit-prop-beds').value) || null,
+      data_source:   document.getElementById('edit-prop-source').value,
+    };
+
+    UI.hideAlert('edit-prop-error');
+    if (!fields.property_name) { UI.showAlert('edit-prop-error', 'Name is required.'); return; }
+
+    UI.setLoading('btn-update-property', true, 'Save changes');
+    const { error } = await Properties.update(id, fields);
+    UI.setLoading('btn-update-property', false, 'Save changes');
+
+    if (error) { UI.showAlert('edit-prop-error', error.message); return; }
+
+    UI.closeModal('modal-edit-property');
+    loadProperties();
+  });
+
+  async function toggleProperty(id, active) {
+    await Properties.toggleActive(id, active);
+    loadProperties();
+  }
+
+  // ── SEGMENTS ──────────────────────────────────────────────────────
+  async function loadSegments() {
+    UI.tableLoading('segments-tbody', 4);
+    const { data, error } = await Segments.getByCompany(currentCompany.id);
+    if (error || !data?.length) {
+      UI.tableEmpty('segments-tbody', 4, 'No segments yet.');
+      document.getElementById('segments-count').textContent = '0 segments';
+      return;
+    }
+    document.getElementById('segments-count').textContent = `${data.length} segments`;
+    document.getElementById('segments-tbody').innerHTML = data.map(s => `
+      <tr>
+        <td>${UI.mono(s.raw_value)}</td>
+        <td>${s.display_name}</td>
+        <td>${UI.badge(s.status, s.status === 'active' ? 'active' : 'inactive')}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleSegment('${s.id}','${s.status}')">
+          ${s.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function toggleSegment(id, status) {
+    await Segments.toggleStatus(id, status);
+    loadSegments();
+  }
+
+  document.getElementById('btn-add-segment').addEventListener('click', () => UI.openModal('modal-segment'));
+
+  document.getElementById('btn-save-segment').addEventListener('click', async () => {
+    const raw_value = document.getElementById('seg-code').value.trim();
+    const display_name = document.getElementById('seg-name').value.trim();
+    UI.hideAlert('segment-error');
+    if (!raw_value || !display_name) { UI.showAlert('segment-error', 'Raw value and display name are required.'); return; }
+    UI.setLoading('btn-save-segment', true, 'Save');
+    const { error } = await Segments.create(currentCompany.id, { raw_value, display_name });
+    UI.setLoading('btn-save-segment', false, 'Save');
+    if (error) { UI.showAlert('segment-error', error.message); return; }
+    UI.closeModal('modal-segment');
+    document.getElementById('seg-code').value = '';
+    document.getElementById('seg-name').value = '';
+    loadSegments();
+  });
+
+  // ── BOOKING PURPOSES ──────────────────────────────────────────────
+  async function loadPurposes() {
+    UI.tableLoading('purposes-tbody', 4);
+    const { data, error } = await BookingPurposes.getByCompany(currentCompany.id);
+    if (error || !data?.length) {
+      UI.tableEmpty('purposes-tbody', 4, 'No booking purposes yet.');
+      document.getElementById('purposes-count').textContent = '0 purposes';
+      return;
+    }
+    document.getElementById('purposes-count').textContent = `${data.length} purposes`;
+    document.getElementById('purposes-tbody').innerHTML = data.map(p => `
+      <tr>
+        <td>${UI.mono(p.raw_value)}</td>
+        <td>${p.display_name}</td>
+        <td>${UI.badge(p.status, p.status === 'active' ? 'active' : 'inactive')}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="togglePurpose('${p.id}','${p.status}')">
+          ${p.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function togglePurpose(id, status) {
+    await BookingPurposes.toggleStatus(id, status);
+    loadPurposes();
+  }
+
+  document.getElementById('btn-add-purpose').addEventListener('click', () => UI.openModal('modal-purpose'));
+
+  document.getElementById('btn-save-purpose').addEventListener('click', async () => {
+    const raw_value = document.getElementById('pur-code').value.trim();
+    const display_name = document.getElementById('pur-name').value.trim();
+    UI.hideAlert('purpose-error');
+    if (!raw_value || !display_name) { UI.showAlert('purpose-error', 'Raw value and display name are required.'); return; }
+    UI.setLoading('btn-save-purpose', true, 'Save');
+    const { error } = await BookingPurposes.create(currentCompany.id, { raw_value, display_name });
+    UI.setLoading('btn-save-purpose', false, 'Save');
+    if (error) { UI.showAlert('purpose-error', error.message); return; }
+    UI.closeModal('modal-purpose');
+    document.getElementById('pur-code').value = '';
+    document.getElementById('pur-name').value = '';
+    loadPurposes();
+  });
+
+  // ── SUBTAB HELPER ─────────────────────────────────────────────────
+  function showSubtab(section, tab) {
+    document.querySelectorAll(`#section-${section} .subtab`).forEach(t => t.classList.remove('active'));
+    document.querySelectorAll(`#section-${section} .subpage`).forEach(p => p.classList.remove('active'));
+    document.getElementById(`subtab-${section}-${tab}`).classList.add('active');
+    document.getElementById(`subpage-${section}-${tab}`).classList.add('active');
+    if (section === 'rooms') {
+      if (tab === 'categories') loadRoomCategories();
+      if (tab === 'list')       loadRoomsList();
+      if (tab === 'attributes') loadRoomAttributes();
+      if (tab === 'calendar')   rcalInit();
+    }
+    if (section === 'channels') {
+      if (tab === 'list') loadChannels();
+      if (tab === 'otas') loadOtas();
+    }
+    if (section === 'markets') {
+      if (tab === 'client-mapping') loadClientCountryMapping();
+    }
+  }
+
+  // ── EXTRAS CATALOG ────────────────────────────────────────────────
+  let allExtras = [];
+
+  async function loadExtras() {
+    const { data } = await ExtrasCatalog.getByCompany(currentCompany.id);
+    allExtras = data || [];
+
+    // Populate category filter
+    const cats = [...new Set(allExtras.map(e => e.category))].sort();
+    const catSel = document.getElementById('extras-category-filter');
+    catSel.innerHTML = '<option value="">All categories</option>' +
+      cats.map(c => `<option value="${c}">${c}</option>`).join('');
+
+    renderExtras(allExtras);
+  }
+
+  function filterExtras() {
+    const search = document.getElementById('extras-search').value.toLowerCase();
+    const cat    = document.getElementById('extras-category-filter').value;
+    const timing = document.getElementById('extras-timing-filter').value;
+
+    const filtered = allExtras.filter(e => {
+      if (search && !e.extra_code.toLowerCase().includes(search)) return false;
+      if (cat    && e.category !== cat)       return false;
+      if (timing && e.charge_timing !== timing) return false;
+      return true;
+    });
+    renderExtras(filtered);
+  }
+
+  const TIMING_LABELS = {
+    during_stay:          'During stay',
+    bookable_in_advance:  'In advance',
+    at_checkout:          'At checkout'
+  };
+
+  const TIMING_COLORS = {
+    during_stay:          'badge-user',
+    bookable_in_advance:  'badge-api',
+    at_checkout:          'badge-upload'
+  };
+
+  function renderExtras(data) {
+    const tbody = document.getElementById('extras-tbody');
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state">No extras yet.</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(e => `
+      <tr>
+        <td>${UI.mono(e.extra_code)}</td>
+        <td>${e.category}</td>
+        <td>${e.subcategory || '—'}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:0.85rem">${parseFloat(e.default_amount).toFixed(2)} €</td>
+        <td>${UI.badge(TIMING_LABELS[e.charge_timing] || e.charge_timing, TIMING_COLORS[e.charge_timing] || 'badge-user')}</td>
+        <td>${UI.statusBadge(e.status === 'active')}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleExtra('${e.id}','${e.status}')">
+          ${e.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function toggleExtra(id, status) {
+    await ExtrasCatalog.toggleStatus(id, status);
+    loadExtras();
+  }
+
+  document.getElementById('btn-add-extra').addEventListener('click', () => UI.openModal('modal-extra'));
+
+  document.getElementById('btn-save-extra').addEventListener('click', async () => {
+    const extra_code      = document.getElementById('extra-code').value.trim().toUpperCase().replace(/\s+/g,'_');
+    const category        = document.getElementById('extra-category').value.trim().toUpperCase();
+    const subcategory     = document.getElementById('extra-subcategory').value.trim().toUpperCase() || null;
+    const default_amount  = parseFloat(document.getElementById('extra-amount').value) || 0;
+    const charge_timing   = document.getElementById('extra-timing').value;
+
+    UI.hideAlert('extra-error');
+    if (!extra_code || !category) { UI.showAlert('extra-error', 'Code and category are required.'); return; }
+
+    UI.setLoading('btn-save-extra', true, 'Save');
+    const { error } = await ExtrasCatalog.create(currentCompany.id, {
+      extra_code, category, subcategory, default_amount, charge_timing
+    });
+    UI.setLoading('btn-save-extra', false, 'Save');
+
+    if (error) { UI.showAlert('extra-error', error.message); return; }
+
+    UI.closeModal('modal-extra');
+    ['extra-code','extra-category','extra-subcategory','extra-amount'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    loadExtras();
+  });
+
+
+  // ── ROOM CALENDAR ─────────────────────────────────────────────────
+  let rcalYear        = new Date().getFullYear();
+  let rcalMonth       = new Date().getMonth() + 1;
+  let rcalView        = 'day'; // 'day' | 'week' | 'month'
+  let rcalRooms       = [];
+  let rcalAttrs       = [];
+  let rcalCap         = {}; // key: roomId__date
+  let rcalPend        = {}; // pending changes
+  let rcalAvail       = {}; // date -> max beds
+  let rcalRoomFilter  = new Set(); // empty = show all
+  let rcalShowMode    = 'status'; // 'status' | 'beds' | 'only_female'
+  let rcalLoadGen     = 0; // generation counter — cancels stale async loads
+  let rcalSelected    = new Map(); // selected cells for bulk beds edit: key -> {el,roomId,dates}
+  let rcalDragging    = false;    // true while mouse is held down for drag-select
+  let rcalDragMoved   = false;    // true if drag moved across cells (suppress click inline-edit)
+
+  const RCAL_MONTHS = ['January','February','March','April','May','June',
+    'July','August','September','October','November','December'];
+  const RCAL_MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun',
+    'Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  function rcalKey(roomId, date) { return roomId + '__' + date; }
+
+  const RCAL_UNSET = { status: 'unset', beds_available: 0, attributes: [] };
+
+  function rcalGetDay(roomId, date) {
+    const k = rcalKey(roomId, date);
+    return rcalPend[k] || rcalCap[k] || RCAL_UNSET;
+  }
+
+  function rcalHasData(roomId, date) {
+    const k = rcalKey(roomId, date);
+    return !!(rcalPend[k] || rcalCap[k]);
+  }
+
+  function rcalSetDay(roomId, date, fields) {
+    const k = rcalKey(roomId, date);
+    rcalPend[k] = Object.assign({}, rcalGetDay(roomId, date), fields);
+    // Only show save bar for beds mode (toggle modes auto-save)
+    if (rcalShowMode === 'beds') {
+      document.getElementById('rcal-save-bar').style.display =
+        Object.keys(rcalPend).length > 0 ? 'block' : 'none';
+    }
+  }
+
+  function rcalSetView(view) {
+    rcalView = view;
+    ['day','week','month'].forEach(function(v) {
+      const btn = document.getElementById('rcal-view-' + v);
+      if (btn) btn.classList.toggle('active', v === view);
+    });
+    const yrSel = document.getElementById('rcal-year');
+    if (yrSel) yrSel.style.display = view === 'month' ? 'inline-block' : 'none';
+    rcalUpdatePeriodLabel();
+    rcalRenderGrid();
+    rcalLoad();
+  }
+
+  function rcalNavPrev() {
+    if (rcalView === 'month') { rcalYear--; }
+    else { rcalMonth--; if (rcalMonth < 1) { rcalMonth = 12; rcalYear--; } }
+    rcalLoad();
+  }
+
+  function rcalNavNext() {
+    if (rcalView === 'month') { rcalYear++; }
+    else { rcalMonth++; if (rcalMonth > 12) { rcalMonth = 1; rcalYear++; } }
+    rcalLoad();
+  }
+
+  function rcalChangeYear(y) {
+    rcalYear = parseInt(y);
+    rcalLoad();
+  }
+
+  function rcalUpdatePeriodLabel() {
+    const el = document.getElementById('rcal-period-label');
+    if (!el) return;
+    if (rcalView === 'month') {
+      el.textContent = String(rcalYear);
+    } else {
+      el.textContent = RCAL_MONTHS[rcalMonth-1] + ' ' + rcalYear;
+    }
+  }
+
+  async function rcalInit() {
+    const sel = document.getElementById('rcal-property');
+    if (!sel.options.length) {
+      const { data } = await Properties.getByCompany(currentCompany.id);
+      (data || []).forEach(p => {
+        const o = document.createElement('option');
+        o.value = p.id;
+        o.textContent = p.property_name + ' (' + p.property_id + ')';
+        sel.appendChild(o);
+      });
+    }
+    // Populate year selector
+    const yrSel = document.getElementById('rcal-year');
+    if (!yrSel.options.length) {
+      const cy = new Date().getFullYear();
+      for (let y = cy-2; y <= cy+5; y++) {
+        const o = document.createElement('option');
+        o.value = y; o.textContent = y;
+        if (y === rcalYear) o.selected = true;
+        yrSel.appendChild(o);
+      }
+    }
+    await rcalLoad();
+  }
+
+  async function rcalLoad() {
+    const propertyId = document.getElementById('rcal-property').value;
+    if (!propertyId) return;
+
+    // Generation counter — if another load starts before this one finishes, discard this result
+    const myGen = ++rcalLoadGen;
+
+    rcalPend = {};
+    document.getElementById('rcal-save-bar').style.display = 'none';
+
+    // Show loading overlay
+    const loadingEl = document.getElementById('rcal-loading');
+    if (loadingEl) loadingEl.style.display = 'flex';
+
+    const fromDate = rcalView === 'month'
+      ? rcalYear + '-01-01'
+      : rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-01';
+    const toDate = rcalView === 'month'
+      ? rcalYear + '-12-31'
+      : rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-' + String(new Date(rcalYear, rcalMonth, 0).getDate()).padStart(2,'0');
+
+    // Paginated fetch for room_capacity_calendar (bypasses 1000-row server default)
+    async function fetchAllCapRows() {
+      const PAGE = 1000;
+      let allRows = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await sb.from('room_capacity_calendar')
+          .select('room_id,date,beds_available,status,attributes')
+          .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
+          .gte('date', fromDate).lte('date', toDate)
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        allRows = allRows.concat(data);
+        if (data.length < PAGE) break; // last page
+        from += PAGE;
+        if (from > 20000) break; // safety cap
+      }
+      return { data: allRows, error: null };
+    }
+
+    const [roomsRes, attrsRes, capRes, availRes] = await Promise.all([
+      Rooms.getByProperty(currentCompany.id, propertyId),
+      Rooms.getAttributeTypes(currentCompany.id),
+      fetchAllCapRows(),
+      sb.from('availability_calendar').select('date,number_of_beds')
+        .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
+        .gte('date', fromDate).lte('date', toDate).limit(1000)
+    ]);
+
+    // Discard stale results
+    if (myGen !== rcalLoadGen) return;
+
+    // Hide loading overlay
+    if (loadingEl) loadingEl.style.display = 'none';
+
+    rcalRooms = (roomsRes.data || []).filter(function(r) { return r.status === 'active'; });
+    rcalAttrs = (attrsRes.data || []).filter(function(a) { return a.status === 'active'; });
+
+    rcalCap = {};
+    (capRes.data || []).forEach(function(r) {
+      rcalCap[rcalKey(r.room_id, r.date)] = {
+        beds_available: r.beds_available, status: r.status, attributes: r.attributes || []
+      };
+    });
+
+    // Overlay any pending saves (not yet written to DB) so view switches don't lose edits
+    Object.keys(rcalSaveQueue).forEach(function(k) { rcalCap[k] = rcalSaveQueue[k]; });
+
+    rcalAvail = {};
+    (availRes.data || []).forEach(function(r) { rcalAvail[r.date] = r.number_of_beds; });
+
+    rcalUpdateYearSel();
+    rcalUpdatePeriodLabel();
+    rcalRenderChips();
+    rcalRenderShowButtons();
+    const yrSelEl = document.getElementById('rcal-year');
+    if (yrSelEl) yrSelEl.style.display = rcalView === 'month' ? 'inline-block' : 'none';
+    rcalRenderGrid();
+    rcalWireDragEvents();
+  }
+
+  function rcalUpdateYearSel() {
+    const yrSel = document.getElementById('rcal-year');
+    if (yrSel) yrSel.value = rcalYear;
+  }
+
+  // System show modes always present
+  const RCAL_SYSTEM_MODES = [
+    { id: 'status', label: 'Status',        color: '#22c55e' },
+    { id: 'beds',   label: 'Beds',          color: '#3D65A8' }
+  ];
+
+  function rcalRenderShowButtons() {
+    const container = document.getElementById('rcal-show-btns');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // System modes
+    RCAL_SYSTEM_MODES.forEach(function(m) {
+      const btn = document.createElement('button');
+      btn.className = 'rcal-show-btn' + (rcalShowMode === m.id ? ' active' : '');
+      btn.id = 'rcal-show-' + m.id;
+      btn.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;' +
+        'background:' + m.color + ';margin-right:4px"></span>' + m.label;
+      btn.addEventListener('click', function() { rcalSetShow(m.id); });
+      container.appendChild(btn);
+    });
+
+    // Variable attributes — auto-generated
+    const varAttrs = (rcalAttrs || []).filter(function(a) { return a.is_variable && a.status === 'active'; });
+    varAttrs.forEach(function(a) {
+      const btn = document.createElement('button');
+      btn.className = 'rcal-show-btn' + (rcalShowMode === a.attribute_code ? ' active' : '');
+      btn.id = 'rcal-show-' + a.attribute_code;
+      // Pick a colour based on type
+      const color = a.attribute_type === 'boolean' ? '#ec4899'
+                  : a.attribute_type === 'integer' ? '#f59e0b'
+                  : '#8b5cf6';
+      btn.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;' +
+        'background:' + color + ';margin-right:4px"></span>' + a.attribute_name;
+      btn.addEventListener('click', function() { rcalSetShow(a.attribute_code); });
+      container.appendChild(btn);
+    });
+  }
+
+  function rcalSetShow(mode) {
+    rcalShowMode = mode;
+    rcalRenderShowButtons(); // re-render to update active state
+    rcalRenderGrid();
+  }
+
+  function rcalToggleRoom(roomId) {
+    if (rcalRoomFilter.has(roomId)) rcalRoomFilter.delete(roomId);
+    else rcalRoomFilter.add(roomId);
+    rcalRenderChips();
+    rcalRenderGrid();
+  }
+
+  function rcalSelectAllRooms() {
+    rcalRoomFilter.clear();
+    rcalRenderChips();
+    rcalRenderGrid();
+  }
+
+
+  function rcalRenderChips() {
+    const container = document.getElementById('rcal-room-chips');
+    if (!container) return;
+    const allActive = rcalRoomFilter.size === 0;
+    container.innerHTML = '';
+
+    const allBtn = document.createElement('button');
+    allBtn.className = 'rcal-chip' + (allActive ? ' active' : '');
+    allBtn.textContent = 'All';
+    allBtn.addEventListener('click', rcalSelectAllRooms);
+    container.appendChild(allBtn);
+
+    rcalRooms.forEach(function(r) {
+      const active = !allActive && rcalRoomFilter.has(r.id);
+      const btn = document.createElement('button');
+      btn.className = 'rcal-chip' + (active ? ' active' : '');
+      btn.textContent = r.display_name;
+      btn.addEventListener('click', function() { rcalToggleRoom(r.id); });
+      container.appendChild(btn);
+    });
+  }
+
+  // ── Build column definitions based on view ────────────────────────
+  function rcalBuildCols() {
+    if (rcalView === 'day') {
+      const totalDays = new Date(rcalYear, rcalMonth, 0).getDate();
+      const cols = [];
+      for (let d = 1; d <= totalDays; d++) {
+        const date = rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+        const dow  = new Date(date).getDay();
+        cols.push({ label: String(d), sublabel: ['Su','Mo','Tu','We','Th','Fr','Sa'][dow],
+                    dates: [date], isWeekend: dow===0||dow===6 });
+      }
+      return cols;
+    }
+    if (rcalView === 'week') {
+      // ISO week number helper
+      function isoWeek(dateStr) {
+        const d = new Date(dateStr);
+        d.setHours(0,0,0,0);
+        d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+        const w1 = new Date(d.getFullYear(), 0, 4);
+        return 1 + Math.round(((d - w1) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7);
+      }
+
+      const totalDays = new Date(rcalYear, rcalMonth, 0).getDate();
+      const cols = [];
+      let weekDates = [];
+      let currentWeek = null;
+
+      for (let d = 1; d <= totalDays; d++) {
+        const date = rcalYear + '-' + String(rcalMonth).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+        const dow  = new Date(date).getDay(); // 0=Sun, 1=Mon...
+        const wnum = isoWeek(date);
+
+        if (currentWeek !== null && wnum !== currentWeek && weekDates.length > 0) {
+          // New ISO week — save previous
+          const first = weekDates[0].slice(8).replace(/^0/,'');
+          const last  = weekDates[weekDates.length-1].slice(8).replace(/^0/,'');
+          cols.push({ label: 'W' + String(currentWeek).padStart(2,'0'),
+                      sublabel: first + '-' + last,
+                      dates: weekDates.slice(), isWeekend: false });
+          weekDates = [];
+        }
+        currentWeek = wnum;
+        weekDates.push(date);
+      }
+      // Last partial week
+      if (weekDates.length > 0) {
+        const first = weekDates[0].slice(8).replace(/^0/,'');
+        const last  = weekDates[weekDates.length-1].slice(8).replace(/^0/,'');
+        cols.push({ label: 'W' + String(currentWeek).padStart(2,'0'),
+                    sublabel: first + '-' + last,
+                    dates: weekDates.slice(), isWeekend: false });
+      }
+      return cols;
+    }
+    if (rcalView === 'month') {
+      return RCAL_MONTHS_SHORT.map(function(name, mi) {
+        const m    = mi + 1;
+        const days = new Date(rcalYear, m, 0).getDate();
+        const dates = [];
+        for (let d = 1; d <= days; d++) {
+          dates.push(rcalYear + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0'));
+        }
+        return { label: name, sublabel: String(rcalYear), dates: dates, isWeekend: false };
+      });
+    }
+    return [];
+  }
+
+  // ── Consensus display for a set of days ───────────────────────────
+  // Returns status: 'closed' | 'open' | 'partial' (mixed)
+  function rcalConsensus(roomId, dates) {
+    if (!dates.length) return { status: 'unset', display: null, beds: 0 };
+
+    // Only consider days with actual data (DB rows or pending)
+    const configuredDates = dates.filter(function(d) { return rcalHasData(roomId, d); });
+
+    if (configuredDates.length === 0) return { status: 'unset', display: null, beds: 0 };
+
+    const days       = configuredDates.map(function(d) { return rcalGetDay(roomId, d); });
+    const openDays   = days.filter(function(d) { return d && d.status === 'open'; });
+    const closedDays = days.filter(function(d) { return d && d.status === 'closed'; });
+
+    if (openDays.length === 0) return { status: 'closed', display: null, beds: 0 };
+
+    if (closedDays.length === 0) {
+      // All configured days are open
+      const bedValues = openDays.map(function(d) { return d.beds_available || 0; });
+      const allSame   = bedValues.every(function(v) { return v === bedValues[0]; });
+      return { status: 'open', display: allSame ? String(bedValues[0]) : '~',
+               beds: allSame ? bedValues[0] : null };
+    }
+
+    // Mix of open and explicitly closed configured days
+    return { status: 'partial', display: openDays.length + '/' + configuredDates.length, beds: null };
+  }
+
+  // ── Render grid ───────────────────────────────────────────────────
+  function rcalRenderGrid() {
+    const cols  = rcalBuildCols();
+    const today = new Date().toISOString().slice(0,10);
+    const NW    = 150;
+    const CW    = rcalView === 'month' ? 42 : rcalView === 'week' ? 52 : 36;
+
+    // Apply room filter
+    const visibleRooms = rcalRoomFilter.size === 0
+      ? rcalRooms
+      : rcalRooms.filter(function(r) { return rcalRoomFilter.has(r.id); });
+
+    // Compute daily totals per col
+    const colTotals = cols.map(function(col) {
+      let tot = 0;
+      visibleRooms.forEach(function(r) {
+        col.dates.forEach(function(date) {
+          const day = rcalGetDay(r.id, date);
+          if (day && day.status === 'open') tot += (day.beds_available || 0);
+        });
+      });
+      // For week/month: average per day to avoid inflated totals
+      return rcalView === 'day' ? tot : Math.round(tot / col.dates.length);
+    });
+
+    // Max per col from availability_calendar (avg for week/month)
+    const colMaxes = cols.map(function(col) {
+      const vals = col.dates.map(function(d) { return rcalAvail[d] || 0; }).filter(function(v) { return v > 0; });
+      if (!vals.length) return 0;
+      return rcalView === 'day' ? vals[0] : Math.round(vals.reduce(function(a,b){return a+b;},0)/vals.length);
+    });
+
+    let html = '<table style="border-collapse:collapse;font-size:0.75rem;width:100%">';
+
+    // Header
+    html += '<thead><tr>';
+    html += '<th style="width:' + NW + 'px;min-width:' + NW + 'px;padding:5px 8px;' +
+            'background:var(--bg);border:1px solid var(--border);text-align:left;' +
+            'font-family:DM Mono,monospace;font-size:0.65rem;color:var(--text-muted);' +
+            'text-transform:uppercase;letter-spacing:0.06em;position:sticky;left:0;z-index:3">Room</th>';
+
+    cols.forEach(function(col, ci) {
+      const isToday = col.dates.includes(today);
+      const over    = colMaxes[ci] > 0 && colTotals[ci] > colMaxes[ci];
+      const bg      = over ? '#fff0f0' : isToday ? 'var(--brand-light)' : col.isWeekend ? '#f9fafb' : 'var(--bg)';
+      const color   = over ? 'var(--error)' : isToday ? 'var(--brand)' : 'var(--text-muted)';
+      html += '<th style="width:' + CW + 'px;min-width:' + CW + 'px;padding:3px 2px;' +
+              'text-align:center;background:' + bg + ';border:1px solid var(--border);' +
+              'color:' + color + ';font-size:0.7rem">' +
+              col.label + '<br><span style="font-size:0.6rem;font-weight:400;color:' + color + '">' +
+              colTotals[ci] + '/' + (colMaxes[ci]||'?') + '</span></th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    // Room rows
+    visibleRooms.forEach(function(room) {
+      html += '<tr>';
+      html += '<td style="padding:4px 8px;background:var(--white);border:1px solid var(--border);' +
+              'font-weight:500;position:sticky;left:0;z-index:1;' +
+              'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:' + NW + 'px">' +
+              room.display_name + '</td>';
+
+      cols.forEach(function(col) {
+        const cons    = rcalConsensus(room.id, col.dates);
+        const isPend  = col.dates.some(function(d) { return !!rcalPend[rcalKey(room.id, d)]; });
+        const isClosed = cons.status === 'closed';
+
+        // Compute display based on show mode
+        let bg      = 'var(--white)';
+        let content = '';
+        let border  = '1px solid var(--border)';
+
+        const isPartial = cons.status === 'partial';
+        const isUnset   = cons.status === 'unset';
+        if (isUnset) {
+          bg = '#f4f6fb'; // very light — not configured
+          border = '1px solid #e5e7eb';
+          content = '';
+        } else if (isClosed) {
+          bg = '#e5e7eb'; // grey — explicitly closed
+          content = '';
+        } else if (isPartial && rcalShowMode === 'status') {
+          bg = 'repeating-linear-gradient(45deg,#dcfce7,#dcfce7 4px,#e5e7eb 4px,#e5e7eb 8px)';
+          border = '1px solid #d1d5db';
+          content = '<span style="font-size:0.65rem;color:#6b7280;font-weight:500">' + cons.display + '</span>';
+        } else if (rcalShowMode === 'status') {
+          bg = '#dcfce7'; // soft green — all open
+          border = '1px solid #86efac';
+          content = '';
+        } else if (rcalShowMode === 'beds') {
+          if (cons.display === '~') {
+            // Mixed beds values — orange indicator
+            bg = '#fffbeb';
+            border = '1px solid #fde68a';
+            content = '<span style="font-weight:700;font-size:0.85rem;color:#d97706">~</span>';
+          } else {
+            const beds    = cons.beds !== null ? cons.beds : 0;
+            const maxBeds = room.beds_per_room || 1;
+            const ratio   = Math.min(beds / maxBeds, 1);
+            const opacity = 0.08 + ratio * 0.72;
+            bg = 'rgba(61,101,168,' + opacity.toFixed(2) + ')';
+            const textColor = ratio > 0.5 ? '#fff' : 'var(--text)';
+            content = '<span style="font-weight:500;font-size:0.78rem;color:' + textColor + '">' + beds + '</span>';
+          }
+        } else {
+          // Variable attribute show mode — generic handler
+          const attrDef = (rcalAttrs || []).find(function(a) { return a.attribute_code === rcalShowMode; });
+          if (!attrDef) {
+            bg = '#f4f6fb'; content = '';
+          } else if (isUnset || isClosed) {
+            bg = isUnset ? '#f4f6fb' : '#e5e7eb';
+            border = '1px solid #e5e7eb'; content = '';
+          } else {
+            // Get attribute values across all dates in col
+            const vals = col.dates.map(function(dt) {
+              const dayVal = rcalGetDay(room.id, dt);
+              const attrs  = dayVal.attributes || [];
+              const attr   = attrs.find(function(a) { return (typeof a === 'object' ? a.code : a) === rcalShowMode; });
+              return attr ? (typeof attr === 'object' ? attr.value : true) : null;
+            }).filter(function(v) { return v !== null; });
+
+            if (vals.length === 0) {
+              bg = '#f4f6fb'; border = '1px solid #e5e7eb'; content = '';
+            } else if (attrDef.attribute_type === 'boolean') {
+              const trueCount = vals.filter(function(v) { return v === true || v === 'true'; }).length;
+              if (trueCount === vals.length) {
+                bg = '#dcfce7'; border = '1px solid #86efac'; content = '';
+              } else if (trueCount === 0) {
+                bg = '#fee2e2'; border = '1px solid #fca5a5'; content = '';
+              } else {
+                bg = 'repeating-linear-gradient(45deg,#dcfce7,#dcfce7 4px,#fee2e2 4px,#fee2e2 8px)';
+                content = '<span style="font-size:0.65rem;color:#6b7280">' + trueCount + '/' + vals.length + '</span>';
+              }
+            } else if (attrDef.attribute_type === 'integer') {
+              const numVals = vals.map(function(v) { return parseInt(v) || 0; });
+              const allDatesHaveVal = vals.length === col.dates.length;
+              const allSame = allDatesHaveVal && numVals.every(function(v) { return v === numVals[0]; });
+              const isMixed = !allSame; // mixed = different values OR some dates missing the attr
+              if (isMixed) {
+                bg = '#fffbeb'; border = '1px solid #fde68a';
+                content = '<span style="font-weight:700;font-size:0.85rem;color:#d97706">~</span>';
+              } else {
+                const ratio = Math.min((numVals[0] || 0) / 10, 1);
+                bg = 'rgba(245,158,11,' + (0.1 + ratio * 0.7).toFixed(2) + ')';
+                const textColor = ratio > 0.5 ? '#fff' : 'var(--text)';
+                content = '<span style="font-weight:500;font-size:0.78rem;color:' + textColor + '">' + numVals[0] + '</span>';
+              }
+            } else if (attrDef.attribute_type === 'select') {
+              const allSame = vals.every(function(v) { return v === vals[0]; });
+              bg = '#f3f4f6';
+              content = '<span style="font-size:0.7rem;color:var(--text)">' + (allSame ? vals[0] : '~') + '</span>';
+            }
+          }
+        }
+
+        if (isPend && rcalShowMode === 'beds') { bg = '#fffbeb'; border = '1px solid #fde68a'; }
+
+        const datesJson = JSON.stringify(col.dates);
+        html += '<td data-rid="' + room.id + '" data-dates="' + datesJson.replace(/"/g,'&quot;') + '" ' +
+                'data-rname="' + room.display_name.replace(/"/g,'&quot;') + '" ' +
+                'data-sel-key="' + rcalKey(room.id, col.dates[0]) + '" ' +
+                'data-maxbeds="' + (room.beds_per_room || 2) + '" ' +
+                'onclick="rcalOpenColEl(this,event)" ' +
+                'style="width:' + CW + 'px;min-width:' + CW + 'px;padding:3px 1px;' +
+                'text-align:center;background:' + bg + ';border:' + border + ';' +
+                'cursor:' + (rcalShowMode === 'beds' ? 'cell' : 'pointer') + ';' +
+                'vertical-align:middle;transition:background 0.15s">' +
+                content +
+                '</td>';
+      });
+      html += '</tr>';
+    });
+
+    // Totals row — only meaningful in Beds mode
+    const totalsLabel = rcalShowMode === 'beds'
+      ? (rcalView === 'day' ? 'TOTAL BEDS' : 'AVG BEDS')
+      : null;
+    html += '<tr><td style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);' +
+            'font-weight:600;font-size:0.72rem;color:var(--text-muted);position:sticky;left:0;z-index:1">' +
+            (totalsLabel || '') + '</td>';
+    if (rcalShowMode === 'beds') {
+      cols.forEach(function(col, ci) {
+        const tot  = colTotals[ci];
+        const max  = colMaxes[ci];
+        const over = max > 0 && tot > max;
+        const eq   = max > 0 && tot === max;
+        const bg   = over ? '#fff0f0' : eq ? '#f0fdf4' : 'var(--bg)';
+        const col2 = over ? 'var(--error)' : eq ? 'var(--success)' : 'var(--text-muted)';
+        html += '<td style="padding:3px 1px;text-align:center;background:' + bg + ';' +
+                'border:1px solid var(--border);font-weight:600;color:' + col2 + ';font-size:0.72rem">' +
+                tot + '</td>';
+      });
+      html += '</tr>';
+      // Max row
+      html += '<tr><td style="padding:3px 8px;background:var(--bg);border:1px solid var(--border);' +
+              'font-size:0.68rem;color:var(--text-muted);position:sticky;left:0;z-index:1">MAX</td>';
+      cols.forEach(function(col, ci) {
+        html += '<td style="padding:3px 1px;text-align:center;background:var(--bg);' +
+                'border:1px solid var(--border);font-size:0.68rem;color:var(--text-muted)">' +
+                (colMaxes[ci]||'?') + '</td>';
+      });
+      html += '</tr>';
+    } else {
+      cols.forEach(function() {
+        html += '<td style="background:var(--bg);border:1px solid var(--border)"></td>';
+      });
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+
+    document.getElementById('rcal-grid').innerHTML = html;
+  }
+
+  // ── Cell/column click handlers ────────────────────────────────────
+  function rcalOpenColEl(el, evt) {
+    const roomId = el.dataset.rid;
+    const dates  = JSON.parse(el.dataset.dates.replace(/&quot;/g, '"'));
+    const isCtrl = evt && (evt.ctrlKey || evt.metaKey);
+
+    if (rcalShowMode === 'status') {
+      rcalToggleStatus(roomId, dates);
+      return;
+    }
+
+    // Variable attribute mode — open cell modal to edit JSONB
+    const isSystemMode = rcalShowMode === 'beds' || rcalShowMode === 'status';
+    if (!isSystemMode) {
+      rcalOpenAttrEdit(el, roomId, dates, rcalShowMode);
+      return;
+    }
+
+    // Beds mode
+    if (rcalDragMoved) {
+      rcalDragMoved = false;
+      return;
+    }
+
+    // Ctrl+click: toggle this cell in selection without clearing others
+    if (isCtrl) {
+      const cellKey = rcalKey(roomId, dates[0]);
+      if (rcalSelected.has(cellKey)) {
+        rcalSelected.delete(cellKey);
+        el.style.outline = '';
+        const day = rcalGetDay(roomId, dates[0]);
+        rcalUpdateCellDisplay(el, roomId, dates, day.beds_available || 0);
+      } else {
+        rcalSelected.set(cellKey, { el: el, roomId: roomId, dates: dates });
+        el.style.outline = '2px solid var(--brand)';
+        el.style.background = 'var(--brand-light)';
+      }
+      return;
+    }
+
+    // Regular click
+    const cellKey = rcalKey(roomId, dates[0]);
+    if (rcalSelected.size > 0 && !rcalSelected.has(cellKey)) {
+      // Clicked outside selection — clear and edit just this cell
+      rcalClearSelection();
+    }
+    rcalInlineEdit(el, roomId, dates);
+  }
+
+  // ── Auto-save helper ─────────────────────────────────────────────
+  let rcalSaveTimer = null;
+
+  function rcalAutoSave(keys, fromCap) {
+    clearTimeout(rcalSaveTimer);
+    rcalSaveTimer = setTimeout(async function() {
+      const propertyId = document.getElementById('rcal-property').value;
+      if (!propertyId) return;
+
+      const source = fromCap ? rcalSaveQueue : rcalPend;
+      const rows = keys
+        .filter(function(k) { return source[k]; })
+        .map(function(k) {
+          const parts = k.split('__');
+          return { roomId: parts[0], date: parts[1], fields: source[k] };
+        });
+      if (!rows.length) return;
+
+      const indicator = document.getElementById('rcal-saving-indicator');
+      if (indicator) { indicator.style.opacity = '1'; indicator.textContent = 'Saving...'; }
+
+      // Smart save: group rows by (fields signature) and try range UPDATE first
+      // Falls back to upsert chunks for scattered/mixed selections
+      const error = await rcalSmartSave(propertyId, rows);
+
+      if (error) {
+        console.error('Save error:', error.message || error);
+        // Friendly message for the capacity trigger error
+        const msg = (error.message || '').includes('supera el máximo')
+          ? '✗ Beds exceed availability limit — lower the value or update Availability Calendar first'
+          : '✗ Error saving: ' + (error.message || error);
+        if (indicator) {
+          indicator.textContent = msg;
+          indicator.style.color = 'var(--error)';
+          indicator.style.maxWidth = '500px';
+          indicator.style.fontSize = '0.75rem';
+          setTimeout(function() {
+            indicator.style.opacity = '0';
+            indicator.style.color = '';
+            indicator.style.maxWidth = '';
+            indicator.style.fontSize = '';
+          }, 5000);
+        }
+      } else {
+        if (fromCap) {
+          keys.forEach(function(k) { delete rcalSaveQueue[k]; });
+        } else {
+          keys.forEach(function(k) { if (rcalPend[k]) { rcalCap[k] = rcalPend[k]; delete rcalPend[k]; } });
+          if (Object.keys(rcalPend).length === 0) {
+            document.getElementById('rcal-save-bar').style.display = 'none';
+          }
+        }
+        if (indicator) {
+          indicator.textContent = '✓ Saved';
+          setTimeout(function() { indicator.style.opacity = '0'; }, 1500);
+        }
+      }
+    }, 300);
+  }
+
+  async function rcalSmartSave(propertyId, rows) {
+    const now = new Date().toISOString();
+
+    // Group by (roomId + fields signature) → per-room date list
+    // This way we correctly detect contiguous ranges per room
+    const groups = new Map();
+    rows.forEach(function(r) {
+      const sig = r.roomId + '|' + JSON.stringify({
+        b: r.fields.beds_available,
+        s: r.fields.status,
+        a: r.fields.attributes || []
+      });
+      if (!groups.has(sig)) groups.set(sig, { roomId: r.roomId, fields: r.fields, dates: [] });
+      groups.get(sig).dates.push(r.date);
+    });
+
+    // Further merge: rooms sharing the same fields + same date range → one IN() UPDATE
+    const mergedGroups = new Map();
+    for (const [, g] of groups) {
+      const sortedDates = g.dates.sort();
+      const minDate = sortedDates[0];
+      const maxDate = sortedDates[sortedDates.length - 1];
+      const contiguous = rcalDatesContiguous(sortedDates);
+      const mergeKey = JSON.stringify({ b: g.fields.beds_available, s: g.fields.status,
+        a: g.fields.attributes || [], min: minDate, max: maxDate, cont: contiguous });
+      if (!mergedGroups.has(mergeKey)) {
+        mergedGroups.set(mergeKey, { fields: g.fields, roomIds: [], minDate, maxDate, contiguous, rows: [] });
+      }
+      const mg = mergedGroups.get(mergeKey);
+      mg.roomIds.push(g.roomId);
+      g.dates.forEach(function(d) { mg.rows.push({ roomId: g.roomId, date: d }); });
+    }
+
+    for (const [, mg] of mergedGroups) {
+      if (mg.contiguous) {
+        // One UPDATE per group of rooms with same date range — fewest requests
+        const { error } = await sb.from('room_capacity_calendar')
+          .update({ beds_available: mg.fields.beds_available, status: mg.fields.status,
+                    attributes: mg.fields.attributes || [], updated_at: now })
+          .eq('company_id', currentCompany.id)
+          .eq('property_uuid', propertyId)
+          .in('room_id', mg.roomIds)
+          .gte('date', mg.minDate)
+          .lte('date', mg.maxDate);
+        if (error) return error;
+      } else {
+        // Scattered: deduplicate rows then upsert in chunks
+        const seen = new Set();
+        const upsertRows = mg.rows
+          .filter(function(r) {
+            const k = r.roomId + '|' + r.date;
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+          })
+          .map(function(r) {
+            return Object.assign({ company_id: currentCompany.id, property_uuid: propertyId,
+              property_id: propertyId, room_id: r.roomId, date: r.date, updated_at: now }, mg.fields);
+          });
+        for (let i = 0; i < upsertRows.length; i += 500) {
+          const { error } = await sb.from('room_capacity_calendar')
+            .upsert(upsertRows.slice(i, i + 500), { onConflict: 'company_id,property_uuid,room_id,date' });
+          if (error) return error;
+        }
+      }
+    }
+    return null;
+  }
+
+  function rcalDatesContiguous(sorted) {
+    if (!sorted.length) return false;
+    const uniq = sorted.filter(function(d, i) { return sorted.indexOf(d) === i; });
+    for (let i = 1; i < uniq.length; i++) {
+      const diff = (new Date(uniq[i]) - new Date(uniq[i-1])) / 86400000;
+      if (diff > 1) return false;
+    }
+    return true;
+  }
+
+  // ── Inline beds editing ───────────────────────────────────────────
+  // rcalSelected = Map of selKey -> { el, roomId, dates }
+
+  function rcalClearSelection() {
+    rcalSelected.forEach(function(info) {
+      if (info.el) {
+        info.el.style.outline = '';
+        const day  = rcalGetDay(info.roomId, info.dates[0]);
+        rcalUpdateCellDisplay(info.el, info.roomId, info.dates, day.beds_available || 0);
+      }
+    });
+    rcalSelected.clear();
+  }
+
+  function rcalInlineEdit(el, roomId, dates) {
+    // Start inline input
+    // If there's a selection, this cell's committed value will apply to all selected cells too
+    const day = rcalGetDay(roomId, dates[0]);
+    const cur = day.beds_available || 0;
+
+    // Build input
+    el.innerHTML = '';
+    el.style.padding = '0';
+    el.style.outline = '2px solid var(--brand)';
+    const input = document.createElement('input');
+    input.type  = 'number';
+    input.min   = '0';
+    input.max   = '999';
+    input.value = cur;
+    input.style.cssText = 'width:100%;height:100%;min-height:32px;padding:2px 4px;' +
+      'border:none;border-radius:0;background:var(--brand-light);' +
+      'font-size:0.82rem;font-weight:600;text-align:center;outline:none;box-sizing:border-box;';
+    el.appendChild(input);
+    input.focus();
+    input.select();
+
+    var committed = false;
+
+    function commit() {
+      if (committed) return;
+      committed = true;
+      const val  = parseInt(input.value);
+      const beds = isNaN(val) ? cur : Math.max(0, val);
+      // Collect all (roomId, dates) pairs — deduplicated
+      const allPairs = new Map(); // key -> {roomId, date}
+
+      function addPair(rId, date) {
+        const k = rcalKey(rId, date);
+        if (!allPairs.has(k)) allPairs.set(k, { roomId: rId, date: date });
+      }
+
+      // This cell
+      dates.forEach(function(date) {
+        rcalCapSet(roomId, date, { beds_available: beds, status: 'open' });
+        addPair(roomId, date);
+      });
+      rcalUpdateCellDisplay(el, roomId, dates, beds);
+
+      // All selected cells
+      if (rcalSelected.size > 0) {
+        rcalSelected.forEach(function(info) {
+          info.dates.forEach(function(date) {
+            rcalCapSet(info.roomId, date, { beds_available: beds, status: 'open' });
+            addPair(info.roomId, date);
+          });
+          rcalUpdateCellDisplay(info.el, info.roomId, info.dates, beds);
+          info.el.style.outline = '';
+        });
+        rcalSelected.clear();
+      }
+
+      rcalAutoSave(Array.from(allPairs.keys()), true);
+    }
+
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commit();
+        // Move right
+        const next = el.nextElementSibling;
+        if (next && next.dataset.rid) {
+          setTimeout(function() { next.click(); }, 0);
+        }
+      }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        commit();
+        const next = e.shiftKey ? el.previousElementSibling : el.nextElementSibling;
+        if (next && next.dataset.rid) {
+          setTimeout(function() { next.click(); }, 0);
+        }
+      }
+      if (e.key === 'Escape') {
+        committed = true; // prevent blur commit
+        rcalUpdateCellDisplay(el, roomId, dates, cur);
+        rcalClearSelection();
+      }
+    });
+    input.addEventListener('blur', function() {
+      setTimeout(commit, 100); // small delay so click on next cell fires first
+    });
+  }
+
+  function rcalUpdateCellDisplay(el, roomId, dates, beds) {
+    el.style.padding  = '3px 1px';
+    el.style.outline  = '';
+    const maxBeds = parseInt(el.dataset.maxbeds || 2);
+    const isClosed = rcalGetDay(roomId, dates[0]).status === 'closed';
+    if (isClosed) {
+      el.style.background = '#e5e7eb';
+      el.innerHTML = '';
+      return;
+    }
+    const ratio   = maxBeds > 0 ? Math.min(beds / maxBeds, 1) : 0;
+    const opacity = 0.08 + ratio * 0.72;
+    el.style.background = 'rgba(61,101,168,' + opacity.toFixed(2) + ')';
+    const color = ratio > 0.5 ? '#fff' : 'var(--text)';
+    el.innerHTML = '<span style="font-weight:500;font-size:0.78rem;color:' + color + '">' +
+                   (beds || '—') + '</span>';
+  }
+
+  // ── Variable attribute cell editor ───────────────────────────────
+  function rcalOpenAttrEdit(el, roomId, dates, attrCode) {
+    const attrDef = (rcalAttrs || []).find(function(a) { return a.attribute_code === attrCode; });
+    if (!attrDef) return;
+
+    const day     = rcalGetDay(roomId, dates[0]);
+    const attrs   = (day.attributes || []);
+    const existing = attrs.find(function(a) { return (typeof a === 'object' ? a.code : a) === attrCode; });
+    const curVal  = existing ? (typeof existing === 'object' ? existing.value : true) : null;
+
+    // Build inline input directly on the cell
+    el.innerHTML = '';
+    el.style.padding = '0';
+    el.style.outline = '2px solid var(--brand)';
+
+    let input;
+    if (attrDef.attribute_type === 'boolean') {
+      // Just toggle directly
+      const newVal = !(curVal === true || curVal === 'true');
+      rcalSetAttrValue(roomId, dates, attrCode, newVal);
+      return;
+    } else if (attrDef.attribute_type === 'integer') {
+      input = document.createElement('input');
+      input.type = 'number'; input.min = '0';
+      input.value = curVal !== null ? curVal : '';
+      input.style.cssText = 'width:100%;height:100%;min-height:32px;padding:2px 4px;' +
+        'border:none;background:var(--brand-light);font-size:0.82rem;font-weight:600;' +
+        'text-align:center;outline:none;box-sizing:border-box;';
+    } else if (attrDef.attribute_type === 'select') {
+      input = document.createElement('select');
+      input.style.cssText = 'width:100%;height:100%;min-height:32px;padding:2px;' +
+        'border:none;background:var(--brand-light);font-size:0.8rem;outline:none;';
+      const blank = document.createElement('option');
+      blank.value = ''; blank.textContent = '—';
+      input.appendChild(blank);
+      (attrDef.options || []).forEach(function(o) {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o;
+        if (String(curVal) === o) opt.selected = true;
+        input.appendChild(opt);
+      });
+    }
+
+    if (!input) return;
+    el.appendChild(input);
+    input.focus();
+    if (input.select) input.select();
+
+    var committed = false;
+    function commit() {
+      if (committed) return;
+      committed = true;
+      let val;
+      if (input.type === 'number') {
+        val = input.value.trim() === '' ? null : parseInt(input.value);
+      } else {
+        val = input.value || null;
+      }
+      if (val !== null && !isNaN(val)) {
+        rcalSetAttrValue(roomId, dates, attrCode, val);
+      } else {
+        // Empty → remove attribute from JSONB
+        rcalClearAttrValue(roomId, dates, attrCode);
+      }
+    }
+
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === 'Escape') { commit(); }
+      if (e.key === 'Tab') { e.preventDefault(); commit(); }
+    });
+    input.addEventListener('blur', function() { setTimeout(commit, 100); });
+    if (input.tagName === 'SELECT') input.addEventListener('change', function() { commit(); });
+  }
+
+  function rcalSetAttrValue(roomId, dates, attrCode, value) {
+    dates.forEach(function(date) {
+      const day   = rcalGetDay(roomId, date) || { beds_available: 0, status: 'open', attributes: [] };
+      const attrs = (day.attributes || []).map(function(a) {
+        return typeof a === 'object' ? a : { code: a, value: true };
+      }).filter(function(a) { return a.code !== attrCode; });
+      attrs.push({ code: attrCode, value: value });
+      rcalCapSet(roomId, date, { attributes: attrs });
+    });
+    rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }), true);
+    rcalRenderGrid();
+  }
+
+  function rcalClearAttrValue(roomId, dates, attrCode) {
+    dates.forEach(function(date) {
+      const day   = rcalGetDay(roomId, date) || { beds_available: 0, status: 'open', attributes: [] };
+      const attrs = (day.attributes || []).map(function(a) {
+        return typeof a === 'object' ? a : { code: a, value: true };
+      }).filter(function(a) { return a.code !== attrCode; }); // remove entirely
+      rcalCapSet(roomId, date, { attributes: attrs });
+    });
+    rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }), true);
+    rcalRenderGrid();
+  }
+
+  // Toggle helpers — write directly to rcalCap (no pending state, no yellow)
+  let rcalSaveQueue = {}; // separate queue for auto-save, doesn't affect rendering
+
+  function rcalCapSet(roomId, date, fields) {
+    const k = rcalKey(roomId, date);
+    rcalCap[k] = Object.assign({}, rcalCap[k] || { beds_available: 0, status: 'open', attributes: [] }, fields);
+    rcalSaveQueue[k] = rcalCap[k]; // queue for save
+  }
+
+  function rcalToggleStatus(roomId, dates) {
+    const day     = rcalGetDay(roomId, dates[0]);
+    const current = day.status;
+    // unset or closed → open; open → closed
+    const newStatus = current === 'open' ? 'closed' : 'open';
+    dates.forEach(function(date) { rcalCapSet(roomId, date, { status: newStatus }); });
+    rcalRenderGrid();
+    rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }), true);
+  }
+
+  function rcalToggleOnlyFemale(roomId, dates) {
+    const day      = rcalGetDay(roomId, dates[0]);
+    const attrs    = (day.attributes || []).map(function(a) {
+      return typeof a === 'object' ? a : { code: a, value: true };
+    });
+    const existing = attrs.find(function(a) { return a.code === 'ONLY_FEMALE'; });
+    const newVal   = existing ? !existing.value : true;
+    const newAttrs = attrs.filter(function(a) { return a.code !== 'ONLY_FEMALE'; });
+    newAttrs.push({ code: 'ONLY_FEMALE', value: newVal });
+    dates.forEach(function(date) { rcalCapSet(roomId, date, { attributes: newAttrs }); });
+    rcalRenderGrid();
+    rcalAutoSave(dates.map(function(d) { return rcalKey(roomId, d); }), true);
+  }
+
+    function rcalSetStatus(s) {
+    document.getElementById('rcal-status-open').classList.toggle('active', s === 'open');
+    document.getElementById('rcal-status-closed').classList.toggle('active', s === 'closed');
+    document.getElementById('rcal-beds-wrap').style.opacity = s === 'closed' ? '0.4' : '1';
+  }
+
+  document.getElementById('btn-rcal-cell-save').addEventListener('click', function() {
+    const roomId = document.getElementById('rcal-cell-room-id').value;
+    const dates  = JSON.parse(document.getElementById('rcal-cell-date').value);
+    const beds   = parseInt(document.getElementById('rcal-cell-beds').value) || 0;
+    const status = document.getElementById('rcal-status-open').classList.contains('active') ? 'open' : 'closed';
+    const attrs = [];
+    document.querySelectorAll('#rcal-cell-attrs [data-code]').forEach(function(el) {
+      const code = el.dataset.code;
+      const type = el.dataset.type;
+      if (type === 'boolean' && el.checked) {
+        attrs.push({ code: code, value: true });
+      } else if (type === 'select' && el.value) {
+        attrs.push({ code: code, value: el.value });
+      } else if (type === 'text' && el.value.trim()) {
+        attrs.push({ code: code, value: el.value.trim() });
+      }
+    });
+    dates.forEach(function(date) {
+      rcalSetDay(roomId, date, { beds_available: beds, status: status, attributes: attrs });
+    });
+    UI.closeModal('modal-rcal-cell');
+    rcalRenderGrid();
+  });
+
+  function rcalOpenRowEl(el) {
+    const roomId = el.dataset.rid;
+    const name   = el.dataset.rname;
+
+    if (rcalShowMode === 'status') {
+      // Toggle all days in current view for this room
+      const cols = rcalBuildCols();
+      const allDates = [];
+      cols.forEach(function(col) { col.dates.forEach(function(d) { allDates.push(d); }); });
+      // Determine majority status → toggle to opposite
+      const openCount = allDates.filter(function(d) {
+        return rcalGetDay(roomId, d).status === 'open';
+      }).length;
+      const newStatus = openCount > allDates.length / 2 ? 'closed' : 'open';
+      allDates.forEach(function(date) { rcalSetDay(roomId, date, { status: newStatus }); });
+      rcalRenderGrid();
+      return;
+    }
+
+    if (rcalShowMode === 'only_female') {
+      const cols = rcalBuildCols();
+      const allDates = [];
+      cols.forEach(function(col) { col.dates.forEach(function(d) { allDates.push(d); }); });
+      // Check current majority value
+      const femaleCount = allDates.filter(function(d) {
+        const attrs = rcalGetDay(roomId, d).attributes || [];
+        const a = attrs.find(function(x) { return (typeof x === 'object' ? x.code : x) === 'ONLY_FEMALE'; });
+        return a ? (typeof a === 'object' ? a.value : true) : false;
+      }).length;
+      const newVal = femaleCount <= allDates.length / 2;
+      allDates.forEach(function(date) {
+        const day     = rcalGetDay(roomId, date);
+        const attrs   = (day.attributes || []).map(function(a) {
+          return typeof a === 'object' ? a : { code: a, value: true };
+        }).filter(function(a) { return a.code !== 'ONLY_FEMALE'; });
+        attrs.push({ code: 'ONLY_FEMALE', value: newVal });
+        rcalSetDay(roomId, date, { attributes: attrs });
+      });
+      rcalRenderGrid();
+      return;
+    }
+
+    // Beds mode — open row modal
+    rcalOpenRow(roomId, name);
+  }
+
+  function rcalOpenRow(roomId, roomName) {
+    document.getElementById('rcal-row-room-id').value = roomId;
+    document.getElementById('rcal-row-title').textContent = 'Edit — ' + roomName;
+    document.getElementById('rcal-row-status').value = '';
+    document.getElementById('rcal-row-beds').value   = '';
+    const container = document.getElementById('rcal-row-attrs');
+    container.innerHTML = rcalAttrs.map(function(a) {
+      return '<label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;' +
+             'background:var(--bg);padding:3px 8px;border-radius:var(--radius);border:1px solid var(--border)">' +
+             '<input type="checkbox" value="' + a.attribute_code + '">' + a.attribute_name + '</label>';
+    }).join('');
+    UI.openModal('modal-rcal-row');
+  }
+
+  document.getElementById('btn-rcal-row-save').addEventListener('click', function() {
+    const roomId  = document.getElementById('rcal-row-room-id').value;
+    const status  = document.getElementById('rcal-row-status').value || null;
+    const bedsRaw = document.getElementById('rcal-row-beds').value;
+    const beds    = bedsRaw !== '' ? parseInt(bedsRaw) : null;
+    const checked = Array.from(document.querySelectorAll('#rcal-row-attrs input:checked')).map(function(i) { return i.value; });
+    // Apply to ALL dates currently loaded
+    const cols = rcalBuildCols();
+    const allDates = [];
+    cols.forEach(function(col) { col.dates.forEach(function(d) { allDates.push(d); }); });
+    // Deduplicate
+    const uniqueDates = allDates.filter(function(d, i) { return allDates.indexOf(d) === i; });
+    uniqueDates.forEach(function(date) {
+      const upd = {};
+      if (status !== null) upd.status = status;
+      if (beds   !== null) upd.beds_available = beds;
+      if (checked.length > 0) upd.attributes = checked;
+      rcalSetDay(roomId, date, upd);
+    });
+    UI.closeModal('modal-rcal-row');
+    rcalRenderGrid();
+  });
+
+  let rcalDragStartTd = null; // anchor cell for rectangular selection
+
+  function rcalSelectRect(table, startTd, endTd) {
+    // Clear visual of current selection
+    rcalSelected.forEach(function(info) {
+      if (info.el) { info.el.style.outline = ''; info.el.style.background = ''; }
+    });
+    rcalSelected.clear();
+
+    const minRow = Math.min(startTd.parentElement.rowIndex, endTd.parentElement.rowIndex);
+    const maxRow = Math.max(startTd.parentElement.rowIndex, endTd.parentElement.rowIndex);
+    const minCol = Math.min(startTd.cellIndex, endTd.cellIndex);
+    const maxCol = Math.max(startTd.cellIndex, endTd.cellIndex);
+
+    table.querySelectorAll('tbody tr').forEach(function(row) {
+      if (row.rowIndex < minRow || row.rowIndex > maxRow) return;
+      row.querySelectorAll('td[data-rid]').forEach(function(cell) {
+        if (cell.cellIndex < minCol || cell.cellIndex > maxCol) return;
+        const rId  = cell.dataset.rid;
+        const dts  = JSON.parse(cell.dataset.dates.replace(/&quot;/g, '"'));
+        const k    = rcalKey(rId, dts[0]);
+        rcalSelected.set(k, { el: cell, roomId: rId, dates: dts });
+        cell.style.outline    = '2px solid var(--brand)';
+        cell.style.background = 'var(--brand-light)';
+      });
+    });
+  }
+
+  function rcalWireDragEvents() {
+    const grid = document.getElementById('rcal-grid');
+    if (!grid || grid._dragWired) return;
+    grid._dragWired = true;
+
+    grid.addEventListener('mousedown', function(e) {
+      if (rcalShowMode !== 'beds') return;
+      const td = e.target.closest('td[data-rid]');
+      if (!td) return;
+      e.preventDefault();
+
+      const roomId = td.dataset.rid;
+      const dates  = JSON.parse(td.dataset.dates.replace(/&quot;/g, '"'));
+      const k      = rcalKey(roomId, dates[0]);
+      const isOnSelected = rcalSelected.has(k);
+
+      rcalDragging    = true;
+      rcalDragMoved   = false;
+      rcalDragStartTd = td;
+
+      if (e.ctrlKey || e.metaKey) {
+        // Ctrl: toggle this cell without clearing others
+        if (isOnSelected) {
+          rcalSelected.delete(k);
+          td.style.outline = '';
+          td.style.background = '';
+        } else {
+          rcalSelected.set(k, { el: td, roomId: roomId, dates: dates });
+          td.style.outline    = '2px solid var(--brand)';
+          td.style.background = 'var(--brand-light)';
+        }
+      } else if (!isOnSelected) {
+        // Regular click on unselected cell — start fresh
+        rcalClearSelection();
+        rcalSelected.set(k, { el: td, roomId: roomId, dates: dates });
+        td.style.outline    = '2px solid var(--brand)';
+        td.style.background = 'var(--brand-light)';
+      }
+      // If clicking on already-selected cell: keep selection for commit
+    });
+
+    grid.addEventListener('mouseover', function(e) {
+      if (!rcalDragging || rcalShowMode !== 'beds') return;
+      const td = e.target.closest('td[data-rid]');
+      if (!td || !rcalDragStartTd) return;
+      if (td === rcalDragStartTd && !rcalDragMoved) return;
+
+      rcalDragMoved = true;
+      const table = td.closest('table');
+      if (table) rcalSelectRect(table, rcalDragStartTd, td);
+    });
+
+    document.addEventListener('mouseup', function() {
+      rcalDragging    = false;
+      rcalDragStartTd = null;
+    });
+  }
+
+  // Wire view toggle buttons
+  document.querySelectorAll('[data-view]').forEach(function(btn) {
+    btn.addEventListener('click', function() { rcalSetView(btn.dataset.view); });
+  });
+
+  // Show buttons wired dynamically in rcalRenderShowButtons
+
+  document.getElementById('btn-rcal-save').addEventListener('click', async function() {
+    const propertyId = document.getElementById('rcal-property').value;
+    const btn = document.getElementById('btn-rcal-save');
+    btn.disabled = true; btn.textContent = 'Saving...';
+
+    const rows = Object.entries(rcalPend).map(function(entry) {
+      const k = entry[0]; const fields = entry[1];
+      const parts = k.split('__');
+      return Object.assign({ company_id: currentCompany.id, property_uuid: propertyId, property_id: propertyId,
+        room_id: parts[0], date: parts[1] }, fields, { updated_at: new Date().toISOString() });
+    });
+
+    const { error } = await sb.from('room_capacity_calendar')
+      .upsert(rows, { onConflict: 'company_id,property_uuid,room_id,date' });
+
+    btn.disabled = false; btn.textContent = 'Save';
+    if (error) { alert('Error: ' + error.message); return; }
+    rcalPend = {};
+    document.getElementById('rcal-save-bar').style.display = 'none';
+    rcalLoad();
+  });
+
+  // ── END ROOM CALENDAR ─────────────────────────────────────────────
+  // ── AVAILABILITY CALENDAR ─────────────────────────────────────────
+  let availYear    = new Date().getFullYear();
+  let availMonth   = new Date().getMonth() + 1;
+  let availData    = {};
+  let availPending = {};
+  let availSelected = new Set(); // selected dates for bulk
+
+  const MONTH_NAMES = ['January','February','March','April','May','June',
+    'July','August','September','October','November','December'];
+  const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  async function loadAvailability() {
+    const propertyId = document.getElementById('avail-property-filter').value;
+    if (!propertyId) return;
+    availPending  = {};
+    availSelected = new Set();
+    document.getElementById('avail-save-bar').style.display = 'none';
+    document.getElementById('selection-bar').style.display  = 'none';
+    await fetchAndRenderMonth();
+  }
+
+  async function fetchAndRenderMonth() {
+    const propertyId = document.getElementById('avail-property-filter').value;
+    if (!propertyId) return;
+    const { data } = await Availability.getMonth(currentCompany.id, propertyId, availYear, availMonth);
+    availData = {};
+    (data || []).forEach(r => { availData[r.date] = r; });
+    renderAvailCalendar();
+  }
+
+  function getDay(dateStr) {
+    const pending = availPending[dateStr];
+    const stored  = availData[dateStr];
+    return {
+      status:          pending?.status          ?? stored?.status          ?? 'open',
+      number_of_rooms: pending?.number_of_rooms ?? stored?.number_of_rooms ?? 0,
+      number_of_beds:  pending?.number_of_beds  ?? stored?.number_of_beds  ?? 0,
+    };
+  }
+
+  function setDay(dateStr, fields) {
+    const current = getDay(dateStr);
+    availPending[dateStr] = { ...current, ...fields };
+    markAvailChanged();
+  }
+
+  function renderAvailCalendar() {
+    document.getElementById('avail-month-label').textContent = `${MONTH_NAMES[availMonth-1]} ${availYear}`;
+
+    const yrSel = document.getElementById('avail-year-select');
+    const curYr = new Date().getFullYear();
+    if (!yrSel.options.length) {
+      for (let y = curYr - 3; y <= curYr + 5; y++) {
+        const opt = document.createElement('option');
+        opt.value = y; opt.textContent = y;
+        if (y === availYear) opt.selected = true;
+        yrSel.appendChild(opt);
+      }
+    }
+    yrSel.value = availYear;
+
+    const grid = document.getElementById('avail-cal-grid');
+    grid.innerHTML = '';
+
+    DAY_NAMES.forEach(d => {
+      const h = document.createElement('div');
+      h.className = 'cal-header-cell';
+      h.textContent = d;
+      grid.appendChild(h);
+    });
+
+    const firstDay  = new Date(availYear, availMonth - 1, 1);
+    const totalDays = new Date(availYear, availMonth, 0).getDate();
+    const today     = new Date().toISOString().slice(0,10);
+    const offset    = (firstDay.getDay() + 6) % 7;
+
+    for (let i = 0; i < offset; i++) {
+      const e = document.createElement('div');
+      e.className = 'cal-day empty';
+      grid.appendChild(e);
+    }
+
+    let openCount = 0, closedCount = 0, totalBeds = 0, totalRooms = 0, openDays = 0;
+
+    for (let d = 1; d <= totalDays; d++) {
+      const dateStr = `${availYear}-${String(availMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const day     = getDay(dateStr);
+      const isPending  = !!availPending[dateStr];
+      const isSelected = availSelected.has(dateStr);
+
+      if (day.status === 'open') {
+        openCount++; totalBeds += day.number_of_beds;
+        totalRooms += day.number_of_rooms; openDays++;
+      } else closedCount++;
+
+      const cell = document.createElement('div');
+      let cls = 'cal-day';
+      if (day.status === 'closed') cls += ' closed';
+      if (dateStr === today)       cls += ' today';
+      if (isPending)               cls += ' pending';
+      if (isSelected)              cls += ' selected';
+      cell.className = cls;
+
+      cell.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div class="day-num">${d}</div>
+          ${isSelected ? '<div style="width:8px;height:8px;border-radius:50%;background:var(--brand);margin-top:2px"></div>' : ''}
+        </div>
+        <div class="day-status ${day.status === 'open' ? 'day-open' : 'day-closed'}">${day.status}</div>
+        <div class="day-rooms-wrap" title="Rooms">
+          🚪<input type="number" class="day-rooms-input" value="${day.number_of_rooms}" min="0"
+            onclick="event.stopPropagation()"
+            onchange="setDay('${dateStr}',{number_of_rooms:parseInt(this.value)||0})">
+        </div>
+        <div class="day-rooms-wrap" title="Beds">
+          🛏<input type="number" class="day-rooms-input" value="${day.number_of_beds}" min="0"
+            onclick="event.stopPropagation()"
+            onchange="setDay('${dateStr}',{number_of_beds:parseInt(this.value)||0})">
+        </div>
+      `;
+
+      // Left-click = toggle status, Shift+click = select for bulk
+      cell.addEventListener('click', (e) => {
+        if (e.shiftKey) {
+          toggleAvailSelect(dateStr);
+        } else {
+          setDay(dateStr, { status: day.status === 'open' ? 'closed' : 'open' });
+          renderAvailCalendar();
+        }
+      });
+
+      grid.appendChild(cell);
+    }
+
+    document.getElementById('avail-stat-open').textContent   = openCount;
+    document.getElementById('avail-stat-closed').textContent = closedCount;
+    document.getElementById('avail-stat-beds').textContent   = openDays > 0 ? Math.round(totalBeds/openDays) : 0;
+  }
+
+  function toggleAvailSelect(dateStr) {
+    if (availSelected.has(dateStr)) availSelected.delete(dateStr);
+    else availSelected.add(dateStr);
+    updateSelectionBar();
+    renderAvailCalendar();
+  }
+
+  function clearSelection() {
+    availSelected.clear();
+    updateSelectionBar();
+    renderAvailCalendar();
+  }
+
+  function updateSelectionBar() {
+    const bar = document.getElementById('selection-bar');
+    const count = availSelected.size;
+    bar.style.display = count > 0 ? 'flex' : 'none';
+    document.getElementById('selection-count').textContent = `${count} day${count !== 1 ? 's' : ''}`;
+  }
+
+  function bulkSelection(status) {
+    const rooms = parseInt(document.getElementById('sel-rooms-val').value);
+    const beds  = parseInt(document.getElementById('sel-beds-val').value);
+    availSelected.forEach(dateStr => {
+      const update = {};
+      if (status) update.status = status;
+      if (!isNaN(rooms)) update.number_of_rooms = rooms;
+      if (!isNaN(beds))  update.number_of_beds  = beds;
+      setDay(dateStr, update);
+    });
+    markAvailChanged();
+    renderAvailCalendar();
+  }
+
+  function bulkAvailMonth(status) {
+    const rooms = parseInt(document.getElementById('bulk-rooms-val').value);
+    const beds  = parseInt(document.getElementById('bulk-beds-val').value);
+    const totalDays = new Date(availYear, availMonth, 0).getDate();
+    for (let d = 1; d <= totalDays; d++) {
+      const dateStr = `${availYear}-${String(availMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const update = {};
+      if (status) update.status = status;
+      if (!isNaN(rooms)) update.number_of_rooms = rooms;
+      if (!isNaN(beds))  update.number_of_beds  = beds;
+      setDay(dateStr, update);
+    }
+    markAvailChanged();
+    renderAvailCalendar();
+  }
+
+  function markAvailChanged() {
+    document.getElementById('avail-save-bar').style.display =
+      Object.keys(availPending).length > 0 ? 'block' : 'none';
+  }
+
+  function changeAvailMonth(delta) {
+    availMonth += delta;
+    if (availMonth > 12) { availMonth = 1; availYear++; }
+    if (availMonth < 1)  { availMonth = 12; availYear--; }
+    availSelected.clear();
+    updateSelectionBar();
+    fetchAndRenderMonth();
+  }
+
+  function changeAvailYear(year) {
+    availYear = parseInt(year);
+    availSelected.clear();
+    updateSelectionBar();
+    fetchAndRenderMonth();
+  }
+
+  async function saveAvailability() {
+    const propertyId   = document.getElementById('avail-property-filter').value; // UUID
+    const propertySlug = window._availPropertySlugMap?.[propertyId] || '';
+    const rows = Object.entries(availPending).map(([date, fields]) => ({
+      company_id: currentCompany.id, property_uuid: propertyId, property_slug: propertySlug, date, ...fields,
+      updated_at: new Date().toISOString()
+    }));
+    const btn = document.querySelector('#avail-save-bar button');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+    const { error } = await Availability.upsertMany(rows);
+    if (btn) { btn.disabled = false; btn.textContent = 'Save changes'; }
+    if (error) { alert('Error: ' + error.message); return; }
+    availPending = {};
+    availSelected.clear();
+    updateSelectionBar();
+    document.getElementById('avail-save-bar').style.display = 'none';
+    await fetchAndRenderMonth();
+  }
+
+  window._availPropertySlugMap = window._availPropertySlugMap || {};
+
+  async function initAvailabilitySection() {
+    const { data } = await Properties.getByCompany(currentCompany.id);
+    const sel = document.getElementById('avail-property-filter');
+    if (!sel.options.length) {
+      (data || []).forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.property_name} (${p.property_id})`;
+        sel.appendChild(opt);
+        window._availPropertySlugMap[p.id] = p.property_id; // uuid -> slug
+      });
+    }
+    await loadAvailability();
+  }
+
+  // ── ROOMS ─────────────────────────────────────────────────────────
+  let allRoomCategories = [];
+
+  let allRoomAttributes = [];
+
+  async function loadRooms() {
+    await loadRoomCategories();
+    const { data: attrData } = await Rooms.getAttributeTypes(currentCompany.id);
+    allRoomAttributes = attrData || [];
+    await populatePropertyFilter();
+    await loadRoomsList();
+  }
+
+  async function populatePropertyFilter() {
+    const { data } = await Properties.getByCompany(currentCompany.id);
+    const sel = document.getElementById('rooms-property-filter');
+    sel.innerHTML = (data || []).map(p =>
+      `<option value="${p.id}">${p.property_name} (${p.property_id})</option>`
+    ).join('');
+  }
+
+  async function loadRoomCategories() {
+    UI.tableLoading('room-categories-tbody', 4);
+    const { data } = await Rooms.getCategories(currentCompany.id);
+    allRoomCategories = data || [];
+    document.getElementById('room-categories-count').textContent = `${allRoomCategories.length} categories`;
+    document.getElementById('room-categories-tbody').innerHTML = allRoomCategories.map(c => `
+      <tr>
+        <td>${UI.mono(c.raw_value)}</td>
+        <td>${c.display_name || '<em style="color:var(--text-muted)">not set</em>'}</td>
+        <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
+        <td style="display:flex;gap:0.4rem">${isAdmin ? `
+          <button class="btn btn-secondary btn-sm" onclick="editRoomCategory('${c.id}','${c.raw_value.replace(/'/g,"\\'")}','${(c.display_name||'').replace(/'/g,"\\'")}')">Edit</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleRoomCategory('${c.id}','${c.status}')">
+            ${c.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  async function toggleRoomCategory(id, status) {
+    await Rooms.toggleCategory(id, status);
+    loadRoomCategories();
+  }
+
+  function editRoomCategory(id, rawValue, displayName) {
+    document.getElementById('rcat-edit-id').value = id;
+    document.getElementById('rcat-edit-code').value = rawValue;
+    document.getElementById('rcat-edit-name').value = displayName;
+    UI.hideAlert('room-cat-edit-error');
+    UI.openModal('modal-edit-room-category');
+  }
+
+  document.getElementById('btn-save-edit-room-category').addEventListener('click', async () => {
+    const id = document.getElementById('rcat-edit-id').value;
+    const display_name = document.getElementById('rcat-edit-name').value.trim();
+    UI.hideAlert('room-cat-edit-error');
+    if (!display_name) { UI.showAlert('room-cat-edit-error', 'Display name is required.'); return; }
+    UI.setLoading('btn-save-edit-room-category', true, 'Save');
+    const { error } = await sb.from('room_categories')
+      .update({ display_name, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    UI.setLoading('btn-save-edit-room-category', false, 'Save');
+    if (error) { UI.showAlert('room-cat-edit-error', error.message); return; }
+    UI.closeModal('modal-edit-room-category');
+    loadRoomCategories();
+  });
+
+  document.getElementById('btn-add-room-category').addEventListener('click', () => UI.openModal('modal-room-category'));
+
+  document.getElementById('btn-save-room-category').addEventListener('click', async () => {
+    const raw_value = document.getElementById('rcat-code').value.trim();
+    const display_name = document.getElementById('rcat-name').value.trim();
+    UI.hideAlert('room-cat-error');
+    if (!raw_value || !display_name) { UI.showAlert('room-cat-error', 'Both raw value and display name are required.'); return; }
+    UI.setLoading('btn-save-room-category', true, 'Save');
+    const { error } = await Rooms.createCategory(currentCompany.id, { raw_value, display_name });
+    UI.setLoading('btn-save-room-category', false, 'Save');
+    if (error) { UI.showAlert('room-cat-error', error.message); return; }
+    UI.closeModal('modal-room-category');
+    document.getElementById('rcat-code').value = '';
+    document.getElementById('rcat-name').value = '';
+    loadRoomCategories();
+  });
+
+  async function loadRoomsList() {
+    const propertyId = document.getElementById('rooms-property-filter').value;
+    if (!propertyId) return;
+    UI.tableLoading('rooms-tbody', 7);
+    const [roomsRes, attrsRes, roomAttrsRes] = await Promise.all([
+      Rooms.getByProperty(currentCompany.id, propertyId),
+      Rooms.getAttributeTypes(currentCompany.id),
+      sb.from('room_attributes')
+        .select('room_id, attribute_id, value')
+        .eq('company_id', currentCompany.id)
+    ]);
+    const rooms    = roomsRes.data || [];
+    const allAttrs = attrsRes.data || [];
+    const attrTypes = allAttrs.filter(function(a) { return !a.is_variable && a.status === 'active'; });
+    // Build attribute_id -> code lookup
+    const attrIdToCode = {};
+    allAttrs.forEach(function(a) { attrIdToCode[a.id] = a.attribute_code; });
+    // Build lookup: roomId -> {attributeCode: value}
+    const roomAttrMap = {};
+    (roomAttrsRes.data || []).forEach(function(ra) {
+      if (!roomAttrMap[ra.room_id]) roomAttrMap[ra.room_id] = {};
+      const code = attrIdToCode[ra.attribute_id];
+      if (code) roomAttrMap[ra.room_id][code] = ra.value;
+    });
+    // Store room data keyed by id for safe onclick lookup
+  window._rcalRoomMap = {};
+  window._rcalRoomAttrMap = roomAttrMap;
+  rooms.forEach(function(r) { window._rcalRoomMap[r.id] = r; });
+
+  document.getElementById('rooms-tbody').innerHTML = rooms.map(function(r) {
+    const rAttrs = roomAttrMap[r.id] || {};
+    const attrPills = attrTypes.slice(0,3).map(function(at) {
+      const val = rAttrs[at.attribute_code];
+      if (val === undefined || val === null) return '';
+      if (at.attribute_type === 'boolean') {
+        return val === 'true'
+          ? '<span style="font-size:0.7rem;background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:10px;margin-right:2px">' + at.attribute_name + '</span>'
+          : '';
+      }
+      if (val) return '<span style="font-size:0.7rem;background:var(--bg);color:var(--text-muted);padding:1px 6px;border-radius:10px;border:1px solid var(--border);margin-right:2px">' + at.attribute_name + ': ' + val + '</span>';
+      return '';
+    }).join('');
+
+    return '<tr>' +
+      '<td>' + UI.mono(r.raw_value || r.room_code) + '</td>' +
+      '<td>' + (r.display_name || r.display_name || '') + '</td>' +
+      '<td>' + (r.room_categories?.display_name ?? '—') + '</td>' +
+      '<td>' + r.beds_per_room + '</td>' +
+      '<td>' + (attrPills || '<span style="color:var(--text-muted);font-size:0.8rem">—</span>') + '</td>' +
+      '<td>' + UI.statusBadge(r.status === 'active') + '</td>' +
+      '<td style="white-space:nowrap">' + (isAdmin
+        ? '<button class="btn btn-secondary btn-sm" data-room-id="' + r.id + '" onclick="openEditRoomById(this.dataset.roomId)">Edit</button>' +
+          '<button class="btn btn-sm ' + (r.status === 'active' ? 'btn-danger' : 'btn-secondary') + '" style="margin-left:4px" data-room-id="' + r.id + '" data-room-status="' + r.status + '" onclick="toggleRoom(this.dataset.roomId,this.dataset.roomStatus)">' +
+          (r.status === 'active' ? 'Disable' : 'Enable') + '</button>'
+        : '') + '</td>' +
+      '</tr>';
+  }).join('') || '<tr><td colspan="7"><div class="empty-state">No rooms for this property.</div></td></tr>';
+  }
+
+  async function loadRoomAttributes() {
+    UI.tableLoading('room-attr-tbody', 5);
+    const { data, error } = await Rooms.getAttributeTypes(currentCompany.id);
+    if (error) {
+      UI.tableEmpty('room-attr-tbody', 5, 'Error loading: ' + error.message);
+      return;
+    }
+    const attrs = data || [];
+    document.getElementById('room-attr-count').textContent = attrs.length + ' attributes';
+    const TYPE_BADGE = { boolean: 'badge-api', select: 'badge-upload', integer: 'badge-user' };
+    document.getElementById('room-attr-tbody').innerHTML = attrs.map(a => `
+      <tr>
+        <td>${UI.mono(a.attribute_code)}</td>
+        <td>${a.attribute_name}</td>
+        <td>${UI.badge(a.attribute_type || 'boolean', TYPE_BADGE[a.attribute_type] || 'badge-user')}</td>
+        <td>${a.is_variable
+          ? '<span style="color:var(--brand);font-size:0.78rem;font-weight:600">Variable</span>'
+          : '<span style="color:var(--text-muted);font-size:0.78rem">Constant</span>'}</td>
+        <td style="font-size:0.8rem;color:var(--text-muted)">${a.options ? JSON.parse(JSON.stringify(a.options)).join(', ') : '—'}</td>
+        <td style="color:var(--text-muted);font-size:0.82rem">${a.description || '—'}</td>
+        <td>${UI.badge(a.status, a.status === 'active' ? 'active' : 'inactive')}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm"
+          onclick="toggleRoomAttr('${a.id}','${a.status}')">
+          ${a.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="8"><div class="empty-state">No attributes yet.</div></td></tr>';
+  }
+
+  async function toggleRoomAttr(id, status) {
+    const newStatus = status === 'active' ? 'inactive' : 'active';
+    await sb.from('room_attribute_types')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    loadRoomAttributes();
+  }
+
+  document.getElementById('btn-add-room-attr').addEventListener('click', () => UI.openModal('modal-room-attr'));
+
+  let _rattrIsVariable = false;
+
+  function rattrTypeChanged() {
+    const type = document.getElementById('rattr-type').value;
+    document.getElementById('rattr-options-field').style.display = type === 'select' ? 'block' : 'none';
+  }
+
+  function rattrVarChanged(isVar) {
+    _rattrIsVariable = isVar;
+    document.getElementById('rattr-var-no').classList.toggle('active', !isVar);
+    document.getElementById('rattr-var-yes').classList.toggle('active', isVar);
+    document.getElementById('rattr-var-hint').textContent = isVar
+      ? 'This attribute can change day to day (appears in Room Calendar).'
+      : 'This attribute is a fixed property of the room (appears in Rooms tab).';
+  }
+
+  document.getElementById('btn-save-room-attr').addEventListener('click', async () => {
+    const attribute_code  = document.getElementById('rattr-code').value.trim().toUpperCase().replace(/[^A-Z0-9_]/g,'_');
+    const attribute_name  = document.getElementById('rattr-name').value.trim();
+    const attribute_type  = document.getElementById('rattr-type').value;
+    const description     = document.getElementById('rattr-desc').value.trim() || null;
+    const optionsRaw      = document.getElementById('rattr-options').value.trim();
+    const options         = attribute_type === 'select' && optionsRaw
+      ? optionsRaw.split(',').map(o => o.trim()).filter(Boolean)
+      : null;
+
+    UI.hideAlert('room-attr-error');
+    if (!attribute_code || !attribute_name) {
+      UI.showAlert('room-attr-error', 'Code and name are required.');
+      return;
+    }
+    if (attribute_type === 'select' && (!options || !options.length)) {
+      UI.showAlert('room-attr-error', 'Select type requires at least one option.');
+      return;
+    }
+    UI.setLoading('btn-save-room-attr', true, 'Save');
+    const { error } = await sb.from('room_attribute_types').insert({
+      company_id: currentCompany.id, attribute_code, attribute_name,
+      attribute_type, options, description, is_variable: _rattrIsVariable, status: 'active'
+    });
+    UI.setLoading('btn-save-room-attr', false, 'Save');
+    if (error) { UI.showAlert('room-attr-error', error.message); return; }
+    UI.closeModal('modal-room-attr');
+    ['rattr-code','rattr-name','rattr-desc','rattr-options'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('rattr-type').value = 'boolean';
+    rattrTypeChanged();
+    rattrVarChanged(false);
+    loadRoomAttributes();
+  });
+
+  async function toggleRoom(id, status) {
+    await Rooms.toggleRoom(id, status);
+    loadRoomsList();
+  }
+
+  let _editRoomAttrValues = {}; // current attribute values being edited
+
+  function openEditRoomById(roomId) {
+    const r     = window._rcalRoomMap[roomId];
+    const rAttrs = (window._rcalRoomAttrMap || {})[roomId] || {};
+    if (!r) return;
+    openEditRoom(r, rAttrs);
+  }
+
+  function openEditRoom(r, rAttrs) {
+    document.getElementById('edit-room-id').value   = r.id;
+    document.getElementById('edit-room-code').value = r.raw_value || r.room_code;
+    document.getElementById('edit-room-name').value = r.display_name || r.display_name || '';
+    document.getElementById('edit-room-beds').value = r.beds_per_room;
+    _editRoomAttrValues = Object.assign({}, rAttrs || {});
+
+    const sel = document.getElementById('edit-room-category-id');
+    sel.innerHTML = '<option value="">— Select —</option>' +
+      allRoomCategories.map(function(c) {
+        return '<option value="' + c.id + '"' + (r.category_id === c.id ? ' selected' : '') + '>' + (c.display_name || c.raw_value) + '</option>';
+      }).join('');
+
+    // Render dynamic constant attributes
+    const section = document.getElementById('edit-room-attrs-section');
+    const constAttrs = allRoomAttributes.filter(function(a) { return !a.is_variable && a.status === 'active'; });
+    section.innerHTML = '';
+    constAttrs.forEach(function(at) {
+      const curVal = _editRoomAttrValues[at.attribute_code];
+      const field  = document.createElement('div');
+      field.className = 'field';
+      const label = document.createElement('label');
+      label.textContent = at.attribute_name;
+      field.appendChild(label);
+
+      if (at.attribute_type === 'boolean') {
+        const isTrue = curVal === 'true';
+        const wrap = document.createElement('div');
+        wrap.className = 'toggle-wrap';
+        const btnYes = document.createElement('button');
+        btnYes.className = 'toggle-btn' + (isTrue ? ' active' : '');
+        btnYes.textContent = 'Yes';
+        btnYes.addEventListener('click', function() { setRoomAttr(at.attribute_code, 'true', btnYes); });
+        const btnNo = document.createElement('button');
+        btnNo.className = 'toggle-btn' + (!isTrue ? ' active' : '');
+        btnNo.textContent = 'No';
+        btnNo.addEventListener('click', function() { setRoomAttr(at.attribute_code, 'false', btnNo); });
+        wrap.appendChild(btnYes);
+        wrap.appendChild(btnNo);
+        field.appendChild(wrap);
+
+      } else if (at.attribute_type === 'integer') {
+        const inp = document.createElement('input');
+        inp.type = 'number'; inp.min = '0'; inp.value = curVal || '';
+        inp.style.width = '100px';
+        inp.addEventListener('change', function() { setRoomAttrVal(at.attribute_code, inp.value); });
+        field.appendChild(inp);
+
+      } else if (at.attribute_type === 'select') {
+        const sel = document.createElement('select');
+        const blank = document.createElement('option');
+        blank.value = ''; blank.textContent = '— Select —';
+        sel.appendChild(blank);
+        (at.options || []).forEach(function(o) {
+          const opt = document.createElement('option');
+          opt.value = o; opt.textContent = o;
+          if (curVal === o) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        sel.addEventListener('change', function() { setRoomAttrVal(at.attribute_code, sel.value); });
+        field.appendChild(sel);
+      }
+      section.appendChild(field);
+    });
+
+    UI.hideAlert('edit-room-error');
+    UI.openModal('modal-edit-room');
+  }
+
+  function setRoomAttr(code, value, btn) {
+    _editRoomAttrValues[code] = value;
+    const wrap = btn.closest('.toggle-wrap');
+    if (wrap) wrap.querySelectorAll('.toggle-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+  }
+
+  function setRoomAttrVal(code, value) {
+    _editRoomAttrValues[code] = value;
+  }
+
+  document.getElementById('btn-update-room').addEventListener('click', async function() {
+    const id          = document.getElementById('edit-room-id').value;
+    const display_name = document.getElementById('edit-room-name').value.trim();
+    const category_id = document.getElementById('edit-room-category-id').value || null;
+    const beds_per_room = parseInt(document.getElementById('edit-room-beds').value) || 1;
+
+    UI.hideAlert('edit-room-error');
+    if (!display_name) { UI.showAlert('edit-room-error', 'Display name is required.'); return; }
+    UI.setLoading('btn-update-room', true, 'Save changes');
+
+    // Save core room fields
+    const { error } = await Rooms.update(id, { display_name, category_id, beds_per_room });
+    if (error) { UI.setLoading('btn-update-room', false, 'Save changes'); UI.showAlert('edit-room-error', error.message); return; }
+
+    // Save room attributes — upsert each
+    const attrErrors = [];
+    for (const [code, value] of Object.entries(_editRoomAttrValues)) {
+      const attrType = allRoomAttributes.find(function(a) { return a.attribute_code === code; });
+      if (!attrType) continue;
+      const { error: ae } = await sb.from('room_attributes').upsert({
+        company_id:   currentCompany.id,
+        room_id:      id,
+        attribute_id: attrType.id,
+        value:        String(value),
+        updated_at:   new Date().toISOString()
+      }, { onConflict: 'room_id,attribute_id' });
+      if (ae) attrErrors.push(ae.message);
+    }
+
+    UI.setLoading('btn-update-room', false, 'Save changes');
+    if (attrErrors.length) { UI.showAlert('edit-room-error', attrErrors.join(', ')); return; }
+    UI.closeModal('modal-edit-room');
+    loadRoomsList();
+  });
+
+  document.getElementById('btn-add-room').addEventListener('click', () => {
+    // Populate category dropdown from loaded categories
+    const sel = document.getElementById('room-category-id');
+    sel.innerHTML = '<option value="">— Select category —</option>' +
+      allRoomCategories.filter(c => c.status === 'active').map(c =>
+        `<option value="${c.id}">${c.display_name || c.raw_value}</option>`
+      ).join('');
+    UI.hideAlert('room-error');
+    UI.openModal('modal-room');
+  });
+
+  document.getElementById('btn-save-room').addEventListener('click', async () => {
+    const propertyId   = document.getElementById('rooms-property-filter').value;
+    const raw_value    = document.getElementById('room-code').value.trim();
+    const display_name = document.getElementById('room-name').value.trim();
+    const category_id  = document.getElementById('room-category-id').value || null;
+    const beds_per_room = parseInt(document.getElementById('room-beds').value) || 1;
+    UI.hideAlert('room-error');
+    if (!raw_value || !display_name) { UI.showAlert('room-error', 'Raw value and display name are required.'); return; }
+    UI.setLoading('btn-save-room', true, 'Save');
+    const { error } = await Rooms.create(currentCompany.id, propertyId, { raw_value, display_name, category_id, beds_per_room });
+    UI.setLoading('btn-save-room', false, 'Save');
+    if (error) { UI.showAlert('room-error', error.message); return; }
+    UI.closeModal('modal-room');
+    document.getElementById('room-code').value = '';
+    document.getElementById('room-name').value = '';
+    loadRoomsList();
+  });
+
+  // ── MARKETS ───────────────────────────────────────────────────────
+  let allCountries = [];
+  let allGroups = [];
+  let allMapping = [];
+
+  async function loadMarkets() {
+    await loadClientCountryMapping();
+    await loadGroups();
+    await loadCountryMapping();
+  }
+
+  async function loadClientCountryMapping() {
+    UI.tableLoading('client-mapping-tbody', 4);
+    const { data: rows, error } = await ClientCountryMapping.getByCompany(currentCompany.id);
+    if (error || !rows?.length) {
+      UI.tableEmpty('client-mapping-tbody', 4, 'No client country values seen yet -- these appear after uploading a file in Masters Setup.');
+      document.getElementById('client-mapping-count').textContent = '0 values';
+      return;
+    }
+    const { data: countries } = await Countries.getAll();
+    const countryByCode = new Map((countries || []).map(c => [c.country_code, c.country_name]));
+
+    document.getElementById('client-mapping-count').textContent = `${rows.length} values`;
+    document.getElementById('client-mapping-tbody').innerHTML = rows.map(r => {
+      const options = (countries || []).map(c =>
+        `<option value="${c.country_code}" ${c.country_code === r.country_code ? 'selected' : ''}>${c.country_name} (${c.country_code})</option>`
+      ).join('');
+      return `
+        <tr>
+          <td>${UI.mono(r.raw_value)}</td>
+          <td>
+            <select data-role="ccm-country" data-id="${r.id}" style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px">
+              <option value="">Unset</option>
+              ${options}
+            </select>
+          </td>
+          <td>${UI.badge(r.status, r.status === 'active' ? 'active' : 'inactive')}</td>
+          <td>
+            <button class="btn btn-secondary btn-sm" data-action="ccm-save" data-id="${r.id}">Save</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleClientCountryMapping('${r.id}','${r.status}')">
+              ${r.status === 'active' ? 'Deactivate' : 'Activate'}</button>
+          </td>
+        </tr>`;
+    }).join('');
+
+    document.querySelectorAll('button[data-action="ccm-save"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const select = document.querySelector(`select[data-role="ccm-country"][data-id="${id}"]`);
+        const countryCode = select.value || null;
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        const { error } = await ClientCountryMapping.update(id, { country_code: countryCode });
+        if (error) {
+          alert(`Could not save: ${error.message}`);
+        }
+        loadClientCountryMapping();
+      });
+    });
+  }
+
+  async function toggleClientCountryMapping(id, status) {
+    const newStatus = status === 'active' ? 'inactive' : 'active';
+    await ClientCountryMapping.update(id, { status: newStatus });
+    loadClientCountryMapping();
+  }
+
+  async function loadGroups() {
+    UI.tableLoading('groups-tbody', 4);
+    const { data } = await Markets.getGroups(currentCompany.id);
+    allGroups = data || [];
+    document.getElementById('groups-count').textContent = `${allGroups.length} groups`;
+    document.getElementById('groups-tbody').innerHTML = allGroups.map(g => `
+      <tr>
+        <td>${UI.mono(g.group_code)}</td>
+        <td>${g.group_name}</td>
+        <td>${UI.badge(g.status, g.status === 'active' ? 'active' : 'inactive')}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleGroup('${g.id}','${g.status}')">
+          ${g.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function toggleGroup(id, status) {
+    await Markets.toggleGroup(id, status);
+    loadGroups();
+  }
+
+  document.getElementById('btn-add-group').addEventListener('click', () => UI.openModal('modal-group'));
+
+  document.getElementById('btn-populate-defaults').addEventListener('click', () => {
+    UI.openModal('modal-populate-defaults');
+  });
+
+  document.getElementById('btn-confirm-populate-defaults').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-confirm-populate-defaults');
+    btn.disabled = true;
+    btn.textContent = 'Populating...';
+    const { error, groupCount, mappedCount } = await Markets.populateDefaults(currentCompany.id);
+    btn.disabled = false;
+    btn.textContent = 'Populate defaults';
+    UI.closeModal('modal-populate-defaults');
+
+    if (error) {
+      UI.showAlert('populate-defaults-result', `Could not populate defaults: ${error.message}`, 'error');
+      return;
+    }
+    UI.showAlert('populate-defaults-result', `Created/updated ${groupCount} market groups and mapped ${mappedCount} countries.`, 'success');
+    loadMarkets();
+  });
+
+  document.getElementById('btn-save-group').addEventListener('click', async () => {
+    const group_code = parseInt(document.getElementById('grp-code').value);
+    const group_name = document.getElementById('grp-name').value.trim();
+    UI.hideAlert('group-error');
+    if (!group_code || !group_name) { UI.showAlert('group-error', 'Code and name are required.'); return; }
+    UI.setLoading('btn-save-group', true, 'Save');
+    const { error } = await Markets.createGroup(currentCompany.id, { group_code, group_name });
+    UI.setLoading('btn-save-group', false, 'Save');
+    if (error) { UI.showAlert('group-error', error.message); return; }
+    UI.closeModal('modal-group');
+    document.getElementById('grp-code').value = '';
+    document.getElementById('grp-name').value = '';
+    loadGroups();
+  });
+
+  async function loadCountryMapping() {
+    UI.tableLoading('mapping-tbody', 6);
+    const [countriesRes, mappingRes] = await Promise.all([
+      Markets.getCountries(),
+      Markets.getMapping(currentCompany.id)
+    ]);
+    allCountries = countriesRes.data || [];
+    allMapping   = mappingRes.data || [];
+    renderMapping(allCountries);
+  }
+
+  // pendingChanges: { country_code: { targeted, market_group_id } }
+  let pendingChanges = {};
+
+  function markChanged(countryCode, field, value) {
+    if (!pendingChanges[countryCode]) {
+      const mappingByCode = {};
+      allMapping.forEach(m => mappingByCode[m.country_code] = m);
+      const existing = mappingByCode[countryCode] || {};
+      pendingChanges[countryCode] = {
+        targeted:        existing.targeted ?? false,
+        market_group_id: existing.market_group_id ?? null
+      };
+    }
+    pendingChanges[countryCode][field] = value;
+    const hasChanges = Object.keys(pendingChanges).length > 0;
+    document.getElementById('mapping-changes-label').style.display = hasChanges ? 'inline' : 'none';
+    document.getElementById('btn-save-mapping-all').style.display  = hasChanges ? 'inline-flex' : 'none';
+  }
+
+  function renderMapping(countries) {
+    const mappingByCode = {};
+    allMapping.forEach(m => mappingByCode[m.country_code] = m);
+
+    // Build group options HTML once
+    const groupOptions = allGroups
+      .filter(g => g.status === 'active')
+      .map(g => `<option value="${g.id}">${g.group_name}</option>`)
+      .join('');
+
+    document.getElementById('mapping-tbody').innerHTML = countries.map(c => {
+      const m        = mappingByCode[c.country_code];
+      const pending  = pendingChanges[c.country_code];
+      const targeted = pending?.targeted ?? m?.targeted ?? false;
+      const groupId  = pending?.market_group_id ?? m?.market_group_id ?? '';
+
+      const groupSelect = isAdmin ? `
+        <select class="filter-select" style="font-size:0.8rem;padding:0.3rem 0.5rem"
+          onchange="markChanged('${c.country_code}','market_group_id',this.value||null)">
+          <option value="">— None —</option>
+          ${allGroups.filter(g=>g.status==='active').map(g=>
+            `<option value="${g.id}" ${groupId===g.id?'selected':''}>${g.group_name}</option>`
+          ).join('')}
+        </select>` : (m?.market_groups?.group_name ?? '—');
+
+      const targetedCell = isAdmin ? `
+        <td style="cursor:pointer" onclick="toggleTargeted('${c.country_code}')" title="Click to toggle">
+          <span class="${targeted ? 'targeted-yes' : 'targeted-no'}"
+            id="targeted-${c.country_code}">
+            ${targeted ? '✓ Yes' : 'No'}
+          </span>
+        </td>` : `<td class="${targeted?'targeted-yes':'targeted-no'}">${targeted?'✓ Yes':'No'}</td>`;
+
+      return `
+        <tr>
+          <td>${UI.mono(c.country_code)}</td>
+          <td>${c.country_name}</td>
+          <td>${c.continent||'—'}</td>
+          ${targetedCell}
+          <td>${groupSelect}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  function toggleTargeted(countryCode) {
+    const mappingByCode = {};
+    allMapping.forEach(m => mappingByCode[m.country_code] = m);
+    const pending  = pendingChanges[countryCode];
+    const current  = pending?.targeted ?? mappingByCode[countryCode]?.targeted ?? false;
+    const newValue = !current;
+    markChanged(countryCode, 'targeted', newValue);
+    // update UI immediately
+    const el = document.getElementById(`targeted-${countryCode}`);
+    if (el) {
+      el.textContent  = newValue ? '✓ Yes' : 'No';
+      el.className    = newValue ? 'targeted-yes' : 'targeted-no';
+    }
+  }
+
+  function filterCountryMapping() {
+    const search    = document.getElementById('country-search').value.toLowerCase();
+    const continent = document.getElementById('continent-filter').value;
+    const targeted  = document.getElementById('targeted-filter').value;
+    const mappingByCode = {};
+    allMapping.forEach(m => mappingByCode[m.country_code] = m);
+
+    const filtered = allCountries.filter(c => {
+      const m = mappingByCode[c.country_code];
+      if (search && !c.country_name.toLowerCase().includes(search) && !c.country_code.toLowerCase().includes(search)) return false;
+      if (continent && c.continent !== continent) return false;
+      if (targeted === 'true'  && !(m?.targeted)) return false;
+      if (targeted === 'false' && m?.targeted) return false;
+      return true;
+    });
+    renderMapping(filtered);
+  }
+
+  async function saveAllMappings() {
+    const btn = document.getElementById('btn-save-mapping-all');
+    btn.disabled    = true;
+    btn.textContent = 'Saving...';
+
+    const promises = Object.entries(pendingChanges).map(([countryCode, changes]) =>
+      Markets.upsertMapping(currentCompany.id, countryCode, changes.targeted, changes.market_group_id)
+    );
+
+    const results = await Promise.all(promises);
+    const errors  = results.filter(r => r.error);
+
+    btn.disabled    = false;
+    btn.textContent = 'Save changes';
+
+    if (errors.length) {
+      alert(`${errors.length} error(s) saving. Please try again.`);
+      return;
+    }
+
+    pendingChanges = {};
+    document.getElementById('mapping-changes-label').style.display = 'none';
+    btn.style.display = 'none';
+    await loadCountryMapping();
+  }
+
+  // ── COUNTRIES (system admin only) ─────────────────────────────────
+  async function loadCountries() {
+    if (currentProfile.role !== 'system_admin') {
+      document.getElementById('section-countries').innerHTML = '<div class="empty-state">Access restricted to system admin.</div>';
+      return;
+    }
+    UI.tableLoading('countries-tbody', 3);
+    const { data } = await Countries.getAll();
+    document.getElementById('countries-count').textContent = `${data?.length ?? 0} countries`;
+    document.getElementById('countries-tbody').innerHTML = (data || []).map(c => `
+      <tr>
+        <td>${UI.mono(c.country_code)}</td>
+        <td>${c.country_name}</td>
+        <td>${c.continent || '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  // ── COMPANY EDIT ──────────────────────────────────────────────────
+  async function loadCompany() {
+    document.getElementById('company-name').value   = currentCompany.name;
+    document.getElementById('company-slug').value   = currentCompany.slug;
+    document.getElementById('company-active').value = currentCompany.active ? 'true' : 'false';
+    UI.hideAlert('company-error');
+    UI.hideAlert('company-success');
+  }
+
+  document.getElementById('btn-save-company').addEventListener('click', async () => {
+    const name   = document.getElementById('company-name').value.trim();
+    const slug   = document.getElementById('company-slug').value.trim();
+    const active = document.getElementById('company-active').value === 'true';
+
+    UI.hideAlert('company-error');
+    UI.hideAlert('company-success');
+
+    if (!name || !slug) { UI.showAlert('company-error', 'Name and slug are required.'); return; }
+
+    UI.setLoading('btn-save-company', true, 'Save changes');
+    const { data, error } = await Companies.update(currentCompany.id, { name, slug, active });
+    UI.setLoading('btn-save-company', false, 'Save changes');
+
+    if (error) { UI.showAlert('company-error', error.message); return; }
+
+    // Update local state + topbar
+    currentCompany = data;
+    document.getElementById('company-pill').textContent = data.name;
+    document.title = `BeyonData — ${data.name}`;
+    sessionStorage.setItem('selected_company_name', data.name);
+
+    UI.showAlert('company-success', 'Company updated successfully.', 'success');
+  });
+
+  // ── NAV HELPER ────────────────────────────────────────────────────
+  function navTo(section) {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    const navItem = document.querySelector(`.nav-item[data-section="${section}"]`);
+    if (navItem) navItem.classList.add('active');
+    const sectionEl = document.getElementById(`section-${section}`);
+    if (sectionEl) sectionEl.classList.add('active');
+    hashSet({ section: section });
+    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
+    loaders[section]?.();
+    window.scrollTo(0, 0);
+  }
+
+  // ── GLOBAL ────────────────────────────────────────────────────────
+  document.getElementById('btn-signout').addEventListener('click', () => Auth.logout());
+  document.getElementById('btn-switch').addEventListener('click', () => { window.location.href = 'company-select.html'; });
+
+  init();
+</script>
+</body>
+</html>
