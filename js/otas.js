@@ -7,7 +7,7 @@ const Otas = (() => {
       .from('otas')
       .select('*')
       .eq('company_id', companyId)
-      .order('ota_name');
+      .order('display_name');
     return { data, error };
   }
 
@@ -28,5 +28,10 @@ const Otas = (() => {
     return { data, error };
   }
 
-  return { getByCompany, create, update };
+  async function toggleStatus(id, currentStatus) {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    return await update(id, { status: newStatus });
+  }
+
+  return { getByCompany, create, update, toggleStatus };
 })();
