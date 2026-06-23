@@ -7,7 +7,8 @@ const Channels = (() => {
       .from('channels')
       .select('*')
       .eq('company_id', companyId)
-      .order('channel_code');
+      .order('channel_type')
+      .order('display_name');
     return { data, error };
   }
 
