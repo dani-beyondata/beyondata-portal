@@ -632,12 +632,31 @@
         <p>Distribution channels, cost configuration and OTA naming.</p>
       </div>
       <div class="subtabs">
-        <button class="subtab active" onclick="showSubtab('channels','list')" id="subtab-channels-list">Channels</button>
+        <button class="subtab active" onclick="showSubtab('channels','types')" id="subtab-channels-types">Types & Subtypes</button>
+        <button class="subtab" onclick="showSubtab('channels','list')" id="subtab-channels-list">Channels</button>
         <button class="subtab" onclick="showSubtab('channels','otas')" id="subtab-channels-otas">OTAs</button>
       </div>
 
+      <!-- Types & Subtypes subpage -->
+      <div class="subpage active" id="subpage-channels-types">
+        <div class="action-bar">
+          <h3 id="channel-subtypes-count"></h3>
+          <button class="btn btn-primary" id="btn-add-channel-subtype">+ Add subtype</button>
+        </div>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem">
+          Define the channel types (direct/indirect) and subtypes (ota, agency, etc.) available for this company.
+          These drive the dropdowns when registering channels.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Type</th><th>Subtype</th><th>Status</th><th></th></tr></thead>
+            <tbody id="channel-subtypes-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Channels list subpage -->
-      <div class="subpage active" id="subpage-channels-list">
+      <div class="subpage" id="subpage-channels-list">
         <div class="action-bar">
           <h3 id="channels-count"></h3>
           <button class="btn btn-primary" id="btn-add-channel">+ Add channel</button>
@@ -645,7 +664,7 @@
         <div class="table-wrap">
           <table>
             <thead><tr>
-              <th>Code</th><th>Name</th><th>Type</th><th>Subtype</th><th>Avg Cost %</th><th>Status</th><th></th>
+              <th>Raw value</th><th>Display name</th><th>Type</th><th>Subtype</th><th>Avg Cost %</th><th>Status</th><th></th>
             </tr></thead>
             <tbody id="channels-tbody"></tbody>
           </table>
@@ -1066,6 +1085,31 @@
   </div>
 </div>
 
+<!-- Modal: Add/Edit channel subtype -->
+<div class="modal-overlay" id="modal-channel-subtype">
+  <div class="modal">
+    <h3 id="channel-subtype-modal-title">Add subtype</h3>
+    <div class="alert error" id="channel-subtype-error"></div>
+    <input type="hidden" id="channel-subtype-edit-id">
+    <div class="field">
+      <label>Channel type</label>
+      <select id="channel-subtype-type">
+        <option value="">— Select type —</option>
+      </select>
+      <p class="field-hint">Or type a new one — the type is created automatically if it doesn't exist yet.</p>
+    </div>
+    <div class="field">
+      <label>Or type a new type name</label>
+      <input type="text" id="channel-subtype-type-new" placeholder="e.g. direct">
+    </div>
+    <div class="field"><label>Subtype name</label><input type="text" id="channel-subtype-name" placeholder="e.g. ota"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-channel-subtype')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-channel-subtype">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Add/Edit channel -->
 <div class="modal-overlay" id="modal-channel">
   <div class="modal">
@@ -1074,17 +1118,16 @@
     <div class="field"><label>Raw value (from Reservation source)</label><input type="text" id="ch-code" placeholder="e.g. Booking.com"></div>
     <div class="field"><label>Display name (for reports)</label><input type="text" id="ch-name" placeholder="e.g. Booking.com"></div>
     <div class="field">
+      <label>Type</label>
+      <select id="ch-type">
+        <option value="">— Select type —</option>
+      </select>
+    </div>
+    <div class="field">
       <label>Subtype</label>
       <select id="ch-subtype">
-        <option value="direct">Direct</option>
-        <option value="ota">OTA</option>
-        <option value="gds">GDS</option>
-        <option value="agency">Agency</option>
-        <option value="affiliate">Affiliate</option>
-        <option value="corporate">Corporate</option>
-        <option value="events">Events</option>
+        <option value="">— Select subtype —</option>
       </select>
-      <p class="field-hint">Type (Direct/Indirect) is derived automatically from the subtype.</p>
     </div>
     <div class="field"><label>Avg cost % (e.g. 0.15 for 15%)</label><input type="number" id="ch-cost" placeholder="0.15" step="0.01" min="0" max="1"></div>
     <div class="modal-actions">
@@ -1117,6 +1160,7 @@
 <script src="js/companies.js"></script>
 <script src="js/properties.js"></script>
 <script src="js/channels.js"></script>
+<script src="js/channel_subtypes.js"></script>
 <script src="js/otas.js"></script>
 <script src="js/users.js"></script>
 <script src="js/params.js"></script>
@@ -1138,6 +1182,18 @@
   // Global HTML escape utility — used by functions outside the MastersSetup module
   function escapeHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Called when the channel type dropdown changes in Masters Setup rows
+  function msFillSubtypes(typeSelect) {
+    const subtypes = JSON.parse(typeSelect.dataset.subtypes || '[]');
+    const typeName = typeSelect.value;
+    const row = typeSelect.closest('tr') || typeSelect.closest('div');
+    const subtypeSel = row?.querySelector('select[data-role="channel-subtype"]');
+    if (!subtypeSel) return;
+    const filtered = typeName ? subtypes.filter(s => s.type_name === typeName) : subtypes;
+    subtypeSel.innerHTML = '<option value="">Subtype...</option>' +
+      filtered.map(s => `<option value="${escapeHtml(s.subtype_name)}">${escapeHtml(s.subtype_name)}</option>`).join('');
   }
 
   // ── INIT ──────────────────────────────────────────────────────────
@@ -1191,7 +1247,7 @@
       if (navItem) navItem.classList.add('active');
       document.getElementById('section-' + savedSection).classList.add('active');
       const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings,
-        channels: loadChannels, segments: loadSegments, purposes: loadPurposes,
+        channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes,
         markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms,
         availability: initAvailabilitySection, countries: loadCountries,
         users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
@@ -1254,7 +1310,7 @@
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
       hashSet({ section: s, property: null });
-      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
+      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
       loaders[s]?.();
     });
   });
@@ -1405,6 +1461,65 @@
   }
 
   // ── CHANNELS ──────────────────────────────────────────────────────
+  // ── CHANNEL SUBTYPES ──────────────────────────────────────────────
+  async function loadChannelSubtypes() {
+    UI.tableLoading('channel-subtypes-tbody', 4);
+    const { data, error } = await ChannelSubtypes.getByCompany(currentCompany.id);
+    if (error || !data?.length) {
+      UI.tableEmpty('channel-subtypes-tbody', 4, 'No types/subtypes yet — add one to get started.');
+      document.getElementById('channel-subtypes-count').textContent = '0 subtypes';
+      return;
+    }
+    document.getElementById('channel-subtypes-count').textContent = `${data.length} subtypes`;
+    document.getElementById('channel-subtypes-tbody').innerHTML = data.map(s => `
+      <tr>
+        <td>${UI.mono(s.type_name)}</td>
+        <td>${UI.mono(s.subtype_name)}</td>
+        <td>${UI.badge(s.status, s.status === 'active' ? 'active' : 'inactive')}</td>
+        <td style="display:flex;gap:0.4rem">
+          <button class="btn btn-secondary btn-sm" onclick="toggleChannelSubtype('${s.id}','${s.status}')">
+            ${s.status === 'active' ? 'Deactivate' : 'Activate'}</button>
+        </td>
+      </tr>`).join('');
+  }
+
+  async function toggleChannelSubtype(id, status) {
+    await ChannelSubtypes.toggle(id, status);
+    loadChannelSubtypes();
+  }
+
+  document.getElementById('btn-add-channel-subtype').addEventListener('click', async () => {
+    // Populate type dropdown from existing types
+    const { data } = await ChannelSubtypes.getByCompany(currentCompany.id);
+    const types = [...new Set((data || []).map(s => s.type_name))].sort();
+    document.getElementById('channel-subtype-type').innerHTML =
+      '<option value="">— Select existing type —</option>' +
+      types.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+    document.getElementById('channel-subtype-type-new').value = '';
+    document.getElementById('channel-subtype-name').value = '';
+    document.getElementById('channel-subtype-edit-id').value = '';
+    document.getElementById('channel-subtype-modal-title').textContent = 'Add subtype';
+    UI.hideAlert('channel-subtype-error');
+    UI.openModal('modal-channel-subtype');
+  });
+
+  document.getElementById('btn-save-channel-subtype').addEventListener('click', async () => {
+    const typeName = document.getElementById('channel-subtype-type-new').value.trim()
+      || document.getElementById('channel-subtype-type').value;
+    const subtypeName = document.getElementById('channel-subtype-name').value.trim();
+    UI.hideAlert('channel-subtype-error');
+    if (!typeName || !subtypeName) {
+      UI.showAlert('channel-subtype-error', 'Both type and subtype name are required.'); return;
+    }
+    UI.setLoading('btn-save-channel-subtype', true, 'Save');
+    const { error } = await ChannelSubtypes.create(currentCompany.id, typeName, subtypeName);
+    UI.setLoading('btn-save-channel-subtype', false, 'Save');
+    if (error) { UI.showAlert('channel-subtype-error', error.message); return; }
+    UI.closeModal('modal-channel-subtype');
+    loadChannelSubtypes();
+  });
+
+  // ── CHANNELS ──────────────────────────────────────────────────────
   async function loadChannels() {
     UI.tableLoading('channels-tbody', 7);
     const { data, error } = await Channels.getByCompany(currentCompany.id);
@@ -1432,12 +1547,34 @@
     `).join('');
   }
 
+  async function populateChannelDropdowns(selectedType, selectedSubtype) {
+    const { data } = await ChannelSubtypes.getActiveByCompany(currentCompany.id);
+    const subtypes = data || [];
+    const types = [...new Set(subtypes.map(s => s.type_name))].sort();
+    document.getElementById('ch-type').innerHTML =
+      '<option value="">— Select type —</option>' +
+      types.map(t => `<option value="${t}" ${t === selectedType ? 'selected' : ''}>${t}</option>`).join('');
+    // Populate subtype based on selected type
+    const filtered = selectedType ? subtypes.filter(s => s.type_name === selectedType) : subtypes;
+    document.getElementById('ch-subtype').innerHTML =
+      '<option value="">— Select subtype —</option>' +
+      filtered.map(s => `<option value="${s.subtype_name}" ${s.subtype_name === selectedSubtype ? 'selected' : ''}>${s.subtype_name}</option>`).join('');
+    // Update subtype when type changes
+    document.getElementById('ch-type').onchange = function() {
+      const t = this.value;
+      const f = t ? subtypes.filter(s => s.type_name === t) : subtypes;
+      document.getElementById('ch-subtype').innerHTML =
+        '<option value="">— Select subtype —</option>' +
+        f.map(s => `<option value="${s.subtype_name}">${s.subtype_name}</option>`).join('');
+    };
+  }
+
   async function toggleChannel(id, status) {
     await Channels.toggleStatus(id, status);
     loadChannels();
   }
 
-  function editChannel(id) {
+  async function editChannel(id) {
     const c = (window._channelsData || []).find(x => x.id === id);
     if (!c) return;
     window._editingChannelId = id;
@@ -1446,31 +1583,32 @@
     document.getElementById('ch-code').readOnly = true;
     document.getElementById('ch-code').style.opacity = '0.6';
     document.getElementById('ch-name').value = c.display_name || '';
-    document.getElementById('ch-subtype').value = c.channel_subtype;
     document.getElementById('ch-cost').value = c.avg_cost_pct;
+    await populateChannelDropdowns(c.channel_type, c.channel_subtype);
     UI.hideAlert('channel-error');
     UI.openModal('modal-channel');
   }
 
-  document.getElementById('btn-add-channel').addEventListener('click', () => {
+  document.getElementById('btn-add-channel').addEventListener('click', async () => {
     window._editingChannelId = null;
     document.getElementById('channel-modal-title').textContent = 'Add channel';
     document.getElementById('ch-code').value = '';
     document.getElementById('ch-code').readOnly = false;
     document.getElementById('ch-code').style.opacity = '1';
     document.getElementById('ch-name').value = '';
-    document.getElementById('ch-subtype').value = 'direct';
     document.getElementById('ch-cost').value = '';
+    await populateChannelDropdowns('', '');
     UI.hideAlert('channel-error');
     UI.openModal('modal-channel');
   });
 
   document.getElementById('btn-save-channel').addEventListener('click', async () => {
-    const subtype = document.getElementById('ch-subtype').value;
+    const channel_type    = document.getElementById('ch-type').value;
+    const channel_subtype = document.getElementById('ch-subtype').value;
     const fields = {
       display_name: document.getElementById('ch-name').value.trim(),
-      channel_subtype: subtype,
-      channel_type: ['direct'].includes(subtype) ? 'direct' : 'indirect',
+      channel_type,
+      channel_subtype,
       avg_cost_pct: parseFloat(document.getElementById('ch-cost').value) || 0,
     };
     if (!window._editingChannelId) {
@@ -1478,8 +1616,9 @@
     }
 
     UI.hideAlert('channel-error');
-    if (!fields.display_name || (!window._editingChannelId && !fields.raw_value)) {
-      UI.showAlert('channel-error', 'Raw value and display name are required.'); return;
+    if (!fields.display_name || !channel_type || !channel_subtype ||
+        (!window._editingChannelId && !fields.raw_value)) {
+      UI.showAlert('channel-error', 'Raw value, display name, type and subtype are required.'); return;
     }
 
     UI.setLoading('btn-save-channel', true, 'Save');
@@ -1489,7 +1628,6 @@
     UI.setLoading('btn-save-channel', false, 'Save');
 
     if (error) { UI.showAlert('channel-error', error.message); return; }
-
     UI.closeModal('modal-channel');
     loadChannels();
   });
@@ -1772,6 +1910,7 @@
       if (tab === 'calendar')   rcalInit();
     }
     if (section === 'channels') {
+      if (tab === 'types') loadChannelSubtypes();
       if (tab === 'list') loadChannels();
       if (tab === 'otas') loadOtas();
     }
@@ -4279,7 +4418,7 @@
     const sectionEl = document.getElementById(`section-${section}`);
     if (sectionEl) sectionEl.classList.add('active');
     hashSet({ section: section });
-    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
+    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
     loaders[section]?.();
     window.scrollTo(0, 0);
   }
