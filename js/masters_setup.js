@@ -24,6 +24,8 @@ const MastersSetup = (() => {
     room_categories: ['room_category_raw', 'space_category', 'category', 'room_category'],
     rooms: ['room_code_raw', 'room_code', 'room_number'],
     extras_catalog: ['raw_value', 'product', 'extra', 'product_name'],
+    channels: ['reservation_source', 'channel', 'source'],
+    otas: ['ota', 'travel_agency', 'travel agency'],
   };
 
   // Maps a master table's key to the matching logic needed to compare
@@ -182,6 +184,57 @@ const MastersSetup = (() => {
           charge_timing: 'during_stay',
           default_amount: 0,
           status: 'active',
+        });
+        if (error) throw error;
+      },
+    },
+    // channels: matches reservation_source from reservations_clean.csv.
+    // actionType 'channel' shows display name + channel_type + channel_subtype dropdowns.
+    channels: {
+      table: 'channels',
+      matchColumn: 'raw_value',
+      actionType: 'channel',
+      async fetchExisting(companyId) {
+        const { data, error } = await sb
+          .from('channels')
+          .select('id, raw_value, display_name, channel_type, channel_subtype, status')
+          .eq('company_id', companyId);
+        if (error) throw error;
+        return data || [];
+      },
+      async addValue(companyId, rawValue, displayName, extraFields) {
+        const subtype = extraFields?.channel_subtype || 'ota';
+        const { error } = await sb.from('channels').insert({
+          company_id: companyId,
+          raw_value: rawValue,
+          display_name: displayName || rawValue,
+          channel_subtype: subtype,
+          channel_type: subtype === 'direct' || subtype === 'booking_engine' ? 'direct' : 'indirect',
+          avg_cost_pct: 0,
+          status: 'active',
+        });
+        if (error) throw error;
+      },
+    },
+    // otas: matches the ota column (Travel agency) from reservations_clean.csv.
+    // Simple text add — just a display name mapping the legal entity name.
+    otas: {
+      table: 'otas',
+      matchColumn: 'raw_value',
+      actionType: 'text',
+      async fetchExisting(companyId) {
+        const { data, error } = await sb
+          .from('otas')
+          .select('id, raw_value, display_name, status')
+          .eq('company_id', companyId);
+        if (error) throw error;
+        return data || [];
+      },
+      async addValue(companyId, rawValue, displayName) {
+        const { error } = await sb.from('otas').insert({
+          company_id: companyId,
+          raw_value: rawValue,
+          display_name: displayName || rawValue,
         });
         if (error) throw error;
       },
@@ -442,10 +495,25 @@ const MastersSetup = (() => {
               </select>
               <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
             </div>`;
+        } else if (config.actionType === 'channel') {
+          const subtypeOptions = [
+            ['direct','Direct'],['booking_engine','Booking Engine'],
+            ['ota','OTA'],['affiliate','Affiliate'],['agency','Agency'],
+            ['gds','GDS'],['corporate','Corporate'],['events','Events'],
+          ].map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+          actionHtml = `
+            <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
+              <input type="text" placeholder="Display name"
+                     data-role="display-name-input" data-value="${escapeAttr(value)}"
+                     style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:150px"
+                     value="${escapeAttr(value)}">
+              <select data-role="channel-subtype" data-value="${escapeAttr(value)}"
+                      style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px">
+                ${subtypeOptions}
+              </select>
+              <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
+            </div>`;
         } else {
-          // Two-step add: the raw value is fixed (it's exactly what the file
-          // contains), but the display name is a judgment call -- ask for it
-          // inline rather than guessing or reusing the raw text silently.
           actionHtml = `
             <div style="display:flex;gap:0.4rem;align-items:center">
               <input type="text" placeholder="Display name to show in reports"
@@ -531,6 +599,9 @@ const MastersSetup = (() => {
           } else if (config.actionType === 'extras') {
             const catEl = row.querySelector('select[data-role="extra-category"]');
             extraFields = { category: catEl?.value || 'UNCATEGORISED' };
+          } else if (config.actionType === 'channel') {
+            const subtypeEl = row.querySelector('select[data-role="channel-subtype"]');
+            extraFields = { channel_subtype: subtypeEl?.value || 'ota' };
           }
         }
 
@@ -720,6 +791,8 @@ const MastersSetup = (() => {
       { value: 'booking_purposes',       label: 'Booking Purposes' },
       { value: 'segments',               label: 'Segments' },
       { value: 'client_country_mapping', label: 'Client Country Mapping' },
+      { value: 'channels',               label: 'Channels' },
+      { value: 'otas',                   label: 'OTAs' },
     ],
     nights: [
       { value: 'room_categories', label: 'Room Categories' },
