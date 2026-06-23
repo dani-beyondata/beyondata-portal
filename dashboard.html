@@ -380,7 +380,7 @@
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>Code</th><th>Category</th><th>Subcategory</th>
+            <th>Raw value (Mews)</th><th>Display name</th><th>Category</th><th>Subcategory</th>
             <th>Default €</th><th>Charge timing</th><th>Status</th><th></th>
           </tr></thead>
           <tbody id="extras-tbody"></tbody>
@@ -821,7 +821,8 @@
   <div class="modal">
     <h3>Add extra</h3>
     <div class="alert error" id="extra-error"></div>
-    <div class="field"><label>Code</label><input type="text" id="extra-code" placeholder="e.g. SPA_ACCESS" style="text-transform:uppercase"></div>
+    <div class="field"><label>Raw value (Mews product name)</label><input type="text" id="extra-code" placeholder="e.g. Breakfast Web"></div>
+    <div class="field"><label>Display name (for reports)</label><input type="text" id="extra-display" placeholder="e.g. Breakfast"></div>
     <div class="field"><label>Category</label><input type="text" id="extra-category" placeholder="e.g. WELLNESS"></div>
     <div class="field"><label>Subcategory</label><input type="text" id="extra-subcategory" placeholder="e.g. SPA"></div>
     <div class="field"><label>Default amount (€)</label><input type="number" id="extra-amount" placeholder="0" step="0.01" min="0"></div>
@@ -1735,7 +1736,8 @@
     const timing = document.getElementById('extras-timing-filter').value;
 
     const filtered = allExtras.filter(e => {
-      if (search && !e.extra_code.toLowerCase().includes(search)) return false;
+      if (search && !(e.raw_value || e.extra_code || '').toLowerCase().includes(search) &&
+                    !(e.display_name || '').toLowerCase().includes(search)) return false;
       if (cat    && e.category !== cat)       return false;
       if (timing && e.charge_timing !== timing) return false;
       return true;
@@ -1763,7 +1765,8 @@
     }
     tbody.innerHTML = data.map(e => `
       <tr>
-        <td>${UI.mono(e.extra_code)}</td>
+        <td>${UI.mono(e.raw_value || e.extra_code || '—')}</td>
+        <td>${e.display_name || e.raw_value || '—'}</td>
         <td>${e.category}</td>
         <td>${e.subcategory || '—'}</td>
         <td style="font-family:'DM Mono',monospace;font-size:0.85rem">${parseFloat(e.default_amount).toFixed(2)} €</td>
@@ -1783,25 +1786,27 @@
   document.getElementById('btn-add-extra').addEventListener('click', () => UI.openModal('modal-extra'));
 
   document.getElementById('btn-save-extra').addEventListener('click', async () => {
-    const extra_code      = document.getElementById('extra-code').value.trim().toUpperCase().replace(/\s+/g,'_');
+    const raw_value       = document.getElementById('extra-code').value.trim();
+    const display_name    = document.getElementById('extra-display').value.trim();
     const category        = document.getElementById('extra-category').value.trim().toUpperCase();
     const subcategory     = document.getElementById('extra-subcategory').value.trim().toUpperCase() || null;
     const default_amount  = parseFloat(document.getElementById('extra-amount').value) || 0;
     const charge_timing   = document.getElementById('extra-timing').value;
 
     UI.hideAlert('extra-error');
-    if (!extra_code || !category) { UI.showAlert('extra-error', 'Code and category are required.'); return; }
+    if (!raw_value || !category) { UI.showAlert('extra-error', 'Raw value and category are required.'); return; }
 
     UI.setLoading('btn-save-extra', true, 'Save');
     const { error } = await ExtrasCatalog.create(currentCompany.id, {
-      extra_code, category, subcategory, default_amount, charge_timing
+      raw_value, display_name: display_name || raw_value,
+      category, subcategory, default_amount, charge_timing
     });
     UI.setLoading('btn-save-extra', false, 'Save');
 
     if (error) { UI.showAlert('extra-error', error.message); return; }
 
     UI.closeModal('modal-extra');
-    ['extra-code','extra-category','extra-subcategory','extra-amount'].forEach(id => {
+    ['extra-code','extra-display','extra-category','extra-subcategory','extra-amount'].forEach(id => {
       document.getElementById(id).value = '';
     });
     loadExtras();
