@@ -159,27 +159,26 @@ const MastersSetup = (() => {
       },
     },
     // extras_catalog: matches raw product names from extras_master.csv against
-    // extras_catalog.raw_value. The add flow is 'text' (just a display name),
-    // since extras have additional fields (category, timing etc.) that are better
-    // set in the Extras tab after the initial master population.
+    // extras_catalog.raw_value. actionType 'extras' shows display name + category
+    // inputs inline. Subcategory, timing, and amount are set in the Extras tab after.
     extras_catalog: {
       table: 'extras_catalog',
       matchColumn: 'raw_value',
-      actionType: 'text',
+      actionType: 'extras',
       async fetchExisting(companyId) {
         const { data, error } = await sb
           .from('extras_catalog')
-          .select('id, raw_value, display_name, status')
+          .select('id, raw_value, display_name, category, status')
           .eq('company_id', companyId);
         if (error) throw error;
         return data || [];
       },
-      async addValue(companyId, rawValue, displayName) {
+      async addValue(companyId, rawValue, displayName, extraFields) {
         const { error } = await sb.from('extras_catalog').insert({
           company_id: companyId,
           raw_value: rawValue,
           display_name: displayName || rawValue,
-          category: 'UNCATEGORISED',
+          category: extraFields?.category || 'UNCATEGORISED',
           charge_timing: 'during_stay',
           default_amount: 0,
           status: 'active',
@@ -418,6 +417,23 @@ const MastersSetup = (() => {
               <span style="font-size:0.8rem;color:var(--text-muted)">${info.beds_per_room || 1} bed(s)</span>
               <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
             </div>`;
+        } else if (config.actionType === 'extras') {
+          // Extras need a display name + category at minimum.
+          // Fixed category options matching what the Extras tab already uses.
+          const catOptions = ['F&B','ACCOMMODATION','TRANSPORT','WELLNESS','TOURS','MERCHANDISING','OTHER','UNCATEGORISED']
+            .map(c => `<option value="${c}">${c}</option>`).join('');
+          actionHtml = `
+            <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
+              <input type="text" placeholder="Display name"
+                     data-role="display-name-input" data-value="${escapeAttr(value)}"
+                     style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:150px"
+                     value="${escapeAttr(value)}">
+              <select data-role="extra-category" data-value="${escapeAttr(value)}"
+                      style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px">
+                ${catOptions}
+              </select>
+              <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
+            </div>`;
         } else {
           // Two-step add: the raw value is fixed (it's exactly what the file
           // contains), but the display name is a judgment call -- ask for it
@@ -458,7 +474,10 @@ const MastersSetup = (() => {
         actionHtml = `<span style="color:var(--text-muted);font-size:0.85rem">Reactivate from the ${masterKey.replace('_',' ')} section</span>`;
       } else {
         statusHtml = `<span class="badge" style="background:#d1fae5;color:#065f46">Active in master</span>`;
-        actionHtml = `<span style="color:var(--text-muted);font-size:0.85rem">Shown as "${escapeHtml(match.display_name)}"</span>`;
+        const extraInfo = config.actionType === 'extras' && match.category
+          ? ` · ${escapeHtml(match.category)}`
+          : '';
+        actionHtml = `<span style="color:var(--text-muted);font-size:0.85rem">Shown as "${escapeHtml(match.display_name)}"${extraInfo}</span>`;
       }
 
       return `
@@ -501,6 +520,9 @@ const MastersSetup = (() => {
               property_id: inputEl.dataset.propertyId || null,
               property_uuid: propertyUuidMap.get(inputEl.dataset.propertyId) || null,
             };
+          } else if (config.actionType === 'extras') {
+            const catEl = row.querySelector('select[data-role="extra-category"]');
+            extraFields = { category: catEl?.value || 'UNCATEGORISED' };
           }
         }
 
@@ -690,11 +712,13 @@ const MastersSetup = (() => {
       { value: 'booking_purposes',       label: 'Booking Purposes' },
       { value: 'segments',               label: 'Segments' },
       { value: 'client_country_mapping', label: 'Client Country Mapping' },
-      { value: 'extras_catalog',         label: 'Extras' },
     ],
     nights: [
       { value: 'room_categories', label: 'Room Categories' },
       { value: 'rooms',           label: 'Rooms' },
+    ],
+    extras: [
+      { value: 'extras_catalog', label: 'Extras' },
     ],
   };
 
@@ -718,6 +742,7 @@ const MastersSetup = (() => {
     document.getElementById('ms-upload-label').textContent = '1. Upload reservations file';
     document.getElementById('ms-tab-reservations').classList.add('active');
     document.getElementById('ms-tab-nights').classList.remove('active');
+    document.getElementById('ms-tab-extras')?.classList.remove('active');
     UI.hideAlert('ms-file-error');
     updateMasterOptions();
 
@@ -761,10 +786,11 @@ const MastersSetup = (() => {
     document.getElementById('ms-property-banner').style.display = 'none';
     document.getElementById('ms-unresolved-only').checked = false;
     UI.hideAlert('ms-file-error');
-    document.getElementById('ms-upload-label').textContent =
-      type === 'nights' ? '1. Upload nights file' : '1. Upload reservations file';
-    document.getElementById('ms-tab-reservations').classList.toggle('active', type === 'reservations');
-    document.getElementById('ms-tab-nights').classList.toggle('active', type === 'nights');
+    const labels = { reservations: '1. Upload reservations file', nights: '1. Upload nights file', extras: '1. Upload extras master file' };
+    document.getElementById('ms-upload-label').textContent = labels[type] || '1. Upload file';
+    ['reservations','nights','extras'].forEach(t => {
+      document.getElementById(`ms-tab-${t}`)?.classList.toggle('active', t === type);
+    });
     updateMasterOptions();
   }};
 })();
