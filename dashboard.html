@@ -535,7 +535,8 @@
           <label style="font-size:0.8rem;color:var(--text-muted);font-weight:500">Property:</label>
           <select class="filter-select" id="avail-property-filter" onchange="hashSet({property:this.value});loadAvailability()"></select>
         </div>
-        <div id="avail-save-bar" style="display:none;margin-left:auto">
+        <button class="btn btn-secondary btn-sm" id="btn-bulk-availability" style="margin-left:auto">Set year open</button>
+        <div id="avail-save-bar" style="display:none">
           <div class="save-bar">
             <span>⚠ Unsaved changes</span>
             <button class="btn btn-primary btn-sm" style="margin-left:1rem" onclick="saveAvailability()">Save changes</button>
@@ -663,6 +664,36 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- Modal: Bulk availability -->
+<div class="modal-overlay" id="modal-bulk-availability">
+  <div class="modal">
+    <h3>Set year always open</h3>
+    <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem;line-height:1.5">
+      Creates one "open" availability row for every day in the selected year(s).
+      Existing rows for those dates are updated, nothing is deleted.
+    </p>
+    <div class="alert error" id="bulk-avail-error"></div>
+    <div class="alert success" id="bulk-avail-success"></div>
+    <div class="field">
+      <label>Year(s)</label>
+      <div id="bulk-avail-years" style="display:flex;gap:0.5rem;flex-wrap:wrap"></div>
+    </div>
+    <div class="field">
+      <label>Rooms per day</label>
+      <input type="number" id="bulk-avail-rooms" value="0" min="0" max="999">
+    </div>
+    <div class="field">
+      <label>Beds per day</label>
+      <input type="number" id="bulk-avail-beds" value="0" min="0" max="9999">
+    </div>
+    <div class="alert" id="bulk-avail-progress" style="background:var(--bg-subtle,#f5f6f8);color:var(--text-muted)"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-bulk-availability')">Cancel</button>
+      <button class="btn btn-primary" id="btn-confirm-bulk-availability">Set open</button>
+    </div>
   </div>
 </div>
 
@@ -3245,7 +3276,99 @@
     fetchAndRenderMonth();
   }
 
-  async function saveAvailability() {
+  document.getElementById('btn-bulk-availability').addEventListener('click', () => {
+    const propertyId = document.getElementById('avail-property-filter').value;
+    if (!propertyId) { alert('Select a property first.'); return; }
+
+    // Build year checkboxes: current year ± 2
+    const thisYear = new Date().getFullYear();
+    const yearsDiv = document.getElementById('bulk-avail-years');
+    yearsDiv.innerHTML = '';
+    for (let y = thisYear - 1; y <= thisYear + 3; y++) {
+      const label = document.createElement('label');
+      label.style.cssText = 'display:flex;align-items:center;gap:0.3rem;font-size:0.9rem;cursor:pointer';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = y;
+      if (y === thisYear) cb.checked = true;
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(y));
+      yearsDiv.appendChild(label);
+    }
+
+    UI.hideAlert('bulk-avail-error');
+    UI.hideAlert('bulk-avail-success');
+    UI.hideAlert('bulk-avail-progress');
+    UI.openModal('modal-bulk-availability');
+  });
+
+  document.getElementById('btn-confirm-bulk-availability').addEventListener('click', async () => {
+    const propertyId   = document.getElementById('avail-property-filter').value;
+    const propertySlug = window._availPropertySlugMap?.[propertyId] || '';
+    const rooms = parseInt(document.getElementById('bulk-avail-rooms').value) || 0;
+    const beds  = parseInt(document.getElementById('bulk-avail-beds').value)  || 0;
+
+    const selectedYears = [...document.querySelectorAll('#bulk-avail-years input:checked')]
+      .map(cb => parseInt(cb.value));
+
+    UI.hideAlert('bulk-avail-error');
+    UI.hideAlert('bulk-avail-success');
+
+    if (!selectedYears.length) { UI.showAlert('bulk-avail-error', 'Select at least one year.'); return; }
+
+    const btn = document.getElementById('btn-confirm-bulk-availability');
+    btn.disabled = true;
+    btn.textContent = 'Working...';
+
+    // Build all rows
+    const rows = [];
+    for (const year of selectedYears) {
+      const start = new Date(year, 0, 1);
+      const end   = new Date(year, 11, 31);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().slice(0, 10);
+        rows.push({
+          company_id:    currentCompany.id,
+          property_uuid: propertyId,
+          property_slug: propertySlug,
+          date:          dateStr,
+          status:        'open',
+          number_of_rooms: rooms,
+          number_of_beds:  beds,
+          updated_at:    new Date().toISOString(),
+        });
+      }
+    }
+
+    // Upsert in chunks of 365 to avoid Supabase payload limits
+    const CHUNK = 365;
+    let done = 0;
+    const progressEl = document.getElementById('bulk-avail-progress');
+    progressEl.textContent = `Writing ${rows.length} rows...`;
+    progressEl.className = 'alert show';
+
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error } = await Availability.upsertMany(chunk);
+      if (error) {
+        UI.showAlert('bulk-avail-error', `Error at row ${i}: ${error.message}`);
+        btn.disabled = false;
+        btn.textContent = 'Set open';
+        return;
+      }
+      done += chunk.length;
+      progressEl.textContent = `Written ${done} / ${rows.length} rows...`;
+    }
+
+    progressEl.className = 'alert';
+    btn.disabled = false;
+    btn.textContent = 'Set open';
+    UI.showAlert('bulk-avail-success',
+      `Done — ${rows.length} days set to open across ${selectedYears.join(', ')}.`, 'success');
+    await fetchAndRenderMonth();
+  });
+
+
     const propertyId   = document.getElementById('avail-property-filter').value; // UUID
     const propertySlug = window._availPropertySlugMap?.[propertyId] || '';
     const rows = Object.entries(availPending).map(([date, fields]) => ({
