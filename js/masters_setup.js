@@ -304,10 +304,10 @@ const MastersSetup = (() => {
     let extrasCategories = [];
     if (config.actionType === 'extras') {
       const { data: cats } = await sb.from('extras_categories')
-        .select('raw_value, display_name')
+        .select('id, category_name')
         .eq('company_id', currentCompany.id)
         .eq('status', 'active')
-        .order('display_name');
+        .order('category_name');
       extrasCategories = cats || [];
     }
     // beds_per_room_derived, property_id} from the parsed file rows, so we
@@ -428,7 +428,7 @@ const MastersSetup = (() => {
             </div>`;
         } else if (config.actionType === 'extras') {
           const catOptions = extrasCategories.length
-            ? extrasCategories.map(c => `<option value="${escapeAttr(c.raw_value)}">${escapeHtml(c.display_name)}</option>`).join('')
+            ? extrasCategories.map(c => `<option value="${escapeAttr(c.category_name)}">${escapeHtml(c.category_name)}</option>`).join('')
             : '<option value="UNCATEGORISED">UNCATEGORISED</option>';
           actionHtml = `
             <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
