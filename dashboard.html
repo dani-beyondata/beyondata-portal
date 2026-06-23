@@ -359,12 +359,12 @@
       </div>
 
       <div class="subtabs">
-        <button class="subtab active" onclick="showSubtab('extras','list')" id="subtab-extras-list">Extras</button>
-        <button class="subtab" onclick="showSubtab('extras','categories')" id="subtab-extras-categories">Categories</button>
+        <button class="subtab active" onclick="showSubtab('extras','categories')" id="subtab-extras-categories">Categories</button>
+        <button class="subtab" onclick="showSubtab('extras','list')" id="subtab-extras-list">Extras</button>
       </div>
 
       <!-- Extras list subpage -->
-      <div class="subpage active" id="subpage-extras-list">
+      <div class="subpage" id="subpage-extras-list">
         <!-- Search + filter bar -->
         <div class="search-bar" style="margin-bottom:1rem">
           <div class="search-wrap">
@@ -397,7 +397,7 @@
       </div>
 
       <!-- Extras categories subpage -->
-      <div class="subpage" id="subpage-extras-categories">
+      <div class="subpage active" id="subpage-extras-categories">
         <div class="action-bar">
           <h3 id="extras-categories-count"></h3>
           <button class="btn btn-primary" id="btn-add-extras-category">+ Add category</button>
@@ -1183,7 +1183,7 @@
       document.getElementById('section-' + savedSection).classList.add('active');
       const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings,
         channels: loadChannels, segments: loadSegments, purposes: loadPurposes,
-        markets: loadMarkets, extras: loadExtras, rooms: loadRooms,
+        markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms,
         availability: initAvailabilitySection, countries: loadCountries,
         users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
       const loader = loaders[savedSection];
@@ -1245,7 +1245,7 @@
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
       hashSet({ section: s, property: null });
-      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
+      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
       loaders[s]?.();
     });
   });
@@ -4228,7 +4228,7 @@
     const sectionEl = document.getElementById(`section-${section}`);
     if (sectionEl) sectionEl.classList.add('active');
     hashSet({ section: section });
-    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtras, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
+    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannels, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
     loaders[section]?.();
     window.scrollTo(0, 0);
   }
