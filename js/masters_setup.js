@@ -300,7 +300,16 @@ const MastersSetup = (() => {
       countryOptions = data || [];
     }
 
-    // For rooms: pre-build a lookup of room_code_raw -> {room_category_raw,
+    // For extras: fetch registered categories for the dropdown
+    let extrasCategories = [];
+    if (config.actionType === 'extras') {
+      const { data: cats } = await sb.from('extras_categories')
+        .select('raw_value, display_name')
+        .eq('company_id', currentCompany.id)
+        .eq('status', 'active')
+        .order('display_name');
+      extrasCategories = cats || [];
+    }
     // beds_per_room_derived, property_id} from the parsed file rows, so we
     // can show a pre-assigned category suggestion for each room.
     let roomInfoMap = new Map();
@@ -418,10 +427,9 @@ const MastersSetup = (() => {
               <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
             </div>`;
         } else if (config.actionType === 'extras') {
-          // Extras need a display name + category at minimum.
-          // Fixed category options matching what the Extras tab already uses.
-          const catOptions = ['F&B','ACCOMMODATION','TRANSPORT','WELLNESS','TOURS','MERCHANDISING','OTHER','UNCATEGORISED']
-            .map(c => `<option value="${c}">${c}</option>`).join('');
+          const catOptions = extrasCategories.length
+            ? extrasCategories.map(c => `<option value="${escapeAttr(c.raw_value)}">${escapeHtml(c.display_name)}</option>`).join('')
+            : '<option value="UNCATEGORISED">UNCATEGORISED</option>';
           actionHtml = `
             <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
               <input type="text" placeholder="Display name"
