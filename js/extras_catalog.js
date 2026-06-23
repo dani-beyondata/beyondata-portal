@@ -5,7 +5,7 @@ const ExtrasCatalog = (() => {
   async function getByCompany(companyId) {
     const { data, error } = await sb.from('extras_catalog')
       .select('*').eq('company_id', companyId)
-      .order('category').order('extra_code');
+      .order('category').order('display_name');
     return { data, error };
   }
 
