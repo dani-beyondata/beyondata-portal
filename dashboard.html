@@ -855,11 +855,16 @@
 <!-- Modal: Add extra -->
 <div class="modal-overlay" id="modal-extra">
   <div class="modal">
-    <h3>Add extra</h3>
+    <h3 id="modal-extra-title">Add extra</h3>
     <div class="alert error" id="extra-error"></div>
+    <input type="hidden" id="extra-edit-id">
     <div class="field"><label>Raw value (Mews product name)</label><input type="text" id="extra-code" placeholder="e.g. Breakfast Web"></div>
     <div class="field"><label>Display name (for reports)</label><input type="text" id="extra-display" placeholder="e.g. Breakfast"></div>
-    <div class="field"><label>Category</label><input type="text" id="extra-category" placeholder="e.g. WELLNESS"></div>
+    <div class="field"><label>Category</label>
+      <select id="extra-category">
+        <option value="">— Select category —</option>
+      </select>
+    </div>
     <div class="field"><label>Subcategory</label><input type="text" id="extra-subcategory" placeholder="e.g. SPA"></div>
     <div class="field"><label>Default amount (€)</label><input type="number" id="extra-amount" placeholder="0" step="0.01" min="0"></div>
     <div class="field">
@@ -1767,12 +1772,17 @@
     const { data } = await ExtrasCatalog.getByCompany(currentCompany.id);
     allExtras = data || [];
 
-    // Populate category filter from extras_categories master
+    // Populate category filter and modal dropdown from extras_categories master
     const { data: cats } = await ExtrasCategories.getByCompany(currentCompany.id);
+    const activeCats = (cats || []).filter(c => c.status === 'active');
     const catSel = document.getElementById('extras-category-filter');
     catSel.innerHTML = '<option value="">All categories</option>' +
-      (cats || []).filter(c => c.status === 'active')
-        .map(c => `<option value="${c.category_name}">${escapeHtml(c.category_name)}</option>`).join('');
+      activeCats.map(c => `<option value="${c.category_name}">${escapeHtml(c.category_name)}</option>`).join('');
+    const modalCatSel = document.getElementById('extra-category');
+    if (modalCatSel) {
+      modalCatSel.innerHTML = '<option value="">— Select category —</option>' +
+        activeCats.map(c => `<option value="${c.category_name}">${escapeHtml(c.category_name)}</option>`).join('');
+    }
 
     renderExtras(allExtras);
   }
@@ -1814,13 +1824,16 @@
       <tr>
         <td>${UI.mono(e.raw_value || e.extra_code || '—')}</td>
         <td>${e.display_name || e.raw_value || '—'}</td>
-        <td>${e.category}</td>
+        <td>${e.category || '—'}</td>
         <td>${e.subcategory || '—'}</td>
         <td style="font-family:'DM Mono',monospace;font-size:0.85rem">${parseFloat(e.default_amount).toFixed(2)} €</td>
         <td>${UI.badge(TIMING_LABELS[e.charge_timing] || e.charge_timing, TIMING_COLORS[e.charge_timing] || 'badge-user')}</td>
         <td>${UI.statusBadge(e.status === 'active')}</td>
-        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleExtra('${e.id}','${e.status}')">
-          ${e.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+        <td style="display:flex;gap:0.4rem">${isAdmin ? `
+          <button class="btn btn-secondary btn-sm" onclick="editExtra('${e.id}','${(e.raw_value||'').replace(/'/g,"\\'")}','${(e.display_name||'').replace(/'/g,"\\'")}','${(e.category||'').replace(/'/g,"\\'")}','${(e.subcategory||'').replace(/'/g,"\\'")}','${e.default_amount}','${e.charge_timing}')">Edit</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleExtra('${e.id}','${e.status}')">
+            ${e.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}
+        </td>
       </tr>
     `).join('');
   }
@@ -1885,13 +1898,40 @@
     loadExtrasCategories();
   });
 
-  document.getElementById('btn-add-extra').addEventListener('click', () => UI.openModal('modal-extra'));
+  document.getElementById('btn-add-extra').addEventListener('click', () => {
+    document.getElementById('extra-edit-id').value = '';
+    document.getElementById('modal-extra-title').textContent = 'Add extra';
+    document.getElementById('extra-code').readOnly = false;
+    document.getElementById('extra-code').style.opacity = '1';
+    ['extra-code','extra-display','extra-category','extra-subcategory','extra-amount'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('extra-timing').value = 'during_stay';
+    UI.hideAlert('extra-error');
+    UI.openModal('modal-extra');
+  });
+
+  function editExtra(id, rawValue, displayName, category, subcategory, amount, timing) {
+    document.getElementById('extra-edit-id').value = id;
+    document.getElementById('modal-extra-title').textContent = 'Edit extra';
+    document.getElementById('extra-code').value = rawValue;
+    document.getElementById('extra-code').readOnly = true;
+    document.getElementById('extra-code').style.opacity = '0.6';
+    document.getElementById('extra-display').value = displayName;
+    document.getElementById('extra-category').value = category;
+    document.getElementById('extra-subcategory').value = subcategory;
+    document.getElementById('extra-amount').value = amount;
+    document.getElementById('extra-timing').value = timing;
+    UI.hideAlert('extra-error');
+    UI.openModal('modal-extra');
+  }
 
   document.getElementById('btn-save-extra').addEventListener('click', async () => {
+    const editId          = document.getElementById('extra-edit-id').value;
     const raw_value       = document.getElementById('extra-code').value.trim();
     const display_name    = document.getElementById('extra-display').value.trim();
-    const category        = document.getElementById('extra-category').value.trim().toUpperCase();
-    const subcategory     = document.getElementById('extra-subcategory').value.trim().toUpperCase() || null;
+    const category        = document.getElementById('extra-category').value.trim();
+    const subcategory     = document.getElementById('extra-subcategory').value.trim() || null;
     const default_amount  = parseFloat(document.getElementById('extra-amount').value) || 0;
     const charge_timing   = document.getElementById('extra-timing').value;
 
@@ -1899,18 +1939,14 @@
     if (!raw_value || !category) { UI.showAlert('extra-error', 'Raw value and category are required.'); return; }
 
     UI.setLoading('btn-save-extra', true, 'Save');
-    const { error } = await ExtrasCatalog.create(currentCompany.id, {
-      raw_value, display_name: display_name || raw_value,
-      category, subcategory, default_amount, charge_timing
-    });
+    const fields = { display_name: display_name || raw_value, category, subcategory, default_amount, charge_timing };
+    const { error } = editId
+      ? await ExtrasCatalog.update(editId, fields)
+      : await ExtrasCatalog.create(currentCompany.id, { raw_value, ...fields });
     UI.setLoading('btn-save-extra', false, 'Save');
 
     if (error) { UI.showAlert('extra-error', error.message); return; }
-
     UI.closeModal('modal-extra');
-    ['extra-code','extra-display','extra-category','extra-subcategory','extra-amount'].forEach(id => {
-      document.getElementById(id).value = '';
-    });
     loadExtras();
   });
 
