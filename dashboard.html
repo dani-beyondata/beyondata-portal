@@ -404,7 +404,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Raw value</th><th>Display name</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Category name</th><th>Status</th><th></th></tr></thead>
             <tbody id="extras-categories-tbody"></tbody>
           </table>
         </div>
@@ -844,8 +844,7 @@
   <div class="modal">
     <h3>Add extras category</h3>
     <div class="alert error" id="extras-cat-error"></div>
-    <div class="field"><label>Raw value (internal key)</label><input type="text" id="extras-cat-raw" placeholder="e.g. F&B"></div>
-    <div class="field"><label>Display name (for reports)</label><input type="text" id="extras-cat-display" placeholder="e.g. Food & Beverage"></div>
+    <div class="field"><label>Category name</label><input type="text" id="extras-cat-name" placeholder="e.g. Food & Beverage"></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-extras-category')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-extras-category">Save</button>
@@ -1768,7 +1767,7 @@
     const catSel = document.getElementById('extras-category-filter');
     catSel.innerHTML = '<option value="">All categories</option>' +
       (cats || []).filter(c => c.status === 'active')
-        .map(c => `<option value="${c.raw_value}">${escapeHtml(c.display_name)}</option>`).join('');
+        .map(c => `<option value="${c.category_name}">${escapeHtml(c.category_name)}</option>`).join('');
 
     renderExtras(allExtras);
   }
@@ -1837,11 +1836,10 @@
     document.getElementById('extras-categories-count').textContent = `${data.length} categories`;
     document.getElementById('extras-categories-tbody').innerHTML = data.map(c => `
       <tr>
-        <td>${UI.mono(c.raw_value)}</td>
-        <td>${escapeHtml(c.display_name)}</td>
+        <td>${escapeHtml(c.category_name)}</td>
         <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
         <td>
-          <button class="btn btn-secondary btn-sm" onclick="editExtrasCategory('${c.id}','${c.raw_value.replace(/'/g,"\\'")}','${c.display_name.replace(/'/g,"\\'")}')">Edit</button>
+          <button class="btn btn-secondary btn-sm" onclick="editExtrasCategory('${c.id}','${c.category_name.replace(/'/g,"\\'")}')">Edit</button>
           <button class="btn btn-secondary btn-sm" onclick="toggleExtrasCategory('${c.id}','${c.status}')">
             ${c.status === 'active' ? 'Deactivate' : 'Activate'}</button>
         </td>
@@ -1853,36 +1851,29 @@
     loadExtrasCategories();
   }
 
-  function editExtrasCategory(id, rawValue, displayName) {
-    document.getElementById('extras-cat-raw').value = rawValue;
-    document.getElementById('extras-cat-raw').readOnly = true;
-    document.getElementById('extras-cat-raw').style.opacity = '0.6';
-    document.getElementById('extras-cat-display').value = displayName;
+  function editExtrasCategory(id, categoryName) {
+    document.getElementById('extras-cat-name').value = categoryName;
     document.getElementById('btn-save-extras-category').dataset.editId = id;
     UI.hideAlert('extras-cat-error');
     UI.openModal('modal-extras-category');
   }
 
   document.getElementById('btn-add-extras-category').addEventListener('click', () => {
-    document.getElementById('extras-cat-raw').value = '';
-    document.getElementById('extras-cat-raw').readOnly = false;
-    document.getElementById('extras-cat-raw').style.opacity = '1';
-    document.getElementById('extras-cat-display').value = '';
+    document.getElementById('extras-cat-name').value = '';
     delete document.getElementById('btn-save-extras-category').dataset.editId;
     UI.hideAlert('extras-cat-error');
     UI.openModal('modal-extras-category');
   });
 
   document.getElementById('btn-save-extras-category').addEventListener('click', async () => {
-    const raw_value    = document.getElementById('extras-cat-raw').value.trim();
-    const display_name = document.getElementById('extras-cat-display').value.trim();
+    const categoryName = document.getElementById('extras-cat-name').value.trim();
     const editId       = document.getElementById('btn-save-extras-category').dataset.editId;
     UI.hideAlert('extras-cat-error');
-    if (!raw_value || !display_name) { UI.showAlert('extras-cat-error', 'Both fields are required.'); return; }
+    if (!categoryName) { UI.showAlert('extras-cat-error', 'Category name is required.'); return; }
     UI.setLoading('btn-save-extras-category', true, 'Save');
     const { error } = editId
-      ? await ExtrasCategories.update(editId, { display_name })
-      : await ExtrasCategories.create(currentCompany.id, { raw_value, display_name });
+      ? await ExtrasCategories.update(editId, categoryName)
+      : await ExtrasCategories.create(currentCompany.id, categoryName);
     UI.setLoading('btn-save-extras-category', false, 'Save');
     if (error) { UI.showAlert('extras-cat-error', error.message); return; }
     UI.closeModal('modal-extras-category');
