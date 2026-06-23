@@ -61,6 +61,7 @@
 <script src="js/supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/params.js"></script>
 <script src="js/companies.js"></script>
 <script>
   async function init() {
@@ -131,10 +132,13 @@
     if (!name || !slug) { UI.showAlert('modal-error', 'Name and slug are required.'); return; }
 
     UI.setLoading('btn-create-company', true, 'Create');
-    const { error } = await Companies.create(name, slug);
+    const { data: company, error } = await Companies.create(name, slug);
     UI.setLoading('btn-create-company', false, 'Create');
 
     if (error) { UI.showAlert('modal-error', error.message); return; }
+
+    // Set default occupancy_mode param so Settings loads correctly from day one
+    await Params.set(company.id, 'occupancy_mode', 'rooms');
 
     UI.closeModal('modal-new-company');
     document.getElementById('new-name').value = '';
