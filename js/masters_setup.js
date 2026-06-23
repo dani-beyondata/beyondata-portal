@@ -203,13 +203,12 @@ const MastersSetup = (() => {
         return data || [];
       },
       async addValue(companyId, rawValue, displayName, extraFields) {
-        const subtype = extraFields?.channel_subtype || 'ota';
         const { error } = await sb.from('channels').insert({
           company_id: companyId,
           raw_value: rawValue,
           display_name: displayName || rawValue,
-          channel_subtype: subtype,
-          channel_type: subtype === 'direct' || subtype === 'booking_engine' ? 'direct' : 'indirect',
+          channel_type:    extraFields?.channel_type    || 'indirect',
+          channel_subtype: extraFields?.channel_subtype || 'ota',
           avg_cost_pct: 0,
           status: 'active',
         });
@@ -363,6 +362,17 @@ const MastersSetup = (() => {
         .order('category_name');
       extrasCategories = cats || [];
     }
+
+    // For channels: fetch registered subtypes grouped by type
+    let channelSubtypes = [];
+    if (config.actionType === 'channel') {
+      const { data: subs } = await sb.from('channel_subtypes')
+        .select('type_name, subtype_name')
+        .eq('company_id', currentCompany.id)
+        .eq('status', 'active')
+        .order('type_name').order('subtype_name');
+      channelSubtypes = subs || [];
+    }
     // beds_per_room_derived, property_id} from the parsed file rows, so we
     // can show a pre-assigned category suggestion for each room.
     let roomInfoMap = new Map();
@@ -496,20 +506,25 @@ const MastersSetup = (() => {
               <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
             </div>`;
         } else if (config.actionType === 'channel') {
-          const subtypeOptions = [
-            ['direct','Direct'],['booking_engine','Booking Engine'],
-            ['ota','OTA'],['affiliate','Affiliate'],['agency','Agency'],
-            ['gds','GDS'],['corporate','Corporate'],['events','Events'],
-          ].map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+          const types = [...new Set(channelSubtypes.map(s => s.type_name))].sort();
+          const typeOptions = types.map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
+          // Build subtype options as data attribute for dynamic filtering
+          const subtypesJson = escapeAttr(JSON.stringify(channelSubtypes));
           actionHtml = `
             <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
               <input type="text" placeholder="Display name"
                      data-role="display-name-input" data-value="${escapeAttr(value)}"
-                     style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:150px"
+                     style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:130px"
                      value="${escapeAttr(value)}">
+              <select data-role="channel-type" data-value="${escapeAttr(value)}" data-subtypes="${subtypesJson}"
+                      style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px"
+                      onchange="msFillSubtypes(this)">
+                <option value="">Type...</option>
+                ${typeOptions}
+              </select>
               <select data-role="channel-subtype" data-value="${escapeAttr(value)}"
                       style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px">
-                ${subtypeOptions}
+                <option value="">Subtype...</option>
               </select>
               <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
             </div>`;
@@ -600,8 +615,17 @@ const MastersSetup = (() => {
             const catEl = row.querySelector('select[data-role="extra-category"]');
             extraFields = { category: catEl?.value || 'UNCATEGORISED' };
           } else if (config.actionType === 'channel') {
+            const typeEl    = row.querySelector('select[data-role="channel-type"]');
             const subtypeEl = row.querySelector('select[data-role="channel-subtype"]');
-            extraFields = { channel_subtype: subtypeEl?.value || 'ota' };
+            extraFields = {
+              channel_type:    typeEl?.value    || '',
+              channel_subtype: subtypeEl?.value || '',
+            };
+            if (!extraFields.channel_type || !extraFields.channel_subtype) {
+              typeEl.style.borderColor    = extraFields.channel_type    ? '' : '#dc2626';
+              subtypeEl.style.borderColor = extraFields.channel_subtype ? '' : '#dc2626';
+              return;
+            }
           }
         }
 
