@@ -23,6 +23,7 @@ const MastersSetup = (() => {
     client_country_mapping: ['client_country', 'country', 'nationality'],
     room_categories: ['room_category_raw', 'space_category', 'category', 'room_category'],
     rooms: ['room_code_raw', 'room_code', 'room_number'],
+    extras_catalog: ['raw_value', 'product', 'extra', 'product_name'],
   };
 
   // Maps a master table's key to the matching logic needed to compare
@@ -152,6 +153,35 @@ const MastersSetup = (() => {
           beds_per_room: extraFields?.beds_per_room || 1,
           property_uuid: extraFields?.property_uuid || null,
           property_id: extraFields?.property_id || null,
+          status: 'active',
+        });
+        if (error) throw error;
+      },
+    },
+    // extras_catalog: matches raw product names from extras_master.csv against
+    // extras_catalog.raw_value. The add flow is 'text' (just a display name),
+    // since extras have additional fields (category, timing etc.) that are better
+    // set in the Extras tab after the initial master population.
+    extras_catalog: {
+      table: 'extras_catalog',
+      matchColumn: 'raw_value',
+      actionType: 'text',
+      async fetchExisting(companyId) {
+        const { data, error } = await sb
+          .from('extras_catalog')
+          .select('id, raw_value, display_name, status')
+          .eq('company_id', companyId);
+        if (error) throw error;
+        return data || [];
+      },
+      async addValue(companyId, rawValue, displayName) {
+        const { error } = await sb.from('extras_catalog').insert({
+          company_id: companyId,
+          raw_value: rawValue,
+          display_name: displayName || rawValue,
+          category: 'UNCATEGORISED',
+          charge_timing: 'during_stay',
+          default_amount: 0,
           status: 'active',
         });
         if (error) throw error;
@@ -657,9 +687,10 @@ const MastersSetup = (() => {
   // 'nights' file: room_categories (space_category column)
   const MASTERS_BY_FILE_TYPE = {
     reservations: [
-      { value: 'booking_purposes',      label: 'Booking Purposes' },
-      { value: 'segments',              label: 'Segments' },
-      { value: 'client_country_mapping',label: 'Client Country Mapping' },
+      { value: 'booking_purposes',       label: 'Booking Purposes' },
+      { value: 'segments',               label: 'Segments' },
+      { value: 'client_country_mapping', label: 'Client Country Mapping' },
+      { value: 'extras_catalog',         label: 'Extras' },
     ],
     nights: [
       { value: 'room_categories', label: 'Room Categories' },
