@@ -358,34 +358,56 @@
         <p>Extra services and products catalog.</p>
       </div>
 
-      <!-- Search + filter bar -->
-      <div class="search-bar" style="margin-bottom:1rem">
-        <div class="search-wrap">
-          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" class="search-input" placeholder="Search extra code..." id="extras-search" oninput="filterExtras()">
+      <div class="subtabs">
+        <button class="subtab active" onclick="showSubtab('extras','list')" id="subtab-extras-list">Extras</button>
+        <button class="subtab" onclick="showSubtab('extras','categories')" id="subtab-extras-categories">Categories</button>
+      </div>
+
+      <!-- Extras list subpage -->
+      <div class="subpage active" id="subpage-extras-list">
+        <!-- Search + filter bar -->
+        <div class="search-bar" style="margin-bottom:1rem">
+          <div class="search-wrap">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" class="search-input" placeholder="Search extras..." id="extras-search" oninput="filterExtras()">
+          </div>
+          <select class="filter-select" id="extras-category-filter" onchange="filterExtras()">
+            <option value="">All categories</option>
+          </select>
+          <select class="filter-select" id="extras-timing-filter" onchange="filterExtras()">
+            <option value="">All timings</option>
+            <option value="during_stay">During stay</option>
+            <option value="bookable_in_advance">Bookable in advance</option>
+            <option value="at_checkout">At checkout</option>
+          </select>
+          <div style="margin-left:auto">
+            <button class="btn btn-primary" id="btn-add-extra">+ Add extra</button>
+          </div>
         </div>
-        <select class="filter-select" id="extras-category-filter" onchange="filterExtras()">
-          <option value="">All categories</option>
-        </select>
-        <select class="filter-select" id="extras-timing-filter" onchange="filterExtras()">
-          <option value="">All timings</option>
-          <option value="during_stay">During stay</option>
-          <option value="bookable_in_advance">Bookable in advance</option>
-          <option value="at_checkout">At checkout</option>
-        </select>
-        <div style="margin-left:auto">
-          <button class="btn btn-primary" id="btn-add-extra">+ Add extra</button>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Raw value (Mews)</th><th>Display name</th><th>Category</th><th>Subcategory</th>
+              <th>Default €</th><th>Charge timing</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="extras-tbody"></tbody>
+          </table>
         </div>
       </div>
 
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th>Raw value (Mews)</th><th>Display name</th><th>Category</th><th>Subcategory</th>
-            <th>Default €</th><th>Charge timing</th><th>Status</th><th></th>
-          </tr></thead>
-          <tbody id="extras-tbody"></tbody>
-        </table>
+      <!-- Extras categories subpage -->
+      <div class="subpage" id="subpage-extras-categories">
+        <div class="action-bar">
+          <h3 id="extras-categories-count"></h3>
+          <button class="btn btn-primary" id="btn-add-extras-category">+ Add category</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Raw value</th><th>Display name</th><th>Status</th><th></th></tr></thead>
+            <tbody id="extras-categories-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -817,6 +839,20 @@
   </div>
 </div>
 
+<!-- Modal: Add extras category -->
+<div class="modal-overlay" id="modal-extras-category">
+  <div class="modal">
+    <h3>Add extras category</h3>
+    <div class="alert error" id="extras-cat-error"></div>
+    <div class="field"><label>Raw value (internal key)</label><input type="text" id="extras-cat-raw" placeholder="e.g. F&B"></div>
+    <div class="field"><label>Display name (for reports)</label><input type="text" id="extras-cat-display" placeholder="e.g. Food & Beverage"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-extras-category')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-extras-category">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Add extra -->
 <div class="modal-overlay" id="modal-extra">
   <div class="modal">
@@ -1086,6 +1122,7 @@
 <script src="js/rooms.js"></script>
 <script src="js/availability.js"></script>
 <script src="js/extras_catalog.js"></script>
+<script src="js/extras_categories.js"></script>
 <script src="js/countries.js"></script>
 <script src="js/client_country_mapping.js"></script>
 <script src="js/masters_setup.js"></script>
@@ -1713,6 +1750,10 @@
     if (section === 'markets') {
       if (tab === 'client-mapping') loadClientCountryMapping();
     }
+    if (section === 'extras') {
+      if (tab === 'categories') loadExtrasCategories();
+      if (tab === 'list') loadExtras();
+    }
   }
 
   // ── EXTRAS CATALOG ────────────────────────────────────────────────
@@ -1722,11 +1763,12 @@
     const { data } = await ExtrasCatalog.getByCompany(currentCompany.id);
     allExtras = data || [];
 
-    // Populate category filter
-    const cats = [...new Set(allExtras.map(e => e.category))].sort();
+    // Populate category filter from extras_categories master
+    const { data: cats } = await ExtrasCategories.getByCompany(currentCompany.id);
     const catSel = document.getElementById('extras-category-filter');
     catSel.innerHTML = '<option value="">All categories</option>' +
-      cats.map(c => `<option value="${c}">${c}</option>`).join('');
+      (cats || []).filter(c => c.status === 'active')
+        .map(c => `<option value="${c.raw_value}">${escapeHtml(c.display_name)}</option>`).join('');
 
     renderExtras(allExtras);
   }
@@ -1783,6 +1825,69 @@
     await ExtrasCatalog.toggleStatus(id, status);
     loadExtras();
   }
+
+  async function loadExtrasCategories() {
+    UI.tableLoading('extras-categories-tbody', 4);
+    const { data, error } = await ExtrasCategories.getByCompany(currentCompany.id);
+    if (error || !data?.length) {
+      UI.tableEmpty('extras-categories-tbody', 4, 'No categories yet — add one to get started.');
+      document.getElementById('extras-categories-count').textContent = '0 categories';
+      return;
+    }
+    document.getElementById('extras-categories-count').textContent = `${data.length} categories`;
+    document.getElementById('extras-categories-tbody').innerHTML = data.map(c => `
+      <tr>
+        <td>${UI.mono(c.raw_value)}</td>
+        <td>${escapeHtml(c.display_name)}</td>
+        <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="editExtrasCategory('${c.id}','${c.raw_value.replace(/'/g,"\\'")}','${c.display_name.replace(/'/g,"\\'")}')">Edit</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleExtrasCategory('${c.id}','${c.status}')">
+            ${c.status === 'active' ? 'Deactivate' : 'Activate'}</button>
+        </td>
+      </tr>`).join('');
+  }
+
+  async function toggleExtrasCategory(id, status) {
+    await ExtrasCategories.toggle(id, status);
+    loadExtrasCategories();
+  }
+
+  function editExtrasCategory(id, rawValue, displayName) {
+    document.getElementById('extras-cat-raw').value = rawValue;
+    document.getElementById('extras-cat-raw').readOnly = true;
+    document.getElementById('extras-cat-raw').style.opacity = '0.6';
+    document.getElementById('extras-cat-display').value = displayName;
+    document.getElementById('btn-save-extras-category').dataset.editId = id;
+    UI.hideAlert('extras-cat-error');
+    UI.openModal('modal-extras-category');
+  }
+
+  document.getElementById('btn-add-extras-category').addEventListener('click', () => {
+    document.getElementById('extras-cat-raw').value = '';
+    document.getElementById('extras-cat-raw').readOnly = false;
+    document.getElementById('extras-cat-raw').style.opacity = '1';
+    document.getElementById('extras-cat-display').value = '';
+    delete document.getElementById('btn-save-extras-category').dataset.editId;
+    UI.hideAlert('extras-cat-error');
+    UI.openModal('modal-extras-category');
+  });
+
+  document.getElementById('btn-save-extras-category').addEventListener('click', async () => {
+    const raw_value    = document.getElementById('extras-cat-raw').value.trim();
+    const display_name = document.getElementById('extras-cat-display').value.trim();
+    const editId       = document.getElementById('btn-save-extras-category').dataset.editId;
+    UI.hideAlert('extras-cat-error');
+    if (!raw_value || !display_name) { UI.showAlert('extras-cat-error', 'Both fields are required.'); return; }
+    UI.setLoading('btn-save-extras-category', true, 'Save');
+    const { error } = editId
+      ? await ExtrasCategories.update(editId, { display_name })
+      : await ExtrasCategories.create(currentCompany.id, { raw_value, display_name });
+    UI.setLoading('btn-save-extras-category', false, 'Save');
+    if (error) { UI.showAlert('extras-cat-error', error.message); return; }
+    UI.closeModal('modal-extras-category');
+    loadExtrasCategories();
+  });
 
   document.getElementById('btn-add-extra').addEventListener('click', () => UI.openModal('modal-extra'));
 
