@@ -3374,6 +3374,7 @@
   });
 
 
+  async function saveAvailability() {
     const propertyId   = document.getElementById('avail-property-filter').value; // UUID
     const propertySlug = window._availPropertySlugMap?.[propertyId] || '';
     const rows = Object.entries(availPending).map(([date, fields]) => ({
