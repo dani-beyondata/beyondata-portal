@@ -5,26 +5,28 @@ const ExtrasCategories = (() => {
   async function getByCompany(companyId) {
     const { data, error } = await sb.from('extras_categories')
       .select('*').eq('company_id', companyId)
-      .order('display_name');
+      .order('category_name');
     return { data, error };
   }
 
-  async function create(companyId, fields) {
+  async function create(companyId, categoryName) {
     const { data, error } = await sb.from('extras_categories')
-      .insert({ ...fields, company_id: companyId, status: 'active' })
+      .insert({ company_id: companyId, category_name: categoryName, status: 'active' })
       .select().single();
     return { data, error };
   }
 
-  async function update(id, fields) {
+  async function update(id, categoryName) {
     const { data, error } = await sb.from('extras_categories')
-      .update({ ...fields, updated_at: new Date().toISOString() }).eq('id', id);
+      .update({ category_name: categoryName, updated_at: new Date().toISOString() }).eq('id', id);
     return { data, error };
   }
 
   async function toggle(id, currentStatus) {
     const status = currentStatus === 'active' ? 'inactive' : 'active';
-    return await update(id, { status });
+    const { data, error } = await sb.from('extras_categories')
+      .update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+    return { data, error };
   }
 
   return { getByCompany, create, update, toggle };
