@@ -1130,6 +1130,11 @@
   let currentCompany = null;
   let isAdmin = false;
 
+  // Global HTML escape utility — used by functions outside the MastersSetup module
+  function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   // ── INIT ──────────────────────────────────────────────────────────
   async function init() {
     const session = await Auth.requireAuth();
