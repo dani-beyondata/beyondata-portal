@@ -23,11 +23,32 @@
   font-weight: 700;
   color: rgba(255,255,255,0.95);
   letter-spacing: 0.05em;
+  display: flex;
+  align-items: baseline;
 }
 
 .brand-name span {
   color: rgba(255,255,255,0.55);
   font-weight: 400;
+}
+
+/* Split-D logo */
+.logo-beyon {
+  color: rgba(255,255,255,0.95);
+  font-weight: 700;
+}
+
+.logo-d {
+  background: linear-gradient(135deg, rgba(255,255,255,0.95) 50%, #60a5fa 50%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+}
+
+.logo-ata {
+  color: #60a5fa;
+  font-weight: 700;
 }
 
 .company-pill {
@@ -172,10 +193,23 @@
   font-size: 1.75rem;
   color: var(--brand);
   letter-spacing: 0.06em;
+  justify-content: center;
 }
 .login-brand .brand-name span {
   color: var(--text-muted);
   font-weight: 400;
+}
+.login-brand .logo-beyon {
+  color: var(--brand);
+}
+.login-brand .logo-d {
+  background: linear-gradient(135deg, var(--brand) 50%, #3D65A8 50%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.login-brand .logo-ata {
+  color: var(--brand-dark);
 }
 
 .login-brand .brand-sub {
