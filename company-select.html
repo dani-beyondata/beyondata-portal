@@ -99,7 +99,7 @@
         <div class="company-card-slug">${c.slug}</div>
         <div class="company-card-meta">
           <div class="meta-item"><strong>${propCount}</strong>Properties</div>
-          <div class="meta-item"><strong><span class="status-dot"></span>${c.active ? 'Active' : 'Inactive'}</strong>Status</div>
+          <div class="meta-item"><strong><span class="status-dot" style="background:${c.active ? 'var(--success,#16a34a)' : 'var(--error,#dc2626)'}"></span>${c.active ? 'Active' : 'Inactive'}</strong>Status</div>
         </div>
       `;
       card.addEventListener('click', () => {
