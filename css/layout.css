@@ -21,24 +21,19 @@
 .brand-name {
   font-size: 1.05rem;
   font-weight: 700;
-  color: rgba(255,255,255,0.95);
   letter-spacing: 0.05em;
   display: flex;
   align-items: baseline;
 }
 
-.brand-name span {
-  color: rgba(255,255,255,0.55);
-  font-weight: 400;
-}
-
-/* Split-D logo */
-.logo-beyon {
-  color: rgba(255,255,255,0.95);
+/* Split-D logo — specific classes override any inherited span styles */
+.brand-name .logo-beyon {
+  color: rgba(255,255,255,0.95) !important;
   font-weight: 700;
+  -webkit-text-fill-color: rgba(255,255,255,0.95);
 }
 
-.logo-d {
+.brand-name .logo-d {
   background: linear-gradient(135deg, rgba(255,255,255,0.95) 50%, #60a5fa 50%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -46,9 +41,10 @@
   font-weight: 700;
 }
 
-.logo-ata {
-  color: #60a5fa;
+.brand-name .logo-ata {
+  color: #60a5fa !important;
   font-weight: 700;
+  -webkit-text-fill-color: #60a5fa;
 }
 
 .company-pill {
