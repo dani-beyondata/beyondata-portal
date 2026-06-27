@@ -209,6 +209,7 @@ const MastersSetup = (() => {
           display_name: displayName || rawValue,
           channel_type:    extraFields?.channel_type    || 'indirect',
           channel_subtype: extraFields?.channel_subtype || 'ota',
+          rate_type:       extraFields?.rate_type       || 'gross',
           avg_cost_pct: 0,
           status: 'active',
         });
@@ -526,6 +527,11 @@ const MastersSetup = (() => {
                       style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px">
                 <option value="">Subtype...</option>
               </select>
+              <select data-role="channel-rate-type" data-value="${escapeAttr(value)}"
+                      style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px">
+                <option value="gross">Gross</option>
+                <option value="net">Net</option>
+              </select>
               <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
             </div>`;
         } else {
@@ -615,11 +621,13 @@ const MastersSetup = (() => {
             const catEl = row.querySelector('select[data-role="extra-category"]');
             extraFields = { category: catEl?.value || 'UNCATEGORISED' };
           } else if (config.actionType === 'channel') {
-            const typeEl    = row.querySelector('select[data-role="channel-type"]');
-            const subtypeEl = row.querySelector('select[data-role="channel-subtype"]');
+            const typeEl      = row.querySelector('select[data-role="channel-type"]');
+            const subtypeEl   = row.querySelector('select[data-role="channel-subtype"]');
+            const rateTypeEl  = row.querySelector('select[data-role="channel-rate-type"]');
             extraFields = {
               channel_type:    typeEl?.value    || '',
               channel_subtype: subtypeEl?.value || '',
+              rate_type:       rateTypeEl?.value || 'gross',
             };
             if (!extraFields.channel_type || !extraFields.channel_subtype) {
               typeEl.style.borderColor    = extraFields.channel_type    ? '' : '#dc2626';
