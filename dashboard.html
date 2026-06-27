@@ -665,7 +665,7 @@
         <div class="table-wrap">
           <table>
             <thead><tr>
-              <th>Raw value</th><th>Display name</th><th>Type</th><th>Subtype</th><th>Avg Cost %</th><th>Status</th><th></th>
+              <th>Raw value</th><th>Display name</th><th>Type</th><th>Subtype</th><th>Avg Cost %</th><th>Rate type</th><th>Status</th><th></th>
             </tr></thead>
             <tbody id="channels-tbody"></tbody>
           </table>
@@ -1131,6 +1131,13 @@
       </select>
     </div>
     <div class="field"><label>Avg cost % (e.g. 0.15 for 15%)</label><input type="number" id="ch-cost" placeholder="0.15" step="0.01" min="0" max="1"></div>
+    <div class="field">
+      <label>Rate type</label>
+      <select id="ch-rate-type">
+        <option value="gross">Gross (commission not yet deducted)</option>
+        <option value="net">Net (commission already deducted)</option>
+      </select>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-channel')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-channel">Save</button>
@@ -1540,6 +1547,7 @@
         <td>${c.channel_type}</td>
         <td>${c.channel_subtype}</td>
         <td>${(c.avg_cost_pct * 100).toFixed(0)}%</td>
+        <td><span class="badge" style="background:${(c.rate_type||'gross')==='net'?'#d1fae5':'#fef3c7'};color:${(c.rate_type||'gross')==='net'?'#065f46':'#92400e'}">${(c.rate_type||'gross').toUpperCase()}</span></td>
         <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
         <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="editChannel('${c.id}')">Edit</button>
           <button class="btn btn-secondary btn-sm" onclick="toggleChannel('${c.id}','${c.status}')">
@@ -1585,6 +1593,7 @@
     document.getElementById('ch-code').style.opacity = '0.6';
     document.getElementById('ch-name').value = c.display_name || '';
     document.getElementById('ch-cost').value = c.avg_cost_pct;
+    document.getElementById('ch-rate-type').value = c.rate_type || 'gross';
     await populateChannelDropdowns(c.channel_type, c.channel_subtype);
     UI.hideAlert('channel-error');
     UI.openModal('modal-channel');
@@ -1598,6 +1607,7 @@
     document.getElementById('ch-code').style.opacity = '1';
     document.getElementById('ch-name').value = '';
     document.getElementById('ch-cost').value = '';
+    document.getElementById('ch-rate-type').value = 'gross';
     await populateChannelDropdowns('', '');
     UI.hideAlert('channel-error');
     UI.openModal('modal-channel');
@@ -1606,11 +1616,13 @@
   document.getElementById('btn-save-channel').addEventListener('click', async () => {
     const channel_type    = document.getElementById('ch-type').value;
     const channel_subtype = document.getElementById('ch-subtype').value;
+    const rate_type       = document.getElementById('ch-rate-type').value || 'gross';
     const fields = {
       display_name: document.getElementById('ch-name').value.trim(),
       channel_type,
       channel_subtype,
       avg_cost_pct: parseFloat(document.getElementById('ch-cost').value) || 0,
+      rate_type,
     };
     if (!window._editingChannelId) {
       fields.raw_value = document.getElementById('ch-code').value.trim();
