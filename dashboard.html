@@ -1133,10 +1133,11 @@
     <div class="field"><label>Avg cost % (e.g. 0.15 for 15%)</label><input type="number" id="ch-cost" placeholder="0.15" step="0.01" min="0" max="1"></div>
     <div class="field">
       <label>Rate type</label>
-      <select id="ch-rate-type">
+      <select id="ch-rate-type" disabled style="opacity:0.5;cursor:not-allowed">
         <option value="gross">Gross (commission not yet deducted)</option>
         <option value="net">Net (commission already deducted)</option>
       </select>
+      <p class="field-hint" style="color:#f59e0b">⏳ Available after Monday's DB update — save will ignore this field until then.</p>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-channel')">Cancel</button>
@@ -1616,13 +1617,12 @@
   document.getElementById('btn-save-channel').addEventListener('click', async () => {
     const channel_type    = document.getElementById('ch-type').value;
     const channel_subtype = document.getElementById('ch-subtype').value;
-    const rate_type       = document.getElementById('ch-rate-type').value || 'gross';
     const fields = {
       display_name: document.getElementById('ch-name').value.trim(),
       channel_type,
       channel_subtype,
       avg_cost_pct: parseFloat(document.getElementById('ch-cost').value) || 0,
-      rate_type,
+      // rate_type excluded until DB migration on Monday
     };
     if (!window._editingChannelId) {
       fields.raw_value = document.getElementById('ch-code').value.trim();
