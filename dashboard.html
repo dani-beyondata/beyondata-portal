@@ -300,7 +300,11 @@
           <h2>Masters Setup</h2>
           <p>Upload an export file to find values missing from this company's master catalogs, and add them with one click.</p>
         </div>
-        <button class="btn btn-secondary" id="btn-export-masters">⬇ Download masters Excel</button>
+        <div style="display:flex;gap:0.5rem">
+          <button class="btn btn-secondary" id="btn-export-masters">⬇ Download masters Excel</button>
+          <button class="btn btn-secondary" id="btn-import-masters">⬆ Upload masters Excel</button>
+          <input type="file" id="import-masters-file" accept=".xlsx,.xls" style="display:none">
+        </div>
       </div>
 
       <!-- File type selector -->
@@ -710,6 +714,24 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- Modal: Import masters preview -->
+<div class="modal-overlay" id="modal-import-masters">
+  <div class="modal" style="max-width:560px">
+    <h3>Import masters from Excel</h3>
+    <div class="alert error" id="import-masters-error"></div>
+    <div class="alert success" id="import-masters-success"></div>
+    <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem">
+      Review the changes below. Inserts create new rows; updates modify existing rows
+      matched by their raw value. Nothing is ever deleted.
+    </p>
+    <div id="import-masters-summary" style="max-height:320px;overflow:auto;font-size:0.85rem"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-import-masters')">Cancel</button>
+      <button class="btn btn-primary" id="btn-apply-import-masters">Apply changes</button>
+    </div>
   </div>
 </div>
 
@@ -1187,6 +1209,7 @@
 <script src="js/masters_setup.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="js/masters_export.js"></script>
+<script src="js/masters_import.js"></script>
 <script>
   let currentProfile = null;
   let currentCompany = null;
@@ -4453,6 +4476,57 @@
     }
     btn.disabled = false;
     btn.textContent = '⬇ Download masters Excel';
+  });
+
+  let _importPlan = null;
+  document.getElementById('btn-import-masters').addEventListener('click', () => {
+    document.getElementById('import-masters-file').click();
+  });
+  document.getElementById('import-masters-file').addEventListener('change', async (ev) => {
+    const file = ev.target.files[0];
+    if (!file) return;
+    ev.target.value = '';
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf);
+    UI.hideAlert('import-masters-error');
+    UI.hideAlert('import-masters-success');
+    document.getElementById('import-masters-summary').innerHTML =
+      '<em style="color:var(--text-muted)">Analysing...</em>';
+    UI.openModal('modal-import-masters');
+    try {
+      _importPlan = await MastersImport.buildPlan(wb, currentCompany.id);
+    } catch (e) {
+      UI.showAlert('import-masters-error', e.message);
+      return;
+    }
+    const rows = _importPlan.map(s => {
+      if (s.error) return `<tr><td>${escapeHtml(s.name)}</td><td colspan="3" style="color:#dc2626">${escapeHtml(s.error)}</td></tr>`;
+      return `<tr>
+        <td>${escapeHtml(s.name)}</td>
+        <td>${s.inserts.length ? `<strong style="color:#16a34a">+${s.inserts.length}</strong>` : '0'}</td>
+        <td>${s.updates.length ? `<strong style="color:#d97706">${s.updates.length}</strong>` : '0'}</td>
+        <td style="color:var(--text-muted)">${s.unchanged}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('import-masters-summary').innerHTML = _importPlan.length
+      ? `<table style="width:100%"><thead><tr><th style="text-align:left">Sheet</th><th>Inserts</th><th>Updates</th><th>Unchanged</th></tr></thead><tbody>${rows}</tbody></table>`
+      : '<em>No recognisable master sheets found in this file.</em>';
+  });
+
+  document.getElementById('btn-apply-import-masters').addEventListener('click', async () => {
+    if (!_importPlan) return;
+    const btn = document.getElementById('btn-apply-import-masters');
+    btn.disabled = true; btn.textContent = 'Applying...';
+    const results = await MastersImport.applyPlan(_importPlan, currentCompany.id);
+    btn.disabled = false; btn.textContent = 'Apply changes';
+    const failed = results.filter(r => r.failed);
+    if (failed.length) {
+      UI.showAlert('import-masters-error',
+        failed.map(f => `${f.name}: ${f.failed} failed (${f.firstError})`).join(' · '));
+    }
+    const okTotal = results.reduce((a, r) => a + r.ok, 0);
+    UI.showAlert('import-masters-success', `Applied ${okTotal} change(s).`, 'success');
+    _importPlan = null;
   });
 
   document.getElementById('btn-signout').addEventListener('click', () => Auth.logout());
