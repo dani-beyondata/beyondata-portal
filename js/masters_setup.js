@@ -889,7 +889,35 @@ const MastersSetup = (() => {
     ).join('');
   }
 
-  return { init, switchFileType(type) {
+  // Compute pending (not-in-master) values per master for the currently
+  // uploaded file. Used by the Excel export to include "PENDING" sheets.
+  async function getPendingSheets() {
+    if (!parsedRows || !parsedRows.length) return [];
+    const sheets = [];
+    for (const m of (MASTERS_BY_FILE_TYPE[currentFileType] || [])) {
+      const config = MASTER_CONFIG[m.value];
+      if (!config) continue;
+      const col = guessColumn(m.value, parsedHeaders);
+      if (!col) continue;
+      let existing;
+      try { existing = await config.fetchExisting(currentCompany.id); } catch (e) { continue; }
+      const existingSet = new Set(existing.map(r => String(r[config.matchColumn] ?? '').toLowerCase().trim()));
+      const counts = {};
+      parsedRows.forEach(r => {
+        const v = String(r[col] ?? '').trim();
+        if (!v) return;
+        counts[v] = (counts[v] || 0) + 1;
+      });
+      const pending = Object.entries(counts)
+        .filter(([v]) => !existingSet.has(v.toLowerCase()))
+        .sort((a, b) => b[1] - a[1])
+        .map(([v, n]) => ({ 'Raw value (PMS)': v, 'Rows in file': n, 'Display name (fill in)': '' }));
+      if (pending.length) sheets.push({ name: `PENDING ${m.label}`, rows: pending });
+    }
+    return sheets;
+  }
+
+  return { init, getPendingSheets, switchFileType(type) {
     currentFileType = type;
     parsedRows = null;
     parsedHeaders = null;
