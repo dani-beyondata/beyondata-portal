@@ -307,48 +307,33 @@
         </div>
       </div>
 
-      <!-- Files in memory status bar -->
+      <!-- Files in memory: upload slots + master selection -->
       <div id="ms-memory-bar" style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.25rem"></div>
 
-      <!-- File type selector -->
-      <div class="subtabs" id="ms-file-type-tabs" style="margin-bottom:1.5rem">
-        <button class="subtab active" id="ms-tab-reservations" onclick="msSwitchFileType('reservations')">Reservations file</button>
-        <button class="subtab" id="ms-tab-nights" onclick="msSwitchFileType('nights')">Nights file</button>
-        <button class="subtab" id="ms-tab-extras" onclick="msSwitchFileType('extras')">Extras file</button>
-      </div>
-
-      <div class="action-bar">
-        <h3 id="ms-upload-label">1. Upload reservations file</h3>
-      </div>
-      <div class="field" style="max-width:480px">
-        <input type="file" id="ms-file-input" accept=".csv">
-        <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.4rem">
-          CSV only. The file is read in your browser and is never uploaded or stored anywhere — only the column you pick below is used, in memory, for this session.
-        </p>
-      </div>
       <div class="alert error" id="ms-file-error"></div>
       <div id="ms-property-banner" style="display:none"></div>
 
-      <div id="ms-after-upload" style="display:none">
-        <div class="action-bar" style="margin-top:1.5rem">
-          <h3>2. Choose master &amp; column</h3>
+      <!-- Legacy controls kept hidden: card clicks drive these programmatically -->
+      <div style="display:none">
+        <div class="subtabs" id="ms-file-type-tabs">
+          <button class="subtab active" id="ms-tab-reservations" onclick="msSwitchFileType('reservations')">Reservations file</button>
+          <button class="subtab" id="ms-tab-nights" onclick="msSwitchFileType('nights')">Nights file</button>
+          <button class="subtab" id="ms-tab-extras" onclick="msSwitchFileType('extras')">Extras file</button>
         </div>
-        <div class="field" style="max-width:480px">
-          <label>Master catalog</label>
-          <select id="ms-master-select">
-            <option value="booking_purposes">Booking Purposes</option>
-            <option value="segments">Segments</option>
-            <option value="client_country_mapping">Client Country Mapping</option>
-          </select>
-        </div>
-        <div class="field" style="max-width:480px">
-          <label>Column from your file</label>
-          <select id="ms-column-select"></select>
-          <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.4rem" id="ms-column-hint"></p>
-        </div>
+        <h3 id="ms-upload-label">1. Upload reservations file</h3>
+        <input type="file" id="ms-file-input" accept=".csv">
+        <select id="ms-master-select">
+          <option value="booking_purposes">Booking Purposes</option>
+          <option value="segments">Segments</option>
+          <option value="client_country_mapping">Client Country Mapping</option>
+        </select>
+        <select id="ms-column-select"></select>
+        <p id="ms-column-hint"></p>
+      </div>
 
-        <div class="action-bar" style="margin-top:1.5rem">
-          <h3 id="ms-results-count">3. Review distinct values</h3>
+      <div id="ms-after-upload" style="display:none">
+        <div class="action-bar" style="margin-top:0.5rem">
+          <h3 id="ms-results-count">Review distinct values</h3>
           <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;color:var(--text-muted);cursor:pointer">
             <input type="checkbox" id="ms-unresolved-only"> Show only unresolved
           </label>
