@@ -184,10 +184,10 @@ const MastersExport = (() => {
       })));
     }
 
-    // ── Pending values from the file currently loaded in Masters Setup ──
+    // ── Pending values from ALL files loaded in Masters Setup ──
     try {
-      if (typeof MastersSetup !== 'undefined' && MastersSetup.getPendingSheets) {
-        const pending = await MastersSetup.getPendingSheets();
+      if (typeof MastersSetup !== 'undefined' && MastersSetup.getAllPendingSheets) {
+        const pending = await MastersSetup.getAllPendingSheets();
         pending.forEach(p => addSheet(wb, p.name, p.rows));
       }
     } catch (e) { /* pending is best-effort */ }
