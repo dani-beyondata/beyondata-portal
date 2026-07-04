@@ -295,9 +295,12 @@
 
     <!-- MASTERS SETUP -->
     <div class="section" id="section-masters_setup">
-      <div class="section-header">
-        <h2>Masters Setup</h2>
-        <p>Upload an export file to find values missing from this company's master catalogs, and add them with one click.</p>
+      <div class="section-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
+        <div>
+          <h2>Masters Setup</h2>
+          <p>Upload an export file to find values missing from this company's master catalogs, and add them with one click.</p>
+        </div>
+        <button class="btn btn-secondary" id="btn-export-masters">⬇ Download masters Excel</button>
       </div>
 
       <!-- File type selector -->
@@ -1182,6 +1185,8 @@
 <script src="js/countries.js"></script>
 <script src="js/client_country_mapping.js"></script>
 <script src="js/masters_setup.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/masters_export.js"></script>
 <script>
   let currentProfile = null;
   let currentCompany = null;
@@ -4437,6 +4442,19 @@
   }
 
   // ── GLOBAL ────────────────────────────────────────────────────────
+  document.getElementById('btn-export-masters').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-export-masters');
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
+    try {
+      await MastersExport.exportAll(currentCompany.id, currentCompany.name);
+    } catch (e) {
+      alert('Export failed: ' + e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = '⬇ Download masters Excel';
+  });
+
   document.getElementById('btn-signout').addEventListener('click', () => Auth.logout());
   document.getElementById('btn-switch').addEventListener('click', () => { window.location.href = 'company-select.html'; });
 
