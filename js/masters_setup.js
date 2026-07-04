@@ -645,6 +645,7 @@ const MastersSetup = (() => {
         try {
           await config.addValue(currentCompany.id, value, secondValue, extraFields);
           await renderResults(masterKey, column); // refresh full table to reflect new state
+          updateMemoryCounts(); // refresh card badges & traffic lights
         } catch (e) {
           UI.showAlert('ms-file-error', `Could not add "${value}": ${e.message}`);
           btn.disabled = false;
@@ -1003,7 +1004,7 @@ const MastersSetup = (() => {
     handleFileSelected(file);
   }
 
-  // Status bar: upload slots + mapping + counts.
+  // Status bar: upload slots + clickable masters + counts with traffic-light colors.
   function renderMemoryBar() {
     const bar = document.getElementById('ms-memory-bar');
     if (!bar) return;
@@ -1016,7 +1017,7 @@ const MastersSetup = (() => {
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ms-slot-file-${t}').click()">
           ${p ? 'Replace file' : 'Upload file'}</button>`;
       if (!p) {
-        return `<div style="flex:1;min-width:230px;padding:0.6rem 0.8rem;border:1px dashed var(--border,#ccc);border-radius:8px;color:var(--text-muted);font-size:0.82rem">
+        return `<div id="ms-slot-card-${t}" style="flex:1;min-width:240px;padding:0.6rem 0.8rem;border:1px dashed var(--border,#ccc);border-radius:8px;color:var(--text-muted);font-size:0.82rem">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <strong>${labels[t]}</strong>${uploadBtn}
           </div>
@@ -1027,18 +1028,22 @@ const MastersSetup = (() => {
           .concat(p.headers.map(h =>
             `<option value="${escapeAttr(h)}" ${p.columnMap[m.value] === h ? 'selected' : ''}>${escapeHtml(h)}</option>`))
           .join('');
-        return `<div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.25rem;flex-wrap:wrap">
-          <span style="min-width:110px;font-size:0.75rem">${escapeHtml(m.label)}</span>
-          <select onchange="msSetColumnMap('${t}','${m.value}',this.value)"
+        return `<div id="ms-mrow-${t}-${m.value}"
+                     style="display:flex;align-items:center;gap:0.4rem;margin-top:0.3rem;flex-wrap:wrap;padding:0.25rem 0.4rem;border-radius:6px;cursor:pointer"
+                     onmouseover="this.style.background='rgba(0,0,0,0.05)'" onmouseout="this.style.background=''"
+                     onclick="msSelectMaster('${t}','${m.value}')">
+          <span style="min-width:110px;font-size:0.78rem;font-weight:600">${escapeHtml(m.label)} ›</span>
+          <select onclick="event.stopPropagation()" onchange="msSetColumnMap('${t}','${m.value}',this.value)"
                   style="font-size:0.75rem;padding:0.15rem 0.3rem;border:1px solid var(--border,#ccc);border-radius:4px">${opts}</select>
           <span id="ms-count-${t}-${m.value}" style="font-size:0.72rem;color:var(--text-muted)">…</span>
         </div>`;
       }).join('');
-      return `<div style="flex:1;min-width:230px;padding:0.6rem 0.8rem;border:1px solid #16a34a;border-radius:8px;font-size:0.82rem;background:#f0fdf4">
+      return `<div id="ms-slot-card-${t}" style="flex:1;min-width:240px;padding:0.6rem 0.8rem;border:1px solid #16a34a;border-radius:8px;font-size:0.82rem;background:#f0fdf4">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">
           <strong>${labels[t]}</strong>${uploadBtn}
         </div>
         <div style="margin-top:0.25rem">✓ ${escapeHtml(p.filename)} (${p.rows.length.toLocaleString()} rows)</div>
+        <div style="margin-top:0.35rem;font-size:0.72rem;color:var(--text-muted)">Click a master to review & add:</div>
         ${mappers}</div>`;
     }).join('');
     updateMemoryCounts();
@@ -1050,12 +1055,49 @@ const MastersSetup = (() => {
     Object.entries(MASTERS_BY_FILE_TYPE).forEach(([t, ms]) =>
       ms.forEach(m => masterKeyByLabel[`${t}|${m.label}`] = m.value));
     summary.forEach(f => {
+      let totalPending = 0;
       f.masters.forEach(m => {
         const key = masterKeyByLabel[`${f.fileType}|${m.label}`];
         const el = document.getElementById(`ms-count-${f.fileType}-${key}`);
-        if (el) el.textContent = m.inDb === '-' ? '' : `${m.inDb} in master · ${m.pending} pending`;
+        if (!el) return;
+        if (m.inDb === '-') { el.textContent = ''; return; }
+        const pend = m.pending;
+        totalPending += pend;
+        if (pend === 0) {
+          el.innerHTML = `<span style="color:#16a34a">✓ ${m.inDb} in master</span>`;
+        } else {
+          const color = pend > 10 ? '#dc2626' : '#d97706';
+          el.innerHTML = `${m.inDb} in master · <strong style="color:${color}">${pend} pending</strong>`;
+        }
       });
+      // Traffic light on the card
+      const card = document.getElementById(`ms-slot-card-${f.fileType}`);
+      if (card) {
+        if (totalPending === 0)      { card.style.border = '1px solid #16a34a'; card.style.background = '#f0fdf4'; }
+        else if (totalPending <= 10) { card.style.border = '1px solid #d97706'; card.style.background = '#fffbeb'; }
+        else                         { card.style.border = '1px solid #dc2626'; card.style.background = '#fef2f2'; }
+      }
     });
+  }
+
+  // Click a master in a card → load its review table below.
+  function selectMaster(fileType, masterKey) {
+    const p = parsedByType[fileType];
+    if (!p) return;
+    currentFileType = fileType;
+    parsedRows = p.rows;
+    parsedHeaders = p.headers;
+    updateMasterOptions();
+    const masterSelect = document.getElementById('ms-master-select');
+    const columnSelect = document.getElementById('ms-column-select');
+    masterSelect.value = masterKey;
+    columnSelect.innerHTML = p.headers.map(h => `<option value="${escapeAttr(h)}">${escapeHtml(h)}</option>`).join('');
+    const col = p.columnMap[masterKey] || guessColumn(masterKey, p.headers);
+    if (!col) { UI.showAlert('ms-file-error', 'Pick a column for this master first (dropdown in the card).'); return; }
+    columnSelect.value = col;
+    document.getElementById('ms-after-upload').style.display = 'block';
+    renderResults(masterKey, col);
+    document.getElementById('ms-after-upload').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function setColumnMap(fileType, masterKey, column) {
@@ -1065,7 +1107,7 @@ const MastersSetup = (() => {
     }
   }
 
-  return { init, getPendingSheets, getAllPendingSheets, renderMemoryBar, setColumnMap, computeSummary, uploadFor, switchFileType(type) {
+  return { init, getPendingSheets, getAllPendingSheets, renderMemoryBar, setColumnMap, computeSummary, uploadFor, selectMaster, switchFileType(type) {
     currentFileType = type;
     const fileInput = document.getElementById('ms-file-input');
     fileInput.value = '';
@@ -1103,3 +1145,4 @@ function initMastersSetup() { MastersSetup.init(); }
 function msSwitchFileType(type) { MastersSetup.switchFileType(type); }
 function msSetColumnMap(fileType, masterKey, column) { MastersSetup.setColumnMap(fileType, masterKey, column); }
 function msUploadFor(fileType, file) { if (file) MastersSetup.uploadFor(fileType, file); }
+function msSelectMaster(fileType, masterKey) { MastersSetup.selectMaster(fileType, masterKey); }
