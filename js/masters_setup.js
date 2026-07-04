@@ -969,39 +969,103 @@ const MastersSetup = (() => {
     return sheets;
   }
 
-  // Status bar: which files are loaded, and per-master column mapping dropdowns.
+  // Shared summary: for every loaded file & master → column, count in-master vs pending.
+  async function computeSummary() {
+    const out = [];
+    for (const [fileType, parsed] of Object.entries(parsedByType)) {
+      if (!parsed?.rows?.length) continue;
+      const masters = [];
+      for (const m of (MASTERS_BY_FILE_TYPE[fileType] || [])) {
+        const config = MASTER_CONFIG[m.value];
+        const col = parsed.columnMap?.[m.value];
+        if (!config || !col) { masters.push({ label: m.label, column: col || '(not used)', inDb: '-', pending: '-' }); continue; }
+        let existing = [];
+        try { existing = await config.fetchExisting(currentCompany.id); } catch (e) {}
+        const existingSet = new Set(existing.map(r => String(r[config.matchColumn] ?? '').toLowerCase().trim()));
+        const distinct = new Set();
+        parsed.rows.forEach(r => {
+          const v = String(r[col] ?? '').trim();
+          if (v) distinct.add(v);
+        });
+        let pending = 0;
+        distinct.forEach(v => { if (!existingSet.has(v.toLowerCase())) pending++; });
+        masters.push({ label: m.label, column: col, inDb: existing.length, pending });
+      }
+      out.push({ fileType, filename: parsed.filename, rows: parsed.rows.length, masters });
+    }
+    return out;
+  }
+
+  // Upload a file directly into a slot (from the memory bar), regardless of active tab.
+  function uploadFor(fileType, file) {
+    // switch the working area to that tab, then process
+    MastersSetup.switchFileType(fileType);
+    handleFileSelected(file);
+  }
+
+  // Status bar: upload slots + mapping + counts.
   function renderMemoryBar() {
     const bar = document.getElementById('ms-memory-bar');
     if (!bar) return;
     const labels = { reservations: 'Reservations', nights: 'Nights', extras: 'Extras' };
     bar.innerHTML = ['reservations','nights','extras'].map(t => {
       const p = parsedByType[t];
+      const uploadBtn = `
+        <input type="file" id="ms-slot-file-${t}" accept=".csv" style="display:none"
+               onchange="msUploadFor('${t}', this.files[0])">
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ms-slot-file-${t}').click()">
+          ${p ? 'Replace file' : 'Upload file'}</button>`;
       if (!p) {
-        return `<div style="flex:1;min-width:200px;padding:0.6rem 0.8rem;border:1px dashed var(--border,#ccc);border-radius:8px;color:var(--text-muted);font-size:0.82rem">
-          <strong>${labels[t]}</strong> — no file loaded</div>`;
+        return `<div style="flex:1;min-width:230px;padding:0.6rem 0.8rem;border:1px dashed var(--border,#ccc);border-radius:8px;color:var(--text-muted);font-size:0.82rem">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong>${labels[t]}</strong>${uploadBtn}
+          </div>
+          <div style="margin-top:0.3rem">no file loaded</div></div>`;
       }
       const mappers = (MASTERS_BY_FILE_TYPE[t] || []).map(m => {
         const opts = ['<option value="">— not used —</option>']
           .concat(p.headers.map(h =>
             `<option value="${escapeAttr(h)}" ${p.columnMap[m.value] === h ? 'selected' : ''}>${escapeHtml(h)}</option>`))
           .join('');
-        return `<div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.25rem">
-          <span style="min-width:120px;font-size:0.75rem">${escapeHtml(m.label)}</span>
+        return `<div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.25rem;flex-wrap:wrap">
+          <span style="min-width:110px;font-size:0.75rem">${escapeHtml(m.label)}</span>
           <select onchange="msSetColumnMap('${t}','${m.value}',this.value)"
                   style="font-size:0.75rem;padding:0.15rem 0.3rem;border:1px solid var(--border,#ccc);border-radius:4px">${opts}</select>
+          <span id="ms-count-${t}-${m.value}" style="font-size:0.72rem;color:var(--text-muted)">…</span>
         </div>`;
       }).join('');
-      return `<div style="flex:1;min-width:200px;padding:0.6rem 0.8rem;border:1px solid #16a34a;border-radius:8px;font-size:0.82rem;background:#f0fdf4">
-        <strong>${labels[t]}</strong> ✓ ${escapeHtml(p.filename)} (${p.rows.length.toLocaleString()} rows)
+      return `<div style="flex:1;min-width:230px;padding:0.6rem 0.8rem;border:1px solid #16a34a;border-radius:8px;font-size:0.82rem;background:#f0fdf4">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">
+          <strong>${labels[t]}</strong>${uploadBtn}
+        </div>
+        <div style="margin-top:0.25rem">✓ ${escapeHtml(p.filename)} (${p.rows.length.toLocaleString()} rows)</div>
         ${mappers}</div>`;
     }).join('');
+    updateMemoryCounts();
+  }
+
+  async function updateMemoryCounts() {
+    const summary = await computeSummary();
+    const masterKeyByLabel = {};
+    Object.entries(MASTERS_BY_FILE_TYPE).forEach(([t, ms]) =>
+      ms.forEach(m => masterKeyByLabel[`${t}|${m.label}`] = m.value));
+    summary.forEach(f => {
+      f.masters.forEach(m => {
+        const key = masterKeyByLabel[`${f.fileType}|${m.label}`];
+        const el = document.getElementById(`ms-count-${f.fileType}-${key}`);
+        if (el) el.textContent = m.inDb === '-' ? '' : `${m.inDb} in master · ${m.pending} pending`;
+      });
+    });
   }
 
   function setColumnMap(fileType, masterKey, column) {
-    if (parsedByType[fileType]) parsedByType[fileType].columnMap[masterKey] = column;
+    if (parsedByType[fileType]) {
+      parsedByType[fileType].columnMap[masterKey] = column;
+      updateMemoryCounts();
+    }
   }
 
-  return { init, getPendingSheets, getAllPendingSheets, renderMemoryBar, setColumnMap, switchFileType(type) {
+  return { init, getPendingSheets, getAllPendingSheets, renderMemoryBar, setColumnMap, computeSummary, uploadFor, switchFileType(type) {
     currentFileType = type;
     const fileInput = document.getElementById('ms-file-input');
     fileInput.value = '';
@@ -1038,3 +1102,4 @@ const MastersSetup = (() => {
 function initMastersSetup() { MastersSetup.init(); }
 function msSwitchFileType(type) { MastersSetup.switchFileType(type); }
 function msSetColumnMap(fileType, masterKey, column) { MastersSetup.setColumnMap(fileType, masterKey, column); }
+function msUploadFor(fileType, file) { if (file) MastersSetup.uploadFor(fileType, file); }
