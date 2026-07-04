@@ -16,6 +16,46 @@ const MastersExport = (() => {
     const data = rows.length ? rows : [{ '': emptyMessage || 'No records yet' }];
     const ws = XLSX.utils.json_to_sheet(data);
     ws['!cols'] = autoWidth(data);
+
+    const isPending = name.startsWith('PENDING');
+    const headerFill = isPending ? 'D97706' : '1E3A5F';   // amber for pending, navy for masters
+    const keys = Object.keys(data[0]);
+    const range = XLSX.utils.decode_range(ws['!ref']);
+
+    // Header row style
+    for (let c = 0; c <= range.e.c; c++) {
+      const addr = XLSX.utils.encode_cell({ r: 0, c });
+      if (!ws[addr]) continue;
+      ws[addr].s = {
+        font:      { bold: true, color: { rgb: 'FFFFFF' } },
+        fill:      { fgColor: { rgb: headerFill } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border:    { bottom: { style: 'medium', color: { rgb: '0F1F33' } } },
+      };
+    }
+
+    // Body: light zebra striping + thin borders
+    for (let r = 1; r <= range.e.r; r++) {
+      for (let c = 0; c <= range.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if (!ws[addr]) continue;
+        ws[addr].s = {
+          fill:   r % 2 === 0 ? { fgColor: { rgb: 'F4F7FB' } } : undefined,
+          border: {
+            top:    { style: 'thin', color: { rgb: 'E2E8F0' } },
+            bottom: { style: 'thin', color: { rgb: 'E2E8F0' } },
+            left:   { style: 'thin', color: { rgb: 'E2E8F0' } },
+            right:  { style: 'thin', color: { rgb: 'E2E8F0' } },
+          },
+        };
+      }
+    }
+
+    // Autofilter on the header row
+    ws['!autofilter'] = { ref: ws['!ref'] };
+    // Taller header row
+    ws['!rows'] = [{ hpt: 22 }];
+
     XLSX.utils.book_append_sheet(wb, ws, name.substring(0, 31)); // Excel sheet name limit
   }
 
