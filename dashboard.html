@@ -720,6 +720,18 @@
   </div>
 </div>
 
+<!-- Modal: Export masters confirmation -->
+<div class="modal-overlay" id="modal-export-masters">
+  <div class="modal" style="max-width:600px">
+    <h3>Export masters — review before download</h3>
+    <div id="export-masters-summary" style="max-height:340px;overflow:auto;font-size:0.85rem;margin-bottom:0.5rem"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-export-masters')">Cancel</button>
+      <button class="btn btn-primary" id="btn-confirm-export-masters">Download Excel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Import masters preview -->
 <div class="modal-overlay" id="modal-import-masters">
   <div class="modal" style="max-width:560px">
@@ -4469,16 +4481,47 @@
 
   // ── GLOBAL ────────────────────────────────────────────────────────
   document.getElementById('btn-export-masters').addEventListener('click', async () => {
-    const btn = document.getElementById('btn-export-masters');
-    btn.disabled = true;
-    btn.textContent = 'Generating...';
+    const summaryEl = document.getElementById('export-masters-summary');
+    summaryEl.innerHTML = '<em style="color:var(--text-muted)">Analysing files in memory...</em>';
+    UI.openModal('modal-export-masters');
+    let summary = [];
+    try { summary = await MastersSetup.computeSummary(); } catch (e) {}
+    if (!summary.length) {
+      summaryEl.innerHTML = `<p style="color:var(--text-muted)">No files in memory — the Excel will contain only the current master catalogs from the database (no PENDING sheets).</p>`;
+      return;
+    }
+    const labels = { reservations: 'Reservations', nights: 'Nights', extras: 'Extras' };
+    summaryEl.innerHTML = summary.map(f => `
+      <div style="margin-bottom:0.9rem">
+        <strong>${labels[f.fileType] || f.fileType}</strong> — ${escapeHtml(f.filename)} (${f.rows.toLocaleString()} rows)
+        <table style="width:100%;margin-top:0.3rem">
+          <thead><tr>
+            <th style="text-align:left">Master</th><th style="text-align:left">Column</th>
+            <th>In master</th><th>Pending</th>
+          </tr></thead>
+          <tbody>
+            ${f.masters.map(m => `<tr>
+              <td>${escapeHtml(m.label)}</td>
+              <td style="font-family:monospace;font-size:0.8rem">${escapeHtml(m.column)}</td>
+              <td style="text-align:center">${m.inDb}</td>
+              <td style="text-align:center">${m.pending > 0 ? `<strong style="color:#d97706">${m.pending}</strong>` : m.pending}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`).join('') +
+      `<p style="color:var(--text-muted);font-size:0.8rem">Missing file types will simply have no PENDING sheets. Adjust column mappings in the bar above if anything looks wrong.</p>`;
+  });
+
+  document.getElementById('btn-confirm-export-masters').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-confirm-export-masters');
+    btn.disabled = true; btn.textContent = 'Generating...';
     try {
       await MastersExport.exportAll(currentCompany.id, currentCompany.name);
+      UI.closeModal('modal-export-masters');
     } catch (e) {
       alert('Export failed: ' + e.message);
     }
-    btn.disabled = false;
-    btn.textContent = '⬇ Download masters Excel';
+    btn.disabled = false; btn.textContent = 'Download Excel';
   });
 
   let _importPlan = null;
