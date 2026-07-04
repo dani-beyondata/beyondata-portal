@@ -243,6 +243,8 @@ const MastersSetup = (() => {
 
   let parsedRows = null;   // array of objects, one per CSV row
   let parsedHeaders = null;
+  // Per-file-type memory: {rows, headers, filename, columnMap: {masterKey: column}}
+  const parsedByType = {};
 
   // --- minimal CSV parser -------------------------------------------------
   // Handles the common cases pandas.to_csv() produces: comma-separated,
@@ -792,6 +794,14 @@ const MastersSetup = (() => {
       parsedHeaders = headers;
       parsedRows = records;
 
+      // Remember this file for its file type, with auto-guessed column mapping
+      const columnMap = {};
+      (MASTERS_BY_FILE_TYPE[currentFileType] || []).forEach(m => {
+        columnMap[m.value] = guessColumn(m.value, headers) || '';
+      });
+      parsedByType[currentFileType] = { rows: records, headers, filename: file.name, columnMap };
+      renderMemoryBar();
+
       watchPropertyModalClose();
       const propertiesOk = await checkProperties(records);
       if (!propertiesOk) {
@@ -879,6 +889,19 @@ const MastersSetup = (() => {
       if (!parsedRows) return;
       renderResults(masterSelect.value, columnSelect.value);
     };
+
+    // Restore reservations file from session memory if present
+    const saved = parsedByType['reservations'];
+    if (saved) {
+      parsedRows = saved.rows;
+      parsedHeaders = saved.headers;
+      columnSelect.innerHTML = saved.headers.map(h => `<option value="${escapeAttr(h)}">${escapeHtml(h)}</option>`).join('');
+      const guessed = saved.columnMap[masterSelect.value] || guessColumn(masterSelect.value, saved.headers);
+      if (guessed) columnSelect.value = guessed;
+      document.getElementById('ms-after-upload').style.display = 'block';
+      renderResults(masterSelect.value, columnSelect.value);
+    }
+    renderMemoryBar();
   }
 
   function updateMasterOptions() {
@@ -917,13 +940,71 @@ const MastersSetup = (() => {
     return sheets;
   }
 
-  return { init, getPendingSheets, switchFileType(type) {
+  // Pending across ALL files currently in memory (all three tabs).
+  async function getAllPendingSheets() {
+    const sheets = [];
+    for (const [fileType, parsed] of Object.entries(parsedByType)) {
+      if (!parsed?.rows?.length) continue;
+      for (const m of (MASTERS_BY_FILE_TYPE[fileType] || [])) {
+        const config = MASTER_CONFIG[m.value];
+        if (!config) continue;
+        const col = parsed.columnMap?.[m.value];
+        if (!col) continue;
+        let existing;
+        try { existing = await config.fetchExisting(currentCompany.id); } catch (e) { continue; }
+        const existingSet = new Set(existing.map(r => String(r[config.matchColumn] ?? '').toLowerCase().trim()));
+        const counts = {};
+        parsed.rows.forEach(r => {
+          const v = String(r[col] ?? '').trim();
+          if (!v) return;
+          counts[v] = (counts[v] || 0) + 1;
+        });
+        const pending = Object.entries(counts)
+          .filter(([v]) => !existingSet.has(v.toLowerCase()))
+          .sort((a, b) => b[1] - a[1])
+          .map(([v, n]) => ({ 'Raw value (PMS)': v, 'Rows in file': n, 'Display name (fill in)': '' }));
+        if (pending.length) sheets.push({ name: `PENDING ${m.label}`, rows: pending });
+      }
+    }
+    return sheets;
+  }
+
+  // Status bar: which files are loaded, and per-master column mapping dropdowns.
+  function renderMemoryBar() {
+    const bar = document.getElementById('ms-memory-bar');
+    if (!bar) return;
+    const labels = { reservations: 'Reservations', nights: 'Nights', extras: 'Extras' };
+    bar.innerHTML = ['reservations','nights','extras'].map(t => {
+      const p = parsedByType[t];
+      if (!p) {
+        return `<div style="flex:1;min-width:200px;padding:0.6rem 0.8rem;border:1px dashed var(--border,#ccc);border-radius:8px;color:var(--text-muted);font-size:0.82rem">
+          <strong>${labels[t]}</strong> — no file loaded</div>`;
+      }
+      const mappers = (MASTERS_BY_FILE_TYPE[t] || []).map(m => {
+        const opts = ['<option value="">— not used —</option>']
+          .concat(p.headers.map(h =>
+            `<option value="${escapeAttr(h)}" ${p.columnMap[m.value] === h ? 'selected' : ''}>${escapeHtml(h)}</option>`))
+          .join('');
+        return `<div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.25rem">
+          <span style="min-width:120px;font-size:0.75rem">${escapeHtml(m.label)}</span>
+          <select onchange="msSetColumnMap('${t}','${m.value}',this.value)"
+                  style="font-size:0.75rem;padding:0.15rem 0.3rem;border:1px solid var(--border,#ccc);border-radius:4px">${opts}</select>
+        </div>`;
+      }).join('');
+      return `<div style="flex:1;min-width:200px;padding:0.6rem 0.8rem;border:1px solid #16a34a;border-radius:8px;font-size:0.82rem;background:#f0fdf4">
+        <strong>${labels[t]}</strong> ✓ ${escapeHtml(p.filename)} (${p.rows.length.toLocaleString()} rows)
+        ${mappers}</div>`;
+    }).join('');
+  }
+
+  function setColumnMap(fileType, masterKey, column) {
+    if (parsedByType[fileType]) parsedByType[fileType].columnMap[masterKey] = column;
+  }
+
+  return { init, getPendingSheets, getAllPendingSheets, renderMemoryBar, setColumnMap, switchFileType(type) {
     currentFileType = type;
-    parsedRows = null;
-    parsedHeaders = null;
     const fileInput = document.getElementById('ms-file-input');
     fileInput.value = '';
-    document.getElementById('ms-after-upload').style.display = 'none';
     document.getElementById('ms-property-banner').style.display = 'none';
     document.getElementById('ms-unresolved-only').checked = false;
     UI.hideAlert('ms-file-error');
@@ -933,8 +1014,27 @@ const MastersSetup = (() => {
       document.getElementById(`ms-tab-${t}`)?.classList.toggle('active', t === type);
     });
     updateMasterOptions();
+    // Restore this tab's file from memory if present
+    const saved = parsedByType[type];
+    if (saved) {
+      parsedRows = saved.rows;
+      parsedHeaders = saved.headers;
+      const masterSelect = document.getElementById('ms-master-select');
+      const columnSelect = document.getElementById('ms-column-select');
+      columnSelect.innerHTML = saved.headers.map(h => `<option value="${escapeAttr(h)}">${escapeHtml(h)}</option>`).join('');
+      const guessed = saved.columnMap[masterSelect.value] || guessColumn(masterSelect.value, saved.headers);
+      if (guessed) columnSelect.value = guessed;
+      document.getElementById('ms-after-upload').style.display = 'block';
+      renderResults(masterSelect.value, columnSelect.value);
+    } else {
+      parsedRows = null;
+      parsedHeaders = null;
+      document.getElementById('ms-after-upload').style.display = 'none';
+    }
+    renderMemoryBar();
   }};
 })();
 
 function initMastersSetup() { MastersSetup.init(); }
 function msSwitchFileType(type) { MastersSetup.switchFileType(type); }
+function msSetColumnMap(fileType, masterKey, column) { MastersSetup.setColumnMap(fileType, masterKey, column); }
