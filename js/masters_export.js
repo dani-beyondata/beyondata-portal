@@ -184,6 +184,14 @@ const MastersExport = (() => {
       })));
     }
 
+    // ── Pending values from the file currently loaded in Masters Setup ──
+    try {
+      if (typeof MastersSetup !== 'undefined' && MastersSetup.getPendingSheets) {
+        const pending = await MastersSetup.getPendingSheets();
+        pending.forEach(p => addSheet(wb, p.name, p.rows));
+      }
+    } catch (e) { /* pending is best-effort */ }
+
     // ── Write file ────────────────────────────────────────────
     const today = new Date().toISOString().slice(0, 10);
     const safeName = (companyName || 'company').replace(/[^a-zA-Z0-9]+/g, '_');
