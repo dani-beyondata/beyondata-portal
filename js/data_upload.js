@@ -112,9 +112,11 @@ const DataUpload = (() => {
   }
 
   async function deleteFile(fullPath) {
-    if (!confirm('Delete this file from the raw bucket?')) return;
+    const name = fullPath.split('/').pop();
+    if (!confirm(`Permanently delete "${name}" from the raw bucket?\n\nThis cannot be undone, but you can re-upload it from Mews if needed.`)) return;
     const { error } = await sb.storage.from(RAW_BUCKET).remove([fullPath]);
     if (error) { UI.showAlert('du-error', error.message); return; }
+    UI.showAlert('du-success', `Deleted "${name}".`, 'success');
     listFiles();
   }
 
