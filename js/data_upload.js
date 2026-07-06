@@ -60,6 +60,26 @@ const DataUpload = (() => {
     }).join('');
   }
 
+  // Entities whose filenames must contain a parseable date-range period.
+  // Pattern: ..._YYYY-MM-DD_to_YYYY-MM-DD.xlsx
+  const PERIOD_RE = /_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})\.(xlsx|xls|csv)$/i;
+  const PERIOD_REQUIRED = ['reservations', 'nights', 'extras'];
+
+  function validateFilename(entity, filename) {
+    if (!PERIOD_REQUIRED.includes(entity)) return { ok: true };
+    const m = filename.match(PERIOD_RE);
+    if (!m) {
+      return { ok: false, message:
+        `Filename must include a date range like "..._2026-01-01_to_2026-01-31.xlsx". ` +
+        `Got "${filename}". Rename the file and try again.` };
+    }
+    // sanity: start <= end
+    if (m[1] > m[2]) {
+      return { ok: false, message: `Start date ${m[1]} is after end date ${m[2]} in the filename.` };
+    }
+    return { ok: true, start: m[1], end: m[2] };
+  }
+
   async function upload() {
     const source = document.getElementById('du-source').value;
     const pcode  = document.getElementById('du-property').value;
@@ -70,6 +90,9 @@ const DataUpload = (() => {
     UI.hideAlert('du-error'); UI.hideAlert('du-success');
     if (!pcode)  { UI.showAlert('du-error', 'Select a property first.'); return; }
     if (!file)   { UI.showAlert('du-error', 'Choose a file to upload.'); return; }
+
+    const check = validateFilename(entity, file.name);
+    if (!check.ok) { UI.showAlert('du-error', check.message); return; }
 
     const path = buildPath(source, pcode, entity, file.name);
     UI.setLoading('du-upload-btn', true, 'Upload to raw bucket');
@@ -82,7 +105,8 @@ const DataUpload = (() => {
     UI.setLoading('du-upload-btn', false, 'Upload to raw bucket');
     if (error) { UI.showAlert('du-error', error.message); return; }
 
-    UI.showAlert('du-success', `Uploaded "${file.name}" → ${path}`, 'success');
+    const periodMsg = check.start ? ` (period ${check.start} → ${check.end})` : '';
+    UI.showAlert('du-success', `Uploaded "${file.name}"${periodMsg}`, 'success');
     fileEl.value = '';
     listFiles();
   }
