@@ -9,8 +9,8 @@ const DataUpload = (() => {
   const RAW_BUCKET = 'raw';
 
   function currentClientCode() {
-    // client_code lives on the company record; fall back to a slug of the name.
-    return currentCompany.client_code
+    // Companies already have a unique `slug` (e.g. 'tch') — use it for storage paths.
+    return currentCompany.slug
         || (currentCompany.name || 'client').toLowerCase().replace(/[^a-z0-9]+/g, '');
   }
 
