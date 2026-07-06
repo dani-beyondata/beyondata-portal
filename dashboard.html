@@ -51,6 +51,10 @@
       <div class="nav-item" data-section="rooms"><span class="nav-icon">⊡</span>Rooms</div>
       <div class="nav-item" data-section="availability"><span class="nav-icon">▦</span>Availability</div>
     </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Data</div>
+      <div class="nav-item" data-section="data_upload"><span class="nav-icon">⬆</span>Data Upload</div>
+    </div>
     <div class="nav-section" id="nav-admin">
       <div class="nav-section-label">Admin</div>
       <div class="nav-item" data-section="company"><span class="nav-icon">⬡</span>Company</div>
@@ -541,8 +545,58 @@
 
     </div>
 
-    <!-- AVAILABILITY CALENDAR -->
-    <div class="section" id="section-availability">
+    <!-- DATA UPLOAD -->
+    <div class="section" id="section-data_upload">
+      <div class="section-header">
+        <h2>Data Upload</h2>
+        <p>Upload source data files for this client. Files are stored securely and processed into analytics-ready tables.</p>
+      </div>
+
+      <div style="max-width:560px">
+        <div class="field">
+          <label>Source system</label>
+          <select id="du-source">
+            <option value="mews">Mews</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Property</label>
+          <select id="du-property"><option value="">Loading…</option></select>
+        </div>
+
+        <div class="field">
+          <label>Entity (file type)</label>
+          <select id="du-entity">
+            <option value="reservations">Reservations</option>
+            <option value="nights">Nights</option>
+            <option value="extras">Extras</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>File</label>
+          <input type="file" id="du-file" accept=".xlsx,.xls,.csv">
+          <p class="field-hint">The file will be stored in the raw data bucket under this client, property and entity.</p>
+        </div>
+
+        <div class="alert error" id="du-error"></div>
+        <div class="alert success" id="du-success"></div>
+
+        <button class="btn btn-primary" id="du-upload-btn">Upload to raw bucket</button>
+      </div>
+
+      <div style="margin-top:2rem">
+        <h3 style="font-size:0.95rem;margin-bottom:0.6rem">Files already uploaded</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Property</th><th>Entity</th><th>File</th><th>Uploaded</th><th></th></tr></thead>
+            <tbody id="du-files-tbody"><tr><td colspan="5" style="color:var(--text-muted)">Select above to view…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
       <div class="section-header">
         <h2>Availability Calendar</h2>
         <p>Click a day to toggle open/closed · Edit room count per day.</p>
@@ -1210,6 +1264,7 @@
 <script src="js/vendor/xlsx.bundle.js"></script>
 <script src="js/masters_export.js"></script>
 <script src="js/masters_import.js"></script>
+<script src="js/data_upload.js"></script>
 <script>
   let currentProfile = null;
   let currentCompany = null;
@@ -1286,7 +1341,7 @@
         channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes,
         markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms,
         availability: initAvailabilitySection, countries: loadCountries,
-        users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
+        users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
       const loader = loaders[savedSection];
       if (loader) {
         await loader();
@@ -1346,7 +1401,7 @@
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
       hashSet({ section: s, property: null });
-      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
+      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
       loaders[s]?.();
     });
   });
@@ -4459,7 +4514,7 @@
     const sectionEl = document.getElementById(`section-${section}`);
     if (sectionEl) sectionEl.classList.add('active');
     hashSet({ section: section });
-    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup };
+    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
     loaders[section]?.();
     window.scrollTo(0, 0);
   }
