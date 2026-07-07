@@ -215,13 +215,31 @@ const DataUpload = (() => {
     tbody.innerHTML = ordered.map(f => {
       const size = fmtSize(f.metadata?.size);
       const when = f.updated_at ? new Date(f.updated_at).toLocaleString() : '—';
-      return `<tr>
+      return `<tr data-gold="${escAttr(f.name)}">
         <td style="font-family:monospace;font-size:0.8rem">${escapeHtml(f.name)}</td>
-        <td style="color:var(--text-muted)">—</td>
+        <td class="du-gold-rows" style="color:var(--text-muted)">counting…</td>
         <td>${size}</td>
         <td style="font-size:0.8rem">${when}</td>
       </tr>`;
     }).join('');
+
+    // Count rows by downloading each gold CSV (small, cached by browser).
+    for (const f of ordered) {
+      const path = `${goldPrefix}/${f.name}`;
+      try {
+        const { data: blob, error: dlErr } = await sb.storage.from(GOLD_BUCKET).download(path);
+        const cell = tbody.querySelector(`tr[data-gold="${f.name}"] .du-gold-rows`);
+        if (dlErr || !blob) { if (cell) cell.textContent = '—'; continue; }
+        const text = await blob.text();
+        // rows = non-empty lines minus header
+        const lines = text.split('\n').filter(l => l.trim().length).length;
+        const rows = Math.max(0, lines - 1);
+        if (cell) { cell.textContent = rows.toLocaleString(); cell.style.color = ''; }
+      } catch (e) {
+        const cell = tbody.querySelector(`tr[data-gold="${f.name}"] .du-gold-rows`);
+        if (cell) cell.textContent = '—';
+      }
+    }
   }
 
   async function runETL() {
