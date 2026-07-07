@@ -10,8 +10,10 @@ const DataUpload = (() => {
 
   function currentClientCode() {
     // Companies already have a unique `slug` (e.g. 'tch') — use it for storage paths.
-    return currentCompany.slug
-        || (currentCompany.name || 'client').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    // Always lowercased so upload and ETL runner agree on the path.
+    const code = currentCompany.slug
+        || (currentCompany.name || 'client').replace(/[^a-zA-Z0-9]+/g, '');
+    return code.toLowerCase();
   }
 
   function buildPath(source, pcode, entity, filename) {
