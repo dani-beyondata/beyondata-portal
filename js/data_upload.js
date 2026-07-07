@@ -184,6 +184,45 @@ const DataUpload = (() => {
     listFiles();
   }
 
+  async function runETL() {
+    const btn = document.getElementById('du-run-etl-btn');
+    const statusEl = document.getElementById('du-run-status');
+    const client = currentClientCode();
+
+    btn.disabled = true;
+    btn.textContent = '▶ Triggering…';
+    statusEl.style.display = 'block';
+    statusEl.className = 'alert';
+    statusEl.textContent = 'Sending run request to the cloud pipeline…';
+
+    try {
+      const FN_URL = 'https://lsqwjthckecvuwlxtgnk.supabase.co/functions/v1/trigger-etl';
+      const resp = await fetch(FN_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'apikey': SUPABASE_KEY,
+        },
+        body: JSON.stringify({ client }),
+      });
+      const data = await resp.json();
+      if (resp.ok && data.ok) {
+        statusEl.className = 'alert success';
+        statusEl.textContent = `✓ ETL started for "${client}" in the cloud. It runs in ~1–2 minutes; refresh the file list or Masters Setup afterward to see updated data.`;
+      } else {
+        statusEl.className = 'alert error';
+        statusEl.textContent = `Could not start ETL: ${data.error || resp.status}${data.detail ? ' — ' + data.detail : ''}`;
+      }
+    } catch (e) {
+      statusEl.className = 'alert error';
+      statusEl.textContent = `Could not reach the pipeline function: ${e.message}`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '▶ Run ETL';
+    }
+  }
+
   function init() {
     loadProperties();
     const relist = () => { document.getElementById('du-staged').style.display='none'; listFiles(); };
@@ -202,6 +241,8 @@ const DataUpload = (() => {
       dz.classList.remove('dragover');
       if (e.dataTransfer.files.length) stageAndUpload(e.dataTransfer.files);
     });
+
+    document.getElementById('du-run-etl-btn').onclick = runETL;
   }
 
   return { init, listFiles, deleteFile };
