@@ -592,6 +592,16 @@
       <div class="alert error" id="du-error"></div>
       <div class="alert success" id="du-success"></div>
 
+      <!-- Run ETL -->
+      <div class="du-run-panel">
+        <div>
+          <strong>Process uploaded files</strong>
+          <div class="du-run-hint">Runs the ETL in the cloud: reads the raw files above, produces the analytics-ready gold data. Takes ~1–2 minutes.</div>
+        </div>
+        <button class="btn btn-primary" id="du-run-etl-btn">▶ Run ETL</button>
+      </div>
+      <div class="alert" id="du-run-status" style="display:none"></div>
+
       <!-- File browser -->
       <div class="du-browser-head">
         <h3 id="du-browser-title">Files in this location</h3>
@@ -616,6 +626,8 @@
       .du-dropzone:hover, .du-dropzone.dragover { border-color:var(--brand,#3D65A8); background:var(--brand-light,#eef3fb); }
       .du-dropzone-icon { font-size:2rem; color:var(--brand,#3D65A8); margin-bottom:0.5rem; }
       .du-dropzone-hint { font-size:0.78rem; color:var(--text-muted); margin-top:0.5rem; }
+      .du-run-panel { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 1.25rem; margin-top:1.25rem; background:var(--brand-light,#eef3fb); border-radius:10px; flex-wrap:wrap; }
+      .du-run-hint { font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem; max-width:520px; }
       .du-browse-link { color:var(--brand,#3D65A8); font-weight:600; text-decoration:underline; }
       .du-staged { margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem; }
       .du-staged-item { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.9rem; border:1px solid var(--border,#ddd); border-radius:8px; background:white; font-size:0.85rem; }
