@@ -1,123 +1,179 @@
 // data_upload.js — upload client source files to the Supabase `raw` bucket.
-// Path convention:
-//   client={client_code}/source={source}/property={pcode}/entity={entity}/via=file/{filename}
-// Overwrite-by-period: the stored filename keeps the original name, so re-uploading
-// the same period's file overwrites it (upsert=true).
+// Path (plain segments, no '=' which Supabase download rejects):
+//   {client}/{source}/{property}/{entity}/file/{filename}
 
 const DataUpload = (() => {
 
   const RAW_BUCKET = 'raw';
+  const PERIOD_RE = /_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})\.(xlsx|xls|csv)$/i;
+  const PERIOD_REQUIRED = ['reservations', 'nights', 'extras'];
+
+  let existingNames = new Set();
 
   function currentClientCode() {
-    // Companies already have a unique `slug` (e.g. 'tch') — use it for storage paths.
-    // Always lowercased so upload and ETL runner agree on the path.
     const code = currentCompany.slug
         || (currentCompany.name || 'client').replace(/[^a-zA-Z0-9]+/g, '');
     return code.toLowerCase();
   }
 
-  function buildPath(source, pcode, entity, filename) {
-    const client = currentClientCode();
-    // Plain segments (no key=value): Supabase Storage download rejects '=' in paths.
-    // Order encodes meaning: client/source/property/entity/file/filename
-    return `${client}/${source}/${pcode}/${entity}/file/${filename}`;
+  function sel() {
+    return {
+      source: document.getElementById('du-source').value,
+      pcode:  document.getElementById('du-property').value,
+      entity: document.getElementById('du-entity').value,
+    };
+  }
+
+  function prefix() {
+    const { source, pcode, entity } = sel();
+    return `${currentClientCode()}/${source}/${pcode}/${entity}/file`;
+  }
+
+  function buildPath(filename) { return `${prefix()}/${filename}`; }
+
+  function fmtSize(bytes) {
+    if (bytes == null) return '—';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
+  function periodOf(filename) {
+    const m = filename.match(PERIOD_RE);
+    return m ? `${m[1]} → ${m[2]}` : '—';
+  }
+
+  function updatePathHint() {
+    document.getElementById('du-path-hint').textContent = `${RAW_BUCKET}/${prefix()}/`;
   }
 
   async function loadProperties() {
-    const sel = document.getElementById('du-property');
+    const selEl = document.getElementById('du-property');
     const { data, error } = await sb.from('properties')
       .select('property_id, property_name')
       .eq('company_id', currentCompany.id)
       .order('property_id');
     if (error || !data?.length) {
-      sel.innerHTML = '<option value="">No properties found</option>';
+      selEl.innerHTML = '<option value="">No properties found</option>';
       return;
     }
-    sel.innerHTML = data.map(p =>
+    selEl.innerHTML = data.map(p =>
       `<option value="${p.property_id}">${p.property_id}${p.property_name ? ' — ' + p.property_name : ''}</option>`
     ).join('');
+    updatePathHint();
     listFiles();
   }
 
   async function listFiles() {
-    const source   = document.getElementById('du-source').value;
-    const pcode    = document.getElementById('du-property').value;
-    const entity   = document.getElementById('du-entity').value;
-    const tbody    = document.getElementById('du-files-tbody');
-    if (!pcode) { tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted)">Select a property…</td></tr>'; return; }
+    updatePathHint();
+    const { pcode } = sel();
+    const tbody = document.getElementById('du-files-tbody');
+    const countEl = document.getElementById('du-browser-count');
+    existingNames = new Set();
+    if (!pcode) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted)">Select a property…</td></tr>';
+      countEl.textContent = '';
+      return;
+    }
+    const { data, error } = await sb.storage.from(RAW_BUCKET)
+      .list(prefix(), { limit: 200, sortBy: { column: 'name', order: 'asc' } });
+    if (error) {
+      tbody.innerHTML = `<tr><td colspan="5" style="color:#dc2626">${escapeHtml(error.message)}</td></tr>`;
+      countEl.textContent = '';
+      return;
+    }
+    const files = (data || []).filter(f =>
+      f.name && !f.name.startsWith('.') && /\.(xlsx|xls|csv)$/i.test(f.name)
+    );
+    files.forEach(f => existingNames.add(f.name.toLowerCase()));
+    countEl.textContent = files.length ? `${files.length} file${files.length > 1 ? 's' : ''}` : 'empty';
 
-    const client = currentClientCode();
-    const prefix = `${client}/${source}/${pcode}/${entity}/file`;
-    const { data, error } = await sb.storage.from(RAW_BUCKET).list(prefix, { limit: 100, sortBy: { column: 'name', order: 'asc' } });
-    if (error) { tbody.innerHTML = `<tr><td colspan="5" style="color:#dc2626">${error.message}</td></tr>`; return; }
-    if (!data?.length) { tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted)">No files yet for this selection.</td></tr>'; return; }
-
-    tbody.innerHTML = data.filter(f => f.name && f.id !== null).map(f => {
+    if (!files.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted)">No files yet for this selection.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = files.map(f => {
+      const size = fmtSize(f.metadata?.size);
       const when = f.updated_at ? new Date(f.updated_at).toLocaleString() : '—';
+      const full = `${prefix()}/${f.name}`;
       return `<tr>
-        <td>${pcode}</td>
-        <td>${entity}</td>
         <td style="font-family:monospace;font-size:0.8rem">${escapeHtml(f.name)}</td>
-        <td>${when}</td>
-        <td><button class="btn btn-secondary btn-sm" onclick="duDeleteFile('${escapeAttr(prefix + '/' + f.name)}')">Delete</button></td>
+        <td style="font-size:0.8rem">${periodOf(f.name)}</td>
+        <td>${size}</td>
+        <td style="font-size:0.8rem">${when}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="duDeleteFile('${escapeAttr(full)}')">Delete</button></td>
       </tr>`;
     }).join('');
   }
 
-  // Entities whose filenames must contain a parseable date-range period.
-  // Pattern: ..._YYYY-MM-DD_to_YYYY-MM-DD.xlsx
-  const PERIOD_RE = /_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})\.(xlsx|xls|csv)$/i;
-  const PERIOD_REQUIRED = ['reservations', 'nights', 'extras'];
-
   function validateFilename(entity, filename) {
     if (!PERIOD_REQUIRED.includes(entity)) return { ok: true };
     const m = filename.match(PERIOD_RE);
-    if (!m) {
-      return { ok: false, message:
-        `Filename must include a date range like "..._2026-01-01_to_2026-01-31.xlsx". ` +
-        `Got "${filename}". Rename the file and try again.` };
-    }
-    // sanity: start <= end
-    if (m[1] > m[2]) {
-      return { ok: false, message: `Start date ${m[1]} is after end date ${m[2]} in the filename.` };
-    }
+    if (!m) return { ok: false, message:
+      `Must include a date range like "..._2026-01-01_to_2026-01-31.xlsx".` };
+    if (m[1] > m[2]) return { ok: false, message: `Start ${m[1]} is after end ${m[2]}.` };
     return { ok: true, start: m[1], end: m[2] };
   }
 
-  async function upload() {
-    const source = document.getElementById('du-source').value;
-    const pcode  = document.getElementById('du-property').value;
-    const entity = document.getElementById('du-entity').value;
-    const fileEl = document.getElementById('du-file');
-    const file   = fileEl.files[0];
-
+  async function stageAndUpload(fileList) {
+    const files = Array.from(fileList);
+    if (!files.length) return;
+    const { pcode, entity } = sel();
     UI.hideAlert('du-error'); UI.hideAlert('du-success');
-    if (!pcode)  { UI.showAlert('du-error', 'Select a property first.'); return; }
-    if (!file)   { UI.showAlert('du-error', 'Choose a file to upload.'); return; }
+    if (!pcode) { UI.showAlert('du-error', 'Select a property first.'); return; }
 
-    const check = validateFilename(entity, file.name);
-    if (!check.ok) { UI.showAlert('du-error', check.message); return; }
+    const staged = document.getElementById('du-staged');
+    staged.style.display = 'flex';
+    staged.innerHTML = '';
 
-    const path = buildPath(source, pcode, entity, file.name);
-    UI.setLoading('du-upload-btn', true, 'Upload to raw bucket');
+    let anyUploaded = false;
+    for (const file of files) {
+      const row = document.createElement('div');
+      row.className = 'du-staged-item';
+      const check = validateFilename(entity, file.name);
+      const exists = existingNames.has(file.name.toLowerCase());
 
-    const { error } = await sb.storage.from(RAW_BUCKET).upload(path, file, {
-      upsert: true,               // overwrite-by-period: same filename replaces
-      contentType: file.type || 'application/octet-stream',
-    });
+      let statusHtml, canUpload = true;
+      if (!check.ok) {
+        statusHtml = `<span class="du-stg-status" style="color:#dc2626">✗ ${escapeHtml(check.message)}</span>`;
+        canUpload = false;
+      } else if (exists) {
+        statusHtml = `<span class="du-stg-status" style="color:#d97706">⚠ already exists — will overwrite</span>`;
+      } else {
+        statusHtml = `<span class="du-stg-status" style="color:#16a34a">✓ new</span>`;
+      }
+      row.innerHTML = `<span class="du-stg-name">${escapeHtml(file.name)}</span>
+        <span style="color:var(--text-muted);font-size:0.78rem">${fmtSize(file.size)}</span>
+        ${statusHtml}`;
+      staged.appendChild(row);
 
-    UI.setLoading('du-upload-btn', false, 'Upload to raw bucket');
-    if (error) { UI.showAlert('du-error', error.message); return; }
+      if (!canUpload) continue;
 
-    const periodMsg = check.start ? ` (period ${check.start} → ${check.end})` : '';
-    UI.showAlert('du-success', `Uploaded "${file.name}"${periodMsg}`, 'success');
-    fileEl.value = '';
-    listFiles();
+      const path = buildPath(file.name);
+      const { error } = await sb.storage.from(RAW_BUCKET).upload(path, file, {
+        upsert: true,
+        contentType: file.type || 'application/octet-stream',
+      });
+      const statusSpan = row.querySelector('.du-stg-status');
+      if (error) {
+        statusSpan.style.color = '#dc2626';
+        statusSpan.textContent = `✗ ${error.message}`;
+      } else {
+        statusSpan.style.color = '#16a34a';
+        statusSpan.textContent = exists ? '✓ overwritten' : '✓ uploaded';
+        anyUploaded = true;
+      }
+    }
+
+    if (anyUploaded) {
+      UI.showAlert('du-success', 'Upload complete.', 'success');
+      listFiles();
+    }
   }
 
   async function deleteFile(fullPath) {
     const name = fullPath.split('/').pop();
-    if (!confirm(`Permanently delete "${name}" from the raw bucket?\n\nThis cannot be undone, but you can re-upload it from Mews if needed.`)) return;
+    if (!confirm(`Permanently delete "${name}"?\n\nYou can re-upload it from Mews if needed.`)) return;
     const { error } = await sb.storage.from(RAW_BUCKET).remove([fullPath]);
     if (error) { UI.showAlert('du-error', error.message); return; }
     UI.showAlert('du-success', `Deleted "${name}".`, 'success');
@@ -126,10 +182,22 @@ const DataUpload = (() => {
 
   function init() {
     loadProperties();
-    document.getElementById('du-source').onchange   = listFiles;
-    document.getElementById('du-property').onchange = listFiles;
-    document.getElementById('du-entity').onchange   = listFiles;
-    document.getElementById('du-upload-btn').onclick = upload;
+    const relist = () => { document.getElementById('du-staged').style.display='none'; listFiles(); };
+    document.getElementById('du-source').onchange   = relist;
+    document.getElementById('du-property').onchange = relist;
+    document.getElementById('du-entity').onchange   = relist;
+
+    const dz = document.getElementById('du-dropzone');
+    const input = document.getElementById('du-file');
+    dz.onclick = () => input.click();
+    input.onchange = () => { if (input.files.length) stageAndUpload(input.files); input.value = ''; };
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+      if (e.dataTransfer.files.length) stageAndUpload(e.dataTransfer.files);
+    });
   }
 
   return { init, listFiles, deleteFile };
