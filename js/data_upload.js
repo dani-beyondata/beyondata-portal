@@ -10,6 +10,10 @@ const DataUpload = (() => {
 
   let existingNames = new Set();
 
+  // Local helpers (escapeHtml is global; escapeAttr is not defined in dashboard)
+  const escAttr = (s) => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
   function currentClientCode() {
     const code = currentCompany.slug
         || (currentCompany.name || 'client').replace(/[^a-zA-Z0-9]+/g, '');
@@ -101,7 +105,7 @@ const DataUpload = (() => {
         <td style="font-size:0.8rem">${periodOf(f.name)}</td>
         <td>${size}</td>
         <td style="font-size:0.8rem">${when}</td>
-        <td><button class="btn btn-secondary btn-sm" onclick="duDeleteFile('${escapeAttr(full)}')">Delete</button></td>
+        <td><button class="btn btn-secondary btn-sm" onclick="duDeleteFile('${escAttr(full)}')">Delete</button></td>
       </tr>`;
     }).join('');
   }
