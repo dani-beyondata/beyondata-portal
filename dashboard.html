@@ -596,21 +596,42 @@
       <div class="du-run-panel">
         <div>
           <strong>Process uploaded files</strong>
-          <div class="du-run-hint">Runs the ETL in the cloud: reads the raw files above, produces the analytics-ready gold data. Takes ~1–2 minutes.</div>
+          <div class="du-run-hint">Runs the ETL in the cloud: reads the raw files, produces the analytics-ready gold data. Takes ~1–2 minutes.</div>
         </div>
         <button class="btn btn-primary" id="du-run-etl-btn">▶ Run ETL</button>
       </div>
+
+      <!-- Live run progress -->
+      <div id="du-run-progress" class="du-run-progress" style="display:none">
+        <div class="du-run-spinner"></div>
+        <div>
+          <div id="du-run-progress-title" style="font-weight:600">Running ETL…</div>
+          <div id="du-run-progress-detail" class="du-run-hint"></div>
+        </div>
+      </div>
       <div class="alert" id="du-run-status" style="display:none"></div>
 
-      <!-- File browser -->
+      <!-- RAW file browser -->
       <div class="du-browser-head">
-        <h3 id="du-browser-title">Files in this location</h3>
+        <h3 id="du-browser-title">Raw files uploaded</h3>
         <span id="du-browser-count" class="du-count-badge"></span>
       </div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>File</th><th>Period</th><th>Size</th><th>Uploaded</th><th></th></tr></thead>
           <tbody id="du-files-tbody"><tr><td colspan="5" style="color:var(--text-muted)">Select a property to view files…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- GOLD outputs -->
+      <div class="du-browser-head" style="margin-top:2rem">
+        <h3>Gold outputs (analytics-ready)</h3>
+        <span id="du-gold-count" class="du-count-badge"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>File</th><th>Rows</th><th>Size</th><th>Last generated</th></tr></thead>
+          <tbody id="du-gold-tbody"><tr><td colspan="4" style="color:var(--text-muted)">Select a property to view gold outputs…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -628,6 +649,9 @@
       .du-dropzone-hint { font-size:0.78rem; color:var(--text-muted); margin-top:0.5rem; }
       .du-run-panel { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 1.25rem; margin-top:1.25rem; background:var(--brand-light,#eef3fb); border-radius:10px; flex-wrap:wrap; }
       .du-run-hint { font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem; max-width:520px; }
+      .du-run-progress { display:flex; align-items:center; gap:1rem; padding:1rem 1.25rem; margin-top:1rem; background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; }
+      .du-run-spinner { width:22px; height:22px; border:3px solid #fed7aa; border-top-color:#ea580c; border-radius:50%; animation:duspin 0.8s linear infinite; flex-shrink:0; }
+      @keyframes duspin { to { transform:rotate(360deg); } }
       .du-browse-link { color:var(--brand,#3D65A8); font-weight:600; text-decoration:underline; }
       .du-staged { margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem; }
       .du-staged-item { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.9rem; border:1px solid var(--border,#ddd); border-radius:8px; background:white; font-size:0.85rem; }
