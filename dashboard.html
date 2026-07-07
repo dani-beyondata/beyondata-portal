@@ -305,6 +305,7 @@
           <p>Upload an export file to find values missing from this company's master catalogs, and add them with one click.</p>
         </div>
         <div style="display:flex;gap:0.5rem">
+          <button class="btn btn-primary" id="btn-reload-gold">⟳ Load from gold data</button>
           <button class="btn btn-secondary" id="btn-export-masters">⬇ Download masters Excel</button>
           <button class="btn btn-secondary" id="btn-import-masters">⬆ Upload masters Excel</button>
           <input type="file" id="import-masters-file" accept=".xlsx,.xls" style="display:none">
@@ -4550,6 +4551,14 @@
   }
 
   // ── GLOBAL ────────────────────────────────────────────────────────
+  document.getElementById('btn-reload-gold').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-reload-gold');
+    btn.disabled = true; btn.textContent = '⟳ Loading…';
+    try { await MastersSetup.loadFromGold(); }
+    catch (e) { UI.showAlert('ms-file-error', e.message); }
+    btn.disabled = false; btn.textContent = '⟳ Load from gold data';
+  });
+
   document.getElementById('btn-export-masters').addEventListener('click', async () => {
     const summaryEl = document.getElementById('export-masters-summary');
     summaryEl.innerHTML = '<em style="color:var(--text-muted)">Analysing files in memory...</em>';
