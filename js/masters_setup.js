@@ -251,6 +251,64 @@ const MastersSetup = (() => {
   // double-quote-wrapped fields containing commas, and "" as an escaped
   // quote inside a quoted field. Not a general-purpose RFC4180 parser, but
   // sufficient for our own ETL output.
+  // Auto-load the gold ETL outputs from the Supabase `gold` bucket for the
+  // current company, populating parsedByType exactly as a manual upload would.
+  // Gold file → file-type mapping (entity name = our internal file type key).
+  const GOLD_BUCKET = 'gold';
+  const GOLD_FILES = {
+    reservations: 'reservations_clean.csv',
+    nights:       'nights_clean.csv',
+    extras:       'extras_master.csv',
+  };
+
+  async function firstPropertyId() {
+    // gold path is client/property/<file>; we need the property code.
+    const { data } = await sb.from('properties')
+      .select('property_id').eq('company_id', currentCompany.id)
+      .order('property_id').limit(1);
+    return data?.[0]?.property_id || null;
+  }
+
+  function clientCode() {
+    return (currentCompany.slug || currentCompany.name || 'client')
+      .toString().toLowerCase().replace(/[^a-z0-9]+/g, '');
+  }
+
+  async function loadFromGold() {
+    const pcode = await firstPropertyId();
+    if (!pcode) { UI.showAlert('ms-file-error', 'No property found for this company.'); return; }
+    const code = clientCode();
+    let loadedAny = false;
+
+    for (const [fileType, fname] of Object.entries(GOLD_FILES)) {
+      const path = `${code}/${pcode}/${fname}`;
+      try {
+        const { data, error } = await sb.storage.from(GOLD_BUCKET).download(path);
+        if (error || !data) continue;
+        const text = await data.text();
+        const { headers, records } = parseCSV(text);
+        if (!headers.length) continue;
+        const columnMap = {};
+        (MASTERS_BY_FILE_TYPE[fileType] || []).forEach(m => {
+          columnMap[m.value] = guessColumn(m.value, headers) || '';
+        });
+        parsedByType[fileType] = { rows: records, headers, filename: fname, columnMap, fromGold: true };
+        loadedAny = true;
+      } catch (e) {
+        // gold file not present yet — skip silently
+      }
+    }
+
+    renderMemoryBar();
+    if (!loadedAny) {
+      UI.showAlert('ms-file-error',
+        'No gold files found yet. Upload files in Data Upload and run the ETL first, or upload a CSV manually below.');
+    } else {
+      UI.hideAlert('ms-file-error');
+    }
+    return loadedAny;
+  }
+
   function parseCSV(text) {
     const rows = [];
     let row = [];
@@ -901,8 +959,12 @@ const MastersSetup = (() => {
       if (guessed) columnSelect.value = guessed;
       document.getElementById('ms-after-upload').style.display = 'block';
       renderResults(masterSelect.value, columnSelect.value);
+      renderMemoryBar();
+    } else {
+      // Nothing in memory — try auto-loading the gold ETL outputs.
+      renderMemoryBar();
+      loadFromGold();
     }
-    renderMemoryBar();
   }
 
   function updateMasterOptions() {
@@ -1107,7 +1169,7 @@ const MastersSetup = (() => {
     }
   }
 
-  return { init, getPendingSheets, getAllPendingSheets, renderMemoryBar, setColumnMap, computeSummary, uploadFor, selectMaster, switchFileType(type) {
+  return { init, loadFromGold, getPendingSheets, getAllPendingSheets, renderMemoryBar, setColumnMap, computeSummary, uploadFor, selectMaster, switchFileType(type) {
     currentFileType = type;
     const fileInput = document.getElementById('ms-file-input');
     fileInput.value = '';
