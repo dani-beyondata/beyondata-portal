@@ -18,7 +18,9 @@ const DataUpload = (() => {
 
   function buildPath(source, pcode, entity, filename) {
     const client = currentClientCode();
-    return `client=${client}/source=${source}/property=${pcode}/entity=${entity}/via=file/${filename}`;
+    // Plain segments (no key=value): Supabase Storage download rejects '=' in paths.
+    // Order encodes meaning: client/source/property/entity/file/filename
+    return `${client}/${source}/${pcode}/${entity}/file/${filename}`;
   }
 
   async function loadProperties() {
@@ -45,7 +47,7 @@ const DataUpload = (() => {
     if (!pcode) { tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted)">Select a property…</td></tr>'; return; }
 
     const client = currentClientCode();
-    const prefix = `client=${client}/source=${source}/property=${pcode}/entity=${entity}/via=file`;
+    const prefix = `${client}/${source}/${pcode}/${entity}/file`;
     const { data, error } = await sb.storage.from(RAW_BUCKET).list(prefix, { limit: 100, sortBy: { column: 'name', order: 'asc' } });
     if (error) { tbody.innerHTML = `<tr><td colspan="5" style="color:#dc2626">${error.message}</td></tr>`; return; }
     if (!data?.length) { tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted)">No files yet for this selection.</td></tr>'; return; }
