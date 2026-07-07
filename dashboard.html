@@ -552,50 +552,78 @@
         <p>Upload source data files for this client. Files are stored securely and processed into analytics-ready tables.</p>
       </div>
 
-      <div style="max-width:560px">
-        <div class="field">
-          <label>Source system</label>
-          <select id="du-source">
-            <option value="mews">Mews</option>
-          </select>
+      <!-- Horizontal filter bar -->
+      <div class="du-filters">
+        <div class="du-filter">
+          <label>Source</label>
+          <select id="du-source"><option value="mews">Mews</option></select>
         </div>
-
-        <div class="field">
+        <div class="du-filter">
           <label>Property</label>
           <select id="du-property"><option value="">Loading…</option></select>
         </div>
-
-        <div class="field">
-          <label>Entity (file type)</label>
+        <div class="du-filter">
+          <label>Entity</label>
           <select id="du-entity">
             <option value="reservations">Reservations</option>
             <option value="nights">Nights</option>
             <option value="extras">Extras</option>
           </select>
         </div>
-
-        <div class="field">
-          <label>File</label>
-          <input type="file" id="du-file" accept=".xlsx,.xls,.csv">
-          <p class="field-hint">The file will be stored in the raw data bucket under this client, property and entity.</p>
+        <div class="du-filter du-path-preview">
+          <label>Target path</label>
+          <code id="du-path-hint">—</code>
         </div>
-
-        <div class="alert error" id="du-error"></div>
-        <div class="alert success" id="du-success"></div>
-
-        <button class="btn btn-primary" id="du-upload-btn">Upload to raw bucket</button>
       </div>
 
-      <div style="margin-top:2rem">
-        <h3 style="font-size:0.95rem;margin-bottom:0.6rem">Files already uploaded</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Property</th><th>Entity</th><th>File</th><th>Uploaded</th><th></th></tr></thead>
-            <tbody id="du-files-tbody"><tr><td colspan="5" style="color:var(--text-muted)">Select above to view…</td></tr></tbody>
-          </table>
+      <!-- Drop zone -->
+      <div id="du-dropzone" class="du-dropzone">
+        <input type="file" id="du-file" accept=".xlsx,.xls,.csv" style="display:none" multiple>
+        <div class="du-dropzone-inner">
+          <div class="du-dropzone-icon">⬆</div>
+          <div><strong>Drop files here</strong> or <span class="du-browse-link">browse</span></div>
+          <div class="du-dropzone-hint">Excel or CSV · must be named like <code>..._2026-01-01_to_2026-01-31.xlsx</code></div>
         </div>
+      </div>
+
+      <div id="du-staged" class="du-staged" style="display:none"></div>
+
+      <div class="alert error" id="du-error"></div>
+      <div class="alert success" id="du-success"></div>
+
+      <!-- File browser -->
+      <div class="du-browser-head">
+        <h3 id="du-browser-title">Files in this location</h3>
+        <span id="du-browser-count" class="du-count-badge"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>File</th><th>Period</th><th>Size</th><th>Uploaded</th><th></th></tr></thead>
+          <tbody id="du-files-tbody"><tr><td colspan="5" style="color:var(--text-muted)">Select a property to view files…</td></tr></tbody>
+        </table>
       </div>
     </div>
+
+    <style>
+      .du-filters { display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:1.25rem; padding:1rem; background:var(--brand-light,#eef3fb); border-radius:10px; }
+      .du-filter { display:flex; flex-direction:column; gap:0.3rem; min-width:150px; }
+      .du-filter label { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); font-weight:600; }
+      .du-filter select { padding:0.4rem 0.6rem; border:1px solid var(--border,#ccc); border-radius:6px; font-size:0.9rem; background:white; }
+      .du-path-preview { flex:1; min-width:220px; }
+      .du-path-preview code { font-size:0.75rem; color:var(--brand,#3D65A8); background:white; padding:0.4rem 0.6rem; border-radius:6px; border:1px solid var(--border,#ccc); overflow-x:auto; white-space:nowrap; display:block; }
+      .du-dropzone { border:2px dashed var(--border,#c3cedd); border-radius:12px; padding:2rem; text-align:center; cursor:pointer; transition:all 0.15s; background:#fafcff; }
+      .du-dropzone:hover, .du-dropzone.dragover { border-color:var(--brand,#3D65A8); background:var(--brand-light,#eef3fb); }
+      .du-dropzone-icon { font-size:2rem; color:var(--brand,#3D65A8); margin-bottom:0.5rem; }
+      .du-dropzone-hint { font-size:0.78rem; color:var(--text-muted); margin-top:0.5rem; }
+      .du-browse-link { color:var(--brand,#3D65A8); font-weight:600; text-decoration:underline; }
+      .du-staged { margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem; }
+      .du-staged-item { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.9rem; border:1px solid var(--border,#ddd); border-radius:8px; background:white; font-size:0.85rem; }
+      .du-staged-item .du-stg-name { font-family:monospace; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .du-staged-item .du-stg-status { font-size:0.78rem; font-weight:600; }
+      .du-browser-head { display:flex; align-items:center; gap:0.75rem; margin:2rem 0 0.6rem; }
+      .du-browser-head h3 { font-size:0.95rem; margin:0; }
+      .du-count-badge { font-size:0.75rem; background:var(--brand-light,#eef3fb); color:var(--brand,#3D65A8); padding:0.15rem 0.6rem; border-radius:20px; font-weight:600; }
+    </style>
 
     <!-- AVAILABILITY CALENDAR -->
     <div class="section" id="section-availability">
