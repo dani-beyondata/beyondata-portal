@@ -279,15 +279,17 @@ const MastersSetup = (() => {
     if (!pcode) { UI.showAlert('ms-file-error', 'No property found for this company.'); return; }
     const code = clientCode();
     let loadedAny = false;
+    const diag = [];
 
     for (const [fileType, fname] of Object.entries(GOLD_FILES)) {
       const path = `${code}/${pcode}/${fname}`;
       try {
         const { data, error } = await sb.storage.from(GOLD_BUCKET).download(path);
-        if (error || !data) continue;
+        if (error) { diag.push(`${fname}: ${error.message}`); continue; }
+        if (!data) { diag.push(`${fname}: no data`); continue; }
         const text = await data.text();
         const { headers, records } = parseCSV(text);
-        if (!headers.length) continue;
+        if (!headers.length) { diag.push(`${fname}: empty/no columns`); continue; }
         const columnMap = {};
         (MASTERS_BY_FILE_TYPE[fileType] || []).forEach(m => {
           columnMap[m.value] = guessColumn(m.value, headers) || '';
@@ -295,14 +297,14 @@ const MastersSetup = (() => {
         parsedByType[fileType] = { rows: records, headers, filename: fname, columnMap, fromGold: true };
         loadedAny = true;
       } catch (e) {
-        // gold file not present yet — skip silently
+        diag.push(`${fname}: ${e.message || e}`);
       }
     }
 
     renderMemoryBar();
     if (!loadedAny) {
       UI.showAlert('ms-file-error',
-        'No gold files found yet. Upload files in Data Upload and run the ETL first, or upload a CSV manually below.');
+        `Could not load gold files from path "${code}/${pcode}/". Details: ${diag.join(' · ') || 'none found'}`);
     } else {
       UI.hideAlert('ms-file-error');
     }
