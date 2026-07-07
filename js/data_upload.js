@@ -65,7 +65,7 @@ const DataUpload = (() => {
       `<option value="${p.property_id}">${p.property_id}${p.property_name ? ' — ' + p.property_name : ''}</option>`
     ).join('');
     updatePathHint();
-    listFiles();
+    listFiles(); listGold();
   }
 
   async function listFiles() {
@@ -184,16 +184,60 @@ const DataUpload = (() => {
     listFiles();
   }
 
+  const GOLD_BUCKET = 'gold';
+  const GOLD_FILES = ['reservations_clean.csv', 'nights_clean.csv', 'extras_master.csv'];
+
+  async function listGold() {
+    const { pcode } = sel();
+    const tbody = document.getElementById('du-gold-tbody');
+    const countEl = document.getElementById('du-gold-count');
+    if (!pcode) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-muted)">Select a property…</td></tr>';
+      countEl.textContent = '';
+      return;
+    }
+    const goldPrefix = `${currentClientCode()}/${pcode}`;
+    const { data, error } = await sb.storage.from(GOLD_BUCKET)
+      .list(goldPrefix, { limit: 100 });
+    if (error) {
+      tbody.innerHTML = `<tr><td colspan="4" style="color:#dc2626">${escapeHtml(error.message)}</td></tr>`;
+      countEl.textContent = '';
+      return;
+    }
+    const files = (data || []).filter(f => f.name && GOLD_FILES.includes(f.name));
+    countEl.textContent = files.length ? `${files.length} generated` : 'none yet';
+    if (!files.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-muted)">No gold outputs yet. Upload raw files and click Run ETL.</td></tr>';
+      return;
+    }
+    // order them consistently
+    const ordered = GOLD_FILES.map(n => files.find(f => f.name === n)).filter(Boolean);
+    tbody.innerHTML = ordered.map(f => {
+      const size = fmtSize(f.metadata?.size);
+      const when = f.updated_at ? new Date(f.updated_at).toLocaleString() : '—';
+      return `<tr>
+        <td style="font-family:monospace;font-size:0.8rem">${escapeHtml(f.name)}</td>
+        <td style="color:var(--text-muted)">—</td>
+        <td>${size}</td>
+        <td style="font-size:0.8rem">${when}</td>
+      </tr>`;
+    }).join('');
+  }
+
   async function runETL() {
     const btn = document.getElementById('du-run-etl-btn');
     const statusEl = document.getElementById('du-run-status');
+    const progress = document.getElementById('du-run-progress');
+    const progTitle = document.getElementById('du-run-progress-title');
+    const progDetail = document.getElementById('du-run-progress-detail');
     const client = currentClientCode();
 
     btn.disabled = true;
     btn.textContent = '▶ Triggering…';
-    statusEl.style.display = 'block';
-    statusEl.className = 'alert';
-    statusEl.textContent = 'Sending run request to the cloud pipeline…';
+    statusEl.style.display = 'none';
+
+    // Baseline: how many SUCCESS runs exist right now, so we can detect new ones.
+    const sinceIso = new Date().toISOString();
 
     try {
       const FN_URL = 'https://lsqwjthckecvuwlxtgnk.supabase.co/functions/v1/trigger-etl';
@@ -207,25 +251,71 @@ const DataUpload = (() => {
         body: JSON.stringify({ client }),
       });
       const data = await resp.json();
-      if (resp.ok && data.ok) {
-        statusEl.className = 'alert success';
-        statusEl.textContent = `✓ ETL started for "${client}" in the cloud. It runs in ~1–2 minutes; refresh the file list or Masters Setup afterward to see updated data.`;
-      } else {
+      if (!(resp.ok && data.ok)) {
+        statusEl.style.display = 'block';
         statusEl.className = 'alert error';
         statusEl.textContent = `Could not start ETL: ${data.error || resp.status}${data.detail ? ' — ' + data.detail : ''}`;
+        btn.disabled = false; btn.textContent = '▶ Run ETL';
+        return;
       }
+
+      // Triggered — begin polling pipeline_runs for completion.
+      progress.style.display = 'flex';
+      progTitle.textContent = 'Running ETL in the cloud…';
+      progDetail.textContent = 'Starting up (this takes ~1–2 minutes). Watching for results…';
+      btn.textContent = '▶ Running…';
+
+      const expectedEntities = ['reservations', 'nights', 'extras'];
+      let elapsed = 0;
+      const poll = setInterval(async () => {
+        elapsed += 5;
+        const { data: runs } = await sb.from('pipeline_runs')
+          .select('entity, status, started_at, finished_at')
+          .gte('started_at', sinceIso)
+          .order('started_at', { ascending: false })
+          .limit(20);
+
+        const done = (runs || []).filter(r => r.status === 'SUCCESS').map(r => r.entity);
+        const failed = (runs || []).filter(r => r.status === 'FAILED');
+        const uniqDone = [...new Set(done)];
+
+        progDetail.textContent =
+          `Completed: ${uniqDone.length ? uniqDone.join(', ') : '…'} ` +
+          `(${uniqDone.length}/${expectedEntities.length}) · ${elapsed}s elapsed`;
+
+        const allDone = expectedEntities.every(e => uniqDone.includes(e));
+        if (allDone || elapsed >= 180) {
+          clearInterval(poll);
+          progress.style.display = 'none';
+          statusEl.style.display = 'block';
+          btn.disabled = false; btn.textContent = '▶ Run ETL';
+          if (allDone) {
+            statusEl.className = 'alert success';
+            statusEl.textContent = `✓ ETL finished for "${client}". Gold outputs updated.`;
+            listFiles(); listGold();
+          } else if (failed.length) {
+            statusEl.className = 'alert error';
+            statusEl.textContent = `Some steps failed: ${failed.map(f => f.entity).join(', ')}. Check the pipeline logs.`;
+            listGold();
+          } else {
+            statusEl.className = 'alert';
+            statusEl.textContent = `Still running after ${elapsed}s. Check GitHub Actions or refresh shortly.`;
+          }
+        }
+      }, 5000);
+
     } catch (e) {
+      progress.style.display = 'none';
+      statusEl.style.display = 'block';
       statusEl.className = 'alert error';
       statusEl.textContent = `Could not reach the pipeline function: ${e.message}`;
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '▶ Run ETL';
+      btn.disabled = false; btn.textContent = '▶ Run ETL';
     }
   }
 
   function init() {
     loadProperties();
-    const relist = () => { document.getElementById('du-staged').style.display='none'; listFiles(); };
+    const relist = () => { document.getElementById('du-staged').style.display='none'; listFiles(); listGold(); };
     document.getElementById('du-source').onchange   = relist;
     document.getElementById('du-property').onchange = relist;
     document.getElementById('du-entity').onchange   = relist;
