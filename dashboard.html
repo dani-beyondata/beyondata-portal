@@ -69,7 +69,21 @@
 
     <!-- OVERVIEW -->
     <div class="section active" id="section-overview">
-      <div class="section-header">
+
+      <!-- Welcome hero -->
+      <div class="welcome-hero">
+        <div class="welcome-hero-bg"></div>
+        <div class="welcome-hero-content">
+          <div class="welcome-brand">
+            <span class="wb-beyon">BEYON</span><span class="wb-d">D</span><span class="wb-ata">ATA</span>
+          </div>
+          <div class="welcome-greeting" id="welcome-greeting">Bienvenido</div>
+          <div class="welcome-sub" id="welcome-sub">Panel de control</div>
+          <div class="welcome-date" id="welcome-date"></div>
+        </div>
+      </div>
+
+      <div class="section-header" style="margin-top:1.5rem">
         <h2 id="overview-title">Overview</h2>
         <p>Company summary and key information.</p>
       </div>
@@ -660,6 +674,19 @@
       .du-browser-head { display:flex; align-items:center; gap:0.75rem; margin:2rem 0 0.6rem; }
       .du-browser-head h3 { font-size:0.95rem; margin:0; }
       .du-count-badge { font-size:0.75rem; background:var(--brand-light,#eef3fb); color:var(--brand,#3D65A8); padding:0.15rem 0.6rem; border-radius:20px; font-weight:600; }
+
+      /* Welcome hero */
+      .welcome-hero { position:relative; border-radius:20px; overflow:hidden; padding:2.4rem 2.6rem; background:linear-gradient(135deg,#1e3a5f 0%,#2d4d78 55%,#3D65A8 100%); box-shadow:0 8px 24px rgba(30,58,95,0.18); }
+      .welcome-hero-bg { position:absolute; inset:0; background:radial-gradient(circle at 85% 20%, rgba(96,165,250,0.35) 0%, transparent 45%), radial-gradient(circle at 110% 120%, rgba(96,165,250,0.25) 0%, transparent 40%); pointer-events:none; }
+      .welcome-hero-content { position:relative; z-index:1; }
+      .welcome-brand { font-family:'Segoe UI',Arial,sans-serif; font-size:1.5rem; font-weight:800; letter-spacing:1px; margin-bottom:1.1rem; }
+      .welcome-brand .wb-beyon { color:#ffffff; }
+      .welcome-brand .wb-d { background:linear-gradient(135deg,#ffffff 0%,#60a5fa 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+      .welcome-brand .wb-ata { color:#60a5fa; }
+      .welcome-greeting { font-size:2rem; font-weight:700; color:#ffffff; line-height:1.15; }
+      .welcome-sub { font-size:1rem; color:rgba(255,255,255,0.82); margin-top:0.35rem; }
+      .welcome-date { font-size:0.8rem; color:rgba(255,255,255,0.6); margin-top:0.9rem; text-transform:capitalize; }
+      @media (max-width:640px){ .welcome-hero{ padding:1.8rem 1.6rem; } .welcome-greeting{ font-size:1.5rem; } }
     </style>
 
     <!-- AVAILABILITY CALENDAR -->
@@ -1476,6 +1503,23 @@
   // ── OVERVIEW ──────────────────────────────────────────────────────
   async function loadOverview() {
     document.getElementById('overview-title').textContent = currentCompany.name;
+
+    // Welcome hero: time-based greeting + company + date
+    const hour = new Date().getHours();
+    const greet = hour < 6 ? 'Buenas noches'
+                : hour < 13 ? 'Buenos días'
+                : hour < 20 ? 'Buenas tardes'
+                : 'Buenas noches';
+    const firstName = (currentProfile && currentProfile.full_name)
+        ? currentProfile.full_name.split(' ')[0] : '';
+    document.getElementById('welcome-greeting').textContent =
+        greet + (firstName ? ', ' + firstName : '');
+    document.getElementById('welcome-sub').textContent =
+        'Panel de control · ' + currentCompany.name;
+    document.getElementById('welcome-date').textContent =
+        new Date().toLocaleDateString('es-ES',
+            { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
     const cid = currentCompany.id;
 
     // Fire all queries in parallel
