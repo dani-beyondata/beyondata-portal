@@ -27,12 +27,12 @@ const Auth = (() => {
   async function logout() {
     await sb.auth.signOut();
     sessionStorage.clear();
-    window.location.href = 'index.html';
+    window.location.href = 'login.html';
   }
 
   async function requireAuth() {
     const session = await getSession();
-    if (!session) { window.location.href = 'index.html'; return null; }
+    if (!session) { window.location.href = 'login.html'; return null; }
     return session;
   }
 
