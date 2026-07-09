@@ -83,36 +83,36 @@
         </div>
       </div>
 
-      <div class="section-header" style="margin-top:1.5rem">
+      <div class="section-header" style="margin-top:1.75rem">
         <h2 id="overview-title">Overview</h2>
         <p>Company summary and key information.</p>
       </div>
 
       <!-- General -->
-      <div style="margin-bottom:0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">General</div>
-      <div class="cards-grid" style="margin-bottom:1.5rem">
-        <div class="card card-link" onclick="navTo('properties')"><div class="card-label">Properties</div><div class="card-value" id="stat-properties">—</div></div>
-        <div class="card card-link" onclick="navTo('users')"><div class="card-label">Users</div><div class="card-value" id="stat-users">—</div></div>
-        <div class="card card-link" onclick="navTo('settings')"><div class="card-label">Occupancy Mode</div><div class="card-value" id="stat-occ-mode">—</div><div class="card-sub">Current setting</div></div>
+      <div class="ov-group-label">General</div>
+      <div class="cards-grid ov-cards" style="margin-bottom:1.75rem">
+        <div class="card card-link ov-card" onclick="navTo('properties')"><div class="ov-card-icon">⊞</div><div class="card-label">Properties</div><div class="card-value" id="stat-properties">—</div></div>
+        <div class="card card-link ov-card" onclick="navTo('users')"><div class="ov-card-icon">◎</div><div class="card-label">Users</div><div class="card-value" id="stat-users">—</div></div>
+        <div class="card card-link ov-card" onclick="navTo('settings')"><div class="ov-card-icon">⚙</div><div class="card-label">Occupancy Mode</div><div class="card-value" id="stat-occ-mode">—</div><div class="card-sub">Current setting</div></div>
       </div>
 
       <!-- Catalogs -->
-      <div style="margin-bottom:0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">Catalogs</div>
-      <div class="cards-grid" style="margin-bottom:1.5rem">
-        <div class="card card-link" onclick="navTo('channels')"><div class="card-label">Channels</div><div class="card-value" id="stat-channels">—</div></div>
-        <div class="card card-link" onclick="navTo('segments')"><div class="card-label">Segments</div><div class="card-value" id="stat-segments">—</div></div>
-        <div class="card card-link" onclick="navTo('purposes')"><div class="card-label">Booking Purposes</div><div class="card-value" id="stat-purposes">—</div></div>
-        <div class="card card-link" onclick="navTo('extras')"><div class="card-label">Extras</div><div class="card-value" id="stat-extras">—</div></div>
-        <div class="card card-link" onclick="navTo('markets')"><div class="card-label">Market Groups</div><div class="card-value" id="stat-market-groups">—</div></div>
-        <div class="card card-link" onclick="navTo('markets')"><div class="card-label">Country Mappings</div><div class="card-value" id="stat-country-mappings">—</div><div class="card-sub">Assigned to a group</div></div>
+      <div class="ov-group-label">Catalogs</div>
+      <div class="cards-grid ov-cards" style="margin-bottom:1.75rem">
+        <div class="card card-link ov-card" onclick="navTo('channels')"><div class="ov-card-icon">⊹</div><div class="card-label">Channels</div><div class="card-value" id="stat-channels">—</div></div>
+        <div class="card card-link ov-card" onclick="navTo('segments')"><div class="ov-card-icon">◑</div><div class="card-label">Segments</div><div class="card-value" id="stat-segments">—</div></div>
+        <div class="card card-link ov-card" onclick="navTo('purposes')"><div class="ov-card-icon">◇</div><div class="card-label">Booking Purposes</div><div class="card-value" id="stat-purposes">—</div></div>
+        <div class="card card-link ov-card" onclick="navTo('extras')"><div class="ov-card-icon">✦</div><div class="card-label">Extras</div><div class="card-value" id="stat-extras">—</div></div>
+        <div class="card card-link ov-card" onclick="navTo('markets')"><div class="ov-card-icon">⊕</div><div class="card-label">Market Groups</div><div class="card-value" id="stat-market-groups">—</div></div>
+        <div class="card card-link ov-card" onclick="navTo('markets')"><div class="ov-card-icon">◉</div><div class="card-label">Country Mappings</div><div class="card-value" id="stat-country-mappings">—</div><div class="card-sub">Assigned to a group</div></div>
       </div>
 
       <!-- Hotel Setup -->
-      <div style="margin-bottom:0.5rem;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em">Hotel Setup</div>
-      <div class="cards-grid" style="margin-bottom:1.5rem">
-        <div class="card card-link" onclick="navTo('rooms')"><div class="card-label">Room Categories</div><div class="card-value" id="stat-room-categories">—</div></div>
-        <div class="card card-link" onclick="navTo('rooms')"><div class="card-label">Total Rooms</div><div class="card-value" id="stat-rooms">—</div><div class="card-sub">Across all properties</div></div>
-        <div class="card card-link" onclick="navTo('availability')"><div class="card-label">Open Days This Month</div><div class="card-value" id="stat-open-days">—</div><div class="card-sub" id="stat-open-days-sub"></div></div>
+      <div class="ov-group-label">Hotel Setup</div>
+      <div class="cards-grid ov-cards" style="margin-bottom:1.75rem">
+        <div class="card card-link ov-card" onclick="navTo('rooms')"><div class="ov-card-icon">⊡</div><div class="card-label">Room Categories</div><div class="card-value" id="stat-room-categories">—</div></div>
+        <div class="card card-link ov-card" onclick="navTo('rooms')"><div class="ov-card-icon">▦</div><div class="card-label">Total Rooms</div><div class="card-value" id="stat-rooms">—</div><div class="card-sub">Across all properties</div></div>
+        <div class="card card-link ov-card" onclick="navTo('availability')"><div class="ov-card-icon">▤</div><div class="card-label">Open Days This Month</div><div class="card-value" id="stat-open-days">—</div><div class="card-sub" id="stat-open-days-sub"></div></div>
       </div>
     </div>
 
@@ -687,6 +687,28 @@
       .welcome-sub { font-size:1rem; color:rgba(255,255,255,0.82); margin-top:0.35rem; }
       .welcome-date { font-size:0.8rem; color:rgba(255,255,255,0.6); margin-top:0.9rem; text-transform:capitalize; }
       @media (max-width:640px){ .welcome-hero{ padding:1.8rem 1.6rem; } .welcome-greeting{ font-size:1.5rem; } }
+
+      /* Overview group labels with decorative line */
+      .ov-group-label { display:flex; align-items:center; gap:0.75rem; font-family:'DM Mono',monospace; font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:0.85rem; font-weight:500; }
+      .ov-group-label::after { content:""; flex:1; height:1px; background:linear-gradient(to right, var(--border), transparent); }
+
+      /* Overview stat cards — professional refinement */
+      .ov-cards .ov-card { position:relative; overflow:hidden; border-radius:14px; padding:1.25rem 1.35rem; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; opacity:0; transform:translateY(8px); animation:ovFadeUp .45s ease forwards; }
+      .ov-cards .ov-card::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:linear-gradient(180deg,#3D65A8,#60a5fa); opacity:0; transition:opacity .18s ease; }
+      .ov-card:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(61,101,168,0.16); border-color:var(--brand); }
+      .ov-card:hover::before { opacity:1; }
+      .ov-card-icon { position:absolute; top:1rem; right:1.1rem; font-size:1.35rem; color:var(--brand-light); transition:color .18s ease, transform .18s ease; }
+      .ov-card:hover .ov-card-icon { color:var(--brand); transform:scale(1.1); }
+      .ov-card .card-value { font-size:1.85rem; }
+
+      /* staggered fade-in */
+      @keyframes ovFadeUp { to { opacity:1; transform:translateY(0); } }
+      .ov-cards .ov-card:nth-child(1){ animation-delay:.02s; }
+      .ov-cards .ov-card:nth-child(2){ animation-delay:.06s; }
+      .ov-cards .ov-card:nth-child(3){ animation-delay:.10s; }
+      .ov-cards .ov-card:nth-child(4){ animation-delay:.14s; }
+      .ov-cards .ov-card:nth-child(5){ animation-delay:.18s; }
+      .ov-cards .ov-card:nth-child(6){ animation-delay:.22s; }
     </style>
 
     <!-- AVAILABILITY CALENDAR -->
