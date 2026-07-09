@@ -130,7 +130,7 @@
         <table>
           <thead><tr>
             <th>Property ID</th><th>Name</th><th>City</th><th>Country</th>
-            <th>Rooms</th><th>Beds</th><th>Source</th><th>Status</th><th></th>
+            <th class="num">Rooms</th><th class="num">Beds</th><th>Source</th><th>Status</th><th></th>
           </tr></thead>
           <tbody id="properties-tbody"></tbody>
         </table>
@@ -359,7 +359,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Value in file</th><th>Rows</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Value in file</th><th class="num">Rows</th><th>Status</th><th></th></tr></thead>
             <tbody id="ms-results-tbody"></tbody>
           </table>
         </div>
@@ -644,7 +644,7 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>File</th><th>Rows</th><th>Size</th><th>Last generated</th></tr></thead>
+          <thead><tr><th>File</th><th class="num">Rows</th><th class="num">Size</th><th>Last generated</th></tr></thead>
           <tbody id="du-gold-tbody"><tr><td colspan="4" style="color:var(--text-muted)">Select a property to view gold outputs…</td></tr></tbody>
         </table>
       </div>
@@ -1610,8 +1610,8 @@
         <td>${p.property_name}</td>
         <td>${p.city || '—'}</td>
         <td>${p.country || '—'}</td>
-        <td>${p.total_rooms ?? '—'}</td>
-        <td>${p.total_beds ?? '—'}</td>
+        <td class="num">${p.total_rooms ?? '—'}</td>
+        <td class="num">${p.total_beds ?? '—'}</td>
         <td>${UI.sourceBadge(p.data_source)}</td>
         <td>${UI.statusBadge(p.active)}</td>
         <td style="white-space:nowrap">
