@@ -1410,7 +1410,7 @@
     if (!session) return;
 
     currentProfile = await Auth.getProfile(session.user.id);
-    if (!currentProfile) { window.location.href = 'index.html'; return; }
+    if (!currentProfile) { window.location.href = 'login.html'; return; }
 
     isAdmin = ['system_admin','company_admin'].includes(currentProfile.role);
 
@@ -1425,7 +1425,7 @@
       currentCompany = currentProfile.companies;
     }
 
-    if (!currentCompany) { window.location.href = 'index.html'; return; }
+    if (!currentCompany) { window.location.href = 'login.html'; return; }
 
     // Hide admin nav for plain users
     if (currentProfile.role === 'company_user') {
