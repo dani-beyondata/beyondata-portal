@@ -159,6 +159,8 @@
   transition: color 0.15s ease;
 }
 
+.nav-icon svg { width: 17px; height: 17px; }
+
 .nav-item:hover .nav-icon { color: var(--brand); }
 .nav-item.active .nav-icon { color: var(--brand); }
 
