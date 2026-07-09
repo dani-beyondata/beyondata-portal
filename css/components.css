@@ -662,3 +662,20 @@ tbody td:first-child { font-weight: 500; }
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Table enhance: sort + filter + search ────────────────────────── */
+.te-search-bar { display:flex; align-items:center; gap:0.5rem; padding:0.6rem 0.85rem; border-bottom:1px solid var(--border); background:var(--white); }
+.te-search-ico { color:var(--text-muted); display:flex; }
+.te-search-input { flex:1; border:none; outline:none; font-size:0.85rem; font-family:inherit; color:var(--text); background:transparent; padding:0.15rem 0; }
+.te-search-input::placeholder { color:var(--text-muted); }
+
+.te-sortable .te-th-inner { display:inline-flex; align-items:center; gap:0.35rem; }
+.te-th-label { cursor:pointer; user-select:none; }
+.te-th-label:hover { color:var(--brand); }
+.te-sort-ind { font-size:0.6rem; color:var(--brand); width:0.7em; }
+.te-funnel { cursor:pointer; color:var(--border); display:inline-flex; transition:color 0.12s; }
+.te-funnel:hover { color:var(--brand); }
+
+.te-filter-row th { background:var(--white); border-bottom:1px solid var(--border); padding:0.35rem 0.6rem; position:sticky; top:2.1rem; z-index:1; }
+.te-filter-input { width:100%; border:1px solid var(--border); border-radius:6px; padding:0.25rem 0.5rem; font-size:0.78rem; font-family:inherit; outline:none; color:var(--text); }
+.te-filter-input:focus { border-color:var(--brand); box-shadow:0 0 0 2px var(--brand-light); }
