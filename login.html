@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BeyonData — Sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+</head>
+<body class="login-page">
+
+<div class="login-wrap">
+  <div class="login-brand">
+    <div class="brand-name">BEYON<span>DATA</span></div>
+    <div class="brand-sub">Client Portal</div>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:1.05rem;font-weight:500;margin-bottom:1.25rem">Sign in to your account</h2>
+
+    <div class="alert error" id="alert-error"></div>
+
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="you@company.com" autocomplete="email">
+    </div>
+
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+
+    <button class="btn btn-primary btn-full" id="btn-login" style="margin-top:0.5rem">Sign in</button>
+  </div>
+
+  <div class="login-footer">BeyonData Analytics · Hotel Intelligence Platform</div>
+  <div style="text-align:center;margin-top:1rem">
+    <a href="index.html" style="font-size:0.85rem;color:#6b7280;text-decoration:none">← Volver a la web</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  function showError(msg) {
+    const el = document.getElementById('alert-error');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+
+  // Redirect if already logged in
+  Auth.getSession().then(session => {
+    if (session) Auth.redirectAfterLogin(session.user.id);
+  });
+
+  document.getElementById('btn-login').addEventListener('click', async () => {
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const btn      = document.getElementById('btn-login');
+
+    document.getElementById('alert-error').classList.remove('show');
+
+    if (!email || !password) {
+      showError('Please enter your email and password.');
+      return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'Signing in...';
+
+    try {
+      const { data, error } = await Auth.login(email, password);
+
+      if (error) {
+        showError(error.message);
+        btn.disabled    = false;
+        btn.textContent = 'Sign in';
+        return;
+      }
+
+      await Auth.redirectAfterLogin(data.user.id);
+
+    } catch(e) {
+      console.error('Login exception:', e);
+      showError('An unexpected error occurred. Check console for details.');
+      btn.disabled    = false;
+      btn.textContent = 'Sign in';
+    }
+  });
+
+  document.getElementById('password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-login').click();
+  });
+</script>
+</body>
+</html>
