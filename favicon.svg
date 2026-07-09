@@ -1,19 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
-    <linearGradient id="splitD" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="50%" stop-color="white"/>
-      <stop offset="50%" stop-color="#60a5fa"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e3a5f"/>
+      <stop offset="1" stop-color="#3D65A8"/>
     </linearGradient>
-    <clipPath id="bg-clip">
-      <rect width="32" height="32" rx="6"/>
-    </clipPath>
+    <linearGradient id="d" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0.5" stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#60a5fa"/>
+    </linearGradient>
   </defs>
-  <!-- Background: dark navy -->
-  <rect width="32" height="32" rx="6" fill="#1e3a5f"/>
-  <!-- D letter with diagonal gradient -->
-  <text x="4" y="25"
-    font-family="Georgia, 'Times New Roman', serif"
-    font-weight="700"
-    font-size="26"
-    fill="url(#splitD)">D</text>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <text x="32" y="46" font-family="'DM Sans','Segoe UI',Arial,sans-serif" font-size="42" font-weight="800" text-anchor="middle" fill="url(#d)">D</text>
 </svg>
