@@ -174,11 +174,19 @@ tbody td:first-child { font-weight: 500; }
 
 /* Status badges */
 .badge { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.55rem; border-radius: 20px; font-size: 0.72rem; font-weight: 600; line-height: 1.4; }
-.badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.9; }
+.badge-active::before, .badge-inactive::before, .badge-warning::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.9; }
 .badge-active   { background: #e7f6ec; color: #16794c; }
 .badge-inactive { background: #f1f2f4; color: #6b7280; }
 .badge-warning  { background: #fdf3e2; color: #a56a17; }
 .badge-info     { background: var(--brand-light); color: var(--brand-dark); }
+/* roles */
+.badge-system   { background: #ede9fe; color: #6d28d9; }
+.badge-admin    { background: var(--brand-light); color: var(--brand-dark); }
+.badge-user     { background: #f1f2f4; color: #4b5563; }
+/* data source */
+.badge-api      { background: #e0f2fe; color: #0369a1; }
+.badge-upload   { background: #e7f6ec; color: #16794c; }
+
 
 /* Empty state */
 .table-empty { text-align: center; padding: 2.75rem 1.5rem; color: var(--text-muted); }
