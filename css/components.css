@@ -118,6 +118,7 @@
   min-width: 400px;
   max-width: 100%;
   width: 100%;
+  box-shadow: 0 1px 3px rgba(61, 101, 168, 0.05);
 }
 
 .table-header {
@@ -130,6 +131,9 @@
 
 .table-header h3 { font-size: 0.9rem; font-weight: 500; }
 
+/* Scroll container for tall tables (enables sticky header) */
+.table-scroll { max-height: 62vh; overflow-y: auto; }
+
 table { width: 100%; border-collapse: collapse; }
 
 thead th {
@@ -138,22 +142,51 @@ thead th {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-  padding: 0.5rem 1rem;
+  padding: 0.7rem 1rem;
   text-align: left;
   font-weight: 500;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  white-space: nowrap;
 }
 
+/* numeric columns align right for scannability */
+thead th.num, tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
 tbody td {
-  padding: 0.45rem 1rem;
+  padding: 0.6rem 1rem;
   font-size: 0.85rem;
   border-top: 1px solid var(--border);
   color: var(--text);
+  transition: background 0.12s ease;
 }
 
-tbody tr:nth-child(even) { background: #f9fafd; }
-tbody tr:hover { background: var(--brand-light) !important; }
+tbody tr:nth-child(even) { background: #fafbfd; }
+tbody tr { transition: background 0.12s ease; }
+tbody tr:hover { background: var(--brand-light); }
+tbody tr:hover td { color: var(--text); }
+
+/* First column a touch stronger */
+tbody td:first-child { font-weight: 500; }
+
+/* Status badges */
+.badge { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.55rem; border-radius: 20px; font-size: 0.72rem; font-weight: 600; line-height: 1.4; }
+.badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.9; }
+.badge-active   { background: #e7f6ec; color: #16794c; }
+.badge-inactive { background: #f1f2f4; color: #6b7280; }
+.badge-warning  { background: #fdf3e2; color: #a56a17; }
+.badge-info     { background: var(--brand-light); color: var(--brand-dark); }
+
+/* Empty state */
+.table-empty { text-align: center; padding: 2.75rem 1.5rem; color: var(--text-muted); }
+.table-empty .te-icon { width: 44px; height: 44px; margin: 0 auto 0.85rem; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: var(--bg); color: var(--brand); }
+.table-empty .te-icon svg { width: 22px; height: 22px; }
+.table-empty .te-title { font-size: 0.9rem; font-weight: 600; color: var(--text); margin-bottom: 0.25rem; }
+.table-empty .te-sub { font-size: 0.8rem; }
+
 
 /* Params / Settings */
 .param-row {
