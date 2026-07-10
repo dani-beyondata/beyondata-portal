@@ -236,6 +236,68 @@ a{color:inherit;text-decoration:none}
 .founders-note{margin-top:2.5rem;background:linear-gradient(135deg,var(--navy),var(--brand));color:#fff;border-radius:var(--r-lg);padding:2.5rem 3rem;text-align:center}
 .founders-note p{font-family:'Fraunces',serif;font-size:1.4rem;font-style:italic;line-height:1.4;max-width:44ch;margin:0 auto;color:#fff}
 
+/* ── Plans configurator ── */
+.plans-rooms{display:flex;align-items:center;justify-content:center;gap:1.2rem;margin-bottom:2.5rem;flex-wrap:wrap}
+.plans-rooms label{font-weight:600;color:var(--ink)}
+.rooms-control{display:flex;align-items:center;gap:0.75rem;background:var(--white);border:1.5px solid var(--line);border-radius:100px;padding:0.4rem 0.5rem}
+.rooms-btn{width:34px;height:34px;border-radius:50%;border:none;background:var(--bone);color:var(--brand);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.rooms-btn:hover{background:var(--brand-light,#dce8f7)}
+.rooms-input{width:64px;text-align:center;border:none;font-family:'Fraunces',serif;font-size:1.5rem;font-weight:600;color:var(--ink);outline:none;background:transparent}
+.rooms-suffix{font-size:0.9rem;color:var(--muted);padding-right:0.6rem}
+
+.modules-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.3rem;margin-bottom:1.5rem}
+.module{background:var(--white);border:1.5px solid var(--line);border-radius:var(--r-lg);overflow:hidden;transition:border-color .2s,box-shadow .2s,transform .2s;display:flex;flex-direction:column}
+.module.active{border-color:var(--brand);box-shadow:0 10px 30px rgba(61,101,168,0.14)}
+.module.base{border-color:var(--gold)}
+.module-img{width:100%;aspect-ratio:600/360;object-fit:cover;border-bottom:1px solid var(--line);background:var(--bone)}
+.module-body{padding:1.4rem 1.5rem;flex:1;display:flex;flex-direction:column}
+.module-top{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:0.5rem}
+.module h3{font-size:1.25rem;margin:0}
+.module-badge{font-family:'DM Mono',monospace;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;padding:0.2rem 0.55rem;border-radius:100px;white-space:nowrap;margin-top:0.2rem}
+.module-badge.base{background:#fdf1dc;color:var(--gold-deep)}
+.module-desc{color:var(--ink-soft);font-size:0.94rem;margin-bottom:1.2rem;flex:1}
+.module-foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:1.1rem}
+.module-price{font-size:0.95rem;color:var(--ink)}
+.module-price b{font-family:'Fraunces',serif;font-size:1.35rem;color:var(--brand)}
+.module-price .u{color:var(--muted);font-size:0.82rem}
+
+/* Toggle switch */
+.switch{position:relative;width:52px;height:30px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.switch .track{position:absolute;inset:0;background:#d8dbe0;border-radius:100px;transition:background .2s;cursor:pointer}
+.switch .track::before{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
+.switch input:checked + .track{background:var(--brand)}
+.switch input:checked + .track::before{transform:translateX(22px)}
+.switch.locked .track{background:var(--gold);cursor:not-allowed}
+.switch.locked .track::before{transform:translateX(22px)}
+
+/* Consultoría — distinct */
+.consult{background:linear-gradient(135deg,var(--navy),var(--brand));color:#fff;border-radius:var(--r-lg);padding:2rem 2.2rem;display:flex;justify-content:space-between;align-items:center;gap:1.5rem;margin-bottom:2rem}
+.consult-l h3{color:#fff;font-size:1.4rem;margin-bottom:0.4rem}
+.consult-l p{color:rgba(255,255,255,0.82);font-size:0.95rem;max-width:52ch}
+.consult-r{display:flex;align-items:center;gap:1.2rem;flex-shrink:0}
+.consult-price{text-align:right}
+.consult-price b{font-family:'Fraunces',serif;font-size:1.5rem;display:block}
+.consult-price .u{font-size:0.8rem;color:rgba(255,255,255,0.7)}
+
+/* Summary bar */
+.plan-summary{position:sticky;bottom:1.2rem;background:var(--white);border:1.5px solid var(--brand);border-radius:var(--r-lg);box-shadow:0 12px 40px rgba(21,43,71,0.18);padding:1.4rem 2rem;display:flex;justify-content:space-between;align-items:center;gap:1.5rem;flex-wrap:wrap;margin-top:1rem}
+.plan-summary-figures{display:flex;gap:2.5rem;flex-wrap:wrap}
+.plan-fig .pf-label{font-family:'DM Mono',monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)}
+.plan-fig .pf-value{font-family:'Fraunces',serif;font-size:1.8rem;font-weight:600;color:var(--ink);line-height:1.1}
+.plan-fig .pf-value small{font-size:0.85rem;color:var(--muted);font-family:'DM Sans',sans-serif}
+.plan-fig .pf-sub{font-size:0.78rem;color:var(--muted)}
+.plan-summary .btn{flex-shrink:0}
+
+@media (max-width:900px){
+  .modules-grid{grid-template-columns:1fr}
+  .consult{flex-direction:column;text-align:center;align-items:stretch}
+  .consult-r{justify-content:center}
+  .plan-summary{flex-direction:column;align-items:stretch;text-align:center;position:static}
+  .plan-summary-figures{justify-content:center}
+  .plan-summary .btn{width:100%;justify-content:center}
+}
+
 /* ── FAQ ── */
 .faq-list{max-width:780px;margin:0 auto}
 .faq-item{border-bottom:1px solid var(--line)}
@@ -303,6 +365,7 @@ a{color:inherit;text-decoration:none}
       <a href="#servicios" class="navlink">Servicios</a>
       <a href="#como" class="navlink">Cómo funciona</a>
       <a href="#nosotros" class="navlink">Nosotros</a>
+      <a href="#planes" class="navlink">Planes</a>
       <a href="#faq" class="navlink">FAQ</a>
       <a href="#contacto" class="navlink">Contacto</a>
     </div>
@@ -328,6 +391,7 @@ a{color:inherit;text-decoration:none}
   <a href="#servicios" class="m-link">Servicios</a>
   <a href="#como" class="m-link">Cómo funciona</a>
   <a href="#nosotros" class="m-link">Nosotros</a>
+  <a href="#planes" class="m-link">Planes</a>
   <a href="#faq" class="m-link">FAQ</a>
   <a href="#contacto" class="m-link">Contacto</a>
   <div class="m-actions">
@@ -564,6 +628,127 @@ a{color:inherit;text-decoration:none}
   </div>
 </section>
 
+<!-- PLANES / CONFIGURADOR -->
+<section class="section" id="planes" style="background:var(--bone-2)">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="eyebrow">Planes</span>
+      <h2>Arma tu plan. Pagas por lo que usas.</h2>
+      <p>Elige los módulos que necesitas. El precio es por habitación, así que escala con tu hotel — de una casa boutique a una cadena.</p>
+    </div>
+
+    <div class="plans-rooms reveal">
+      <label for="roomsInput">¿Cuántas habitaciones tiene tu hotel?</label>
+      <div class="rooms-control">
+        <button class="rooms-btn" id="roomsMinus" aria-label="Menos">−</button>
+        <input type="number" class="rooms-input" id="roomsInput" value="40" min="1" max="9999">
+        <span class="rooms-suffix">hab.</span>
+        <button class="rooms-btn" id="roomsPlus" aria-label="Más">+</button>
+      </div>
+    </div>
+
+    <div class="modules-grid reveal">
+      <!-- Base -->
+      <div class="module base active" data-module="ventas" data-price="2" data-base="1">
+        <img src="mod_ventas.png" alt="Ventas y Revenue" class="module-img">
+        <div class="module-body">
+          <div class="module-top">
+            <h3>Ventas &amp; Revenue</h3>
+            <span class="module-badge base">Base · incluido</span>
+          </div>
+          <p class="module-desc">Ocupación, ADR, RevPAR y producción por canal, segmento y mercado. Comparado con año anterior y objetivo. El núcleo de tu análisis.</p>
+          <div class="module-foot">
+            <div class="module-price">desde <b>2€</b> <span class="u">/hab./mes</span></div>
+            <label class="switch locked"><input type="checkbox" checked disabled><span class="track"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- P&L -->
+      <div class="module" data-module="pl" data-price="1">
+        <img src="mod_pl.png" alt="P&L / Contabilidad" class="module-img">
+        <div class="module-body">
+          <div class="module-top"><h3>P&amp;L / Contabilidad</h3></div>
+          <p class="module-desc">Del libro diario al GOP: ingresos, costes directos, gastos operativos y márgenes. Tu cuenta de resultados, viva.</p>
+          <div class="module-foot">
+            <div class="module-price">desde <b>+1€</b> <span class="u">/hab./mes</span></div>
+            <label class="switch"><input type="checkbox" class="mod-toggle"><span class="track"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Forecast -->
+      <div class="module" data-module="forecast" data-price="1">
+        <img src="mod_forecast.png" alt="Forecast y Presupuesto" class="module-img">
+        <div class="module-body">
+          <div class="module-top"><h3>Forecast &amp; Presupuesto</h3></div>
+          <p class="module-desc">Objetivos frente al dato real, cada día del año. Sabes si vas por delante o por detrás del plan, sin esperar al cierre.</p>
+          <div class="module-foot">
+            <div class="module-price">desde <b>+1€</b> <span class="u">/hab./mes</span></div>
+            <label class="switch"><input type="checkbox" class="mod-toggle"><span class="track"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Extras -->
+      <div class="module" data-module="extras" data-price="1">
+        <img src="mod_extras.png" alt="Análisis de Extras" class="module-img">
+        <div class="module-body">
+          <div class="module-top"><h3>Análisis de Extras</h3></div>
+          <p class="module-desc">Ingresos por desayuno, parking, spa, tours y más. Descubre dónde está el upselling que se te escapa.</p>
+          <div class="module-foot">
+            <div class="module-price">desde <b>+1€</b> <span class="u">/hab./mes</span></div>
+            <label class="switch"><input type="checkbox" class="mod-toggle"><span class="track"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Markets -->
+      <div class="module" data-module="markets" data-price="1">
+        <img src="mod_markets.png" alt="Segmentación de Mercados" class="module-img">
+        <div class="module-body">
+          <div class="module-top"><h3>Segmentación de Mercados</h3></div>
+          <p class="module-desc">Producción por país, mercado y canal. Entiende de dónde viene tu negocio y hacia dónde dirigir tu esfuerzo comercial.</p>
+          <div class="module-foot">
+            <div class="module-price">desde <b>+1€</b> <span class="u">/hab./mes</span></div>
+            <label class="switch"><input type="checkbox" class="mod-toggle"><span class="track"></span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Consultoría (servicio aparte) -->
+    <div class="consult reveal">
+      <div class="consult-l">
+        <h3>Consultoría a medida</h3>
+        <p>¿Quieres que interpretemos los números contigo? Sesiones periódicas con nuestro equipo para convertir los datos en decisiones y acciones concretas.</p>
+      </div>
+      <div class="consult-r">
+        <div class="consult-price"><b>desde 300€</b><span class="u">/mes · opcional</span></div>
+        <label class="switch"><input type="checkbox" id="consultToggle"><span class="track" style="background:rgba(255,255,255,0.3)"></span></label>
+      </div>
+    </div>
+
+    <!-- Live summary -->
+    <div class="plan-summary reveal">
+      <div class="plan-summary-figures">
+        <div class="plan-fig">
+          <div class="pf-label">Puesta en marcha</div>
+          <div class="pf-value">desde 500€ <small>único</small></div>
+        </div>
+        <div class="plan-fig">
+          <div class="pf-label">Cuota mensual</div>
+          <div class="pf-value" id="monthlyTotal">desde 80€ <small>/mes</small></div>
+          <div class="pf-sub" id="monthlyBreakdown">Ventas · 40 hab.</div>
+        </div>
+      </div>
+      <a href="#contacto" class="btn btn-gold btn-lg">Solicitar este plan</a>
+    </div>
+
+    <p style="text-align:center;color:var(--muted);font-size:0.82rem;margin-top:1.2rem">Precios orientativos “desde”. El importe final se ajusta a tu caso y volumen. Escríbenos para una propuesta cerrada.</p>
+  </div>
+</section>
+
 <!-- FAQ -->
 <section class="section" id="faq">
   <div class="wrap">
@@ -723,7 +908,58 @@ a{color:inherit;text-decoration:none}
   mBackdrop.addEventListener('click', closeMenu);
   mMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
 
-  // FAQ accordion
+  // ── Plan configurator ──
+  (function(){
+    const roomsInput = document.getElementById('roomsInput');
+    if (!roomsInput) return;
+    const monthlyTotal = document.getElementById('monthlyTotal');
+    const monthlyBreakdown = document.getElementById('monthlyBreakdown');
+    const CONSULT = 300;
+
+    function clampRooms(){
+      let n = parseInt(roomsInput.value) || 1;
+      if (n < 1) n = 1; if (n > 9999) n = 9999;
+      roomsInput.value = n; return n;
+    }
+
+    function recalc(){
+      const rooms = clampRooms();
+      let perRoom = 0, count = 0, names = [];
+      document.querySelectorAll('.module').forEach(m => {
+        const active = m.classList.contains('active');
+        if (active){
+          perRoom += parseFloat(m.dataset.price);
+          count++;
+          names.push(m.querySelector('h3').textContent.split(' ')[0].replace('&','&'));
+        }
+      });
+      let monthly = perRoom * rooms;
+      const consultOn = document.getElementById('consultToggle').checked;
+      if (consultOn) monthly += CONSULT;
+
+      monthlyTotal.innerHTML = 'desde ' + monthly.toLocaleString('es-ES') + '€ <small>/mes</small>';
+      let bd = count + (count===1?' módulo':' módulos') + ' · ' + rooms + ' hab.';
+      if (consultOn) bd += ' · +consultoría';
+      monthlyBreakdown.textContent = bd;
+    }
+
+    // module toggles
+    document.querySelectorAll('.module .mod-toggle').forEach(t => {
+      t.addEventListener('change', () => {
+        const mod = t.closest('.module');
+        mod.classList.toggle('active', t.checked);
+        recalc();
+      });
+    });
+    document.getElementById('consultToggle').addEventListener('change', recalc);
+
+    // rooms controls
+    roomsInput.addEventListener('input', recalc);
+    document.getElementById('roomsMinus').addEventListener('click', () => { roomsInput.value = (parseInt(roomsInput.value)||1) - 1; recalc(); });
+    document.getElementById('roomsPlus').addEventListener('click', () => { roomsInput.value = (parseInt(roomsInput.value)||0) + 1; recalc(); });
+
+    recalc();
+  })();
   document.querySelectorAll('.faq-q').forEach(btn => {
     btn.addEventListener('click', () => {
       const item = btn.parentElement;
