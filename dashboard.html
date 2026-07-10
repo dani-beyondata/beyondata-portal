@@ -2065,7 +2065,8 @@
       btn.disabled = true; btn.textContent = 'Enviando…';
       const { error } = await Plan.requestChange(currentCompany.id, rooms, modules, _planMethods);
       btn.disabled = false; btn.textContent = 'Solicitar cambios';
-      if (error) { alert('No se pudo enviar la solicitud. Inténtalo de nuevo.'); return; }
+      if (error) { Toast.error('No se pudo enviar la solicitud. Inténtalo de nuevo.'); return; }
+      Toast.success('Solicitud enviada. La revisaremos y activaremos tus módulos.');
       loadMyPlan(); // refresh banner to pending
     });
   }
@@ -2162,7 +2163,8 @@
         if (!req) return;
         btn.disabled = true; btn.textContent = 'Aprobando…';
         const { error } = await Plan.approve(companyId, req.requested);
-        if (error) { btn.disabled = false; btn.textContent = 'Aprobar'; alert('No se pudo aprobar.'); return; }
+        if (error) { btn.disabled = false; btn.textContent = 'Aprobar'; Toast.error('No se pudo aprobar la solicitud.'); return; }
+        Toast.success('Plan aprobado y activado.');
         loadPlanRequests(); // refresh
       });
     });
@@ -4235,7 +4237,7 @@
       .upsert(rows, { onConflict: 'company_id,property_uuid,room_id,date' });
 
     btn.disabled = false; btn.textContent = 'Save';
-    if (error) { alert('Error: ' + error.message); return; }
+    if (error) { Toast.error('Error: ' + error.message); return; }
     rcalPend = {};
     document.getElementById('rcal-save-bar').style.display = 'none';
     rcalLoad();
@@ -4454,7 +4456,7 @@
 
   document.getElementById('btn-bulk-availability').addEventListener('click', () => {
     const propertyId = document.getElementById('avail-property-filter').value;
-    if (!propertyId) { alert('Select a property first.'); return; }
+    if (!propertyId) { Toast.error('Selecciona una propiedad primero.'); return; }
 
     // Build year checkboxes: current year ± 2
     const thisYear = new Date().getFullYear();
@@ -4556,7 +4558,7 @@
     if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
     const { error } = await Availability.upsertMany(rows);
     if (btn) { btn.disabled = false; btn.textContent = 'Save changes'; }
-    if (error) { alert('Error: ' + error.message); return; }
+    if (error) { Toast.error('Error: ' + error.message); return; }
     availPending = {};
     availSelected.clear();
     updateSelectionBar();
@@ -5027,7 +5029,7 @@
         btn.textContent = 'Saving...';
         const { error } = await ClientCountryMapping.update(id, { country_code: countryCode });
         if (error) {
-          alert(`Could not save: ${error.message}`);
+          Toast.error('No se pudo guardar: ' + error.message);
         }
         loadClientCountryMapping();
       });
@@ -5222,7 +5224,7 @@
     btn.textContent = 'Save changes';
 
     if (errors.length) {
-      alert(`${errors.length} error(s) saving. Please try again.`);
+      Toast.error(errors.length + ' error(es) al guardar. Inténtalo de nuevo.');
       return;
     }
 
@@ -5346,7 +5348,7 @@
       await MastersExport.exportAll(currentCompany.id, currentCompany.name);
       UI.closeModal('modal-export-masters');
     } catch (e) {
-      alert('Export failed: ' + e.message);
+      Toast.error('La exportación falló: ' + e.message);
     }
     btn.disabled = false; btn.textContent = 'Download Excel';
   });
