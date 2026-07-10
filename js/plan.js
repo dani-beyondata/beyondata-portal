@@ -33,7 +33,7 @@ const Plan = (() => {
       .from('client_params')
       .select('param_key, param_value')
       .eq('company_id', companyId)
-      .in('param_key', ['plan_rooms', 'plan_active', 'plan_requested', 'plan_status', 'plan_requested_at']);
+      .in('param_key', ['plan_rooms', 'plan_active', 'plan_requested', 'plan_status', 'plan_requested_at', 'plan_methods']);
 
     const map = {};
     (data || []).forEach(p => map[p.param_key] = p.param_value);
@@ -44,10 +44,17 @@ const Plan = (() => {
         active: parseModules(map.plan_active),
         requested: parseModules(map.plan_requested),
         status: map.plan_status || 'none',
-        requestedAt: map.plan_requested_at || null
+        requestedAt: map.plan_requested_at || null,
+        methods: parseMethods(map.plan_methods)
       },
       error
     };
+  }
+
+  function parseMethods(str) {
+    if (!str) return {};
+    try { return typeof str === 'string' ? JSON.parse(str) : str; }
+    catch (e) { return {}; }
   }
 
   async function setParam(companyId, key, value) {
@@ -60,13 +67,14 @@ const Plan = (() => {
   }
 
   // Client submits a change request (does NOT change active plan)
-  async function requestChange(companyId, rooms, modules) {
+  async function requestChange(companyId, rooms, modules, methods) {
     const now = new Date().toISOString();
     const r1 = await setParam(companyId, 'plan_rooms', String(rooms));
     const r2 = await setParam(companyId, 'plan_requested', JSON.stringify(modules));
     const r3 = await setParam(companyId, 'plan_status', 'pending');
     const r4 = await setParam(companyId, 'plan_requested_at', now);
-    const error = r1.error || r2.error || r3.error || r4.error || null;
+    const r5 = methods ? await setParam(companyId, 'plan_methods', JSON.stringify(methods)) : { error: null };
+    const error = r1.error || r2.error || r3.error || r4.error || r5.error || null;
     return { error };
   }
 
