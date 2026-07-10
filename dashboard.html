@@ -37,6 +37,7 @@
     <div class="nav-section">
       <div class="nav-section-label">General</div>
       <div class="nav-item active" data-section="overview"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>Overview</div>
+      <div class="nav-item" data-section="my_dashboard"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></span>Mi Dashboard</div>
       <div class="nav-item" data-section="properties"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01"/><path d="M9 12v.01"/><path d="M9 15v.01"/><path d="M9 18v.01"/></svg></span>Properties</div>
       <div class="nav-item" data-section="settings"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Settings</div>
     </div>
@@ -115,6 +116,24 @@
         <div class="card card-link ov-card" onclick="navTo('rooms')"><div class="ov-card-icon">⊡</div><div class="card-label">Room Categories</div><div class="card-value" id="stat-room-categories">—</div></div>
         <div class="card card-link ov-card" onclick="navTo('rooms')"><div class="ov-card-icon">▦</div><div class="card-label">Total Rooms</div><div class="card-value" id="stat-rooms">—</div><div class="card-sub">Across all properties</div></div>
         <div class="card card-link ov-card" onclick="navTo('availability')"><div class="ov-card-icon">▤</div><div class="card-label">Open Days This Month</div><div class="card-value" id="stat-open-days">—</div><div class="card-sub" id="stat-open-days-sub"></div></div>
+      </div>
+    </div>
+
+    <!-- MY DASHBOARD (Power BI embed) -->
+    <div class="section" id="section-my_dashboard">
+      <div class="section-header">
+        <h2>Mi Dashboard</h2>
+        <p>Tu cuadro de mando de Power BI, en tiempo real.</p>
+      </div>
+      <div id="pbi-container" class="pbi-container">
+        <!-- Report iframe injected here by JS, or placeholder if not configured -->
+        <div id="pbi-placeholder" class="pbi-placeholder">
+          <div class="pbi-placeholder-ico">
+            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+          </div>
+          <div class="pbi-placeholder-title">Aún no hay un dashboard configurado</div>
+          <div class="pbi-placeholder-sub">En breve verás aquí tu cuadro de mando personalizado.</div>
+        </div>
       </div>
     </div>
 
@@ -711,6 +730,16 @@
       .ov-cards .ov-card:nth-child(4){ animation-delay:.14s; }
       .ov-cards .ov-card:nth-child(5){ animation-delay:.18s; }
       .ov-cards .ov-card:nth-child(6){ animation-delay:.22s; }
+      /* Power BI embed */
+      .pbi-container{position:relative;width:100%;height:calc(100vh - var(--topbar-h) - 130px);min-height:520px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:0 1px 3px rgba(61,101,168,0.05)}
+      .pbi-container iframe{width:100%;height:100%;border:0;display:block}
+      .pbi-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--text-muted);padding:2rem}
+      .pbi-placeholder-ico{width:70px;height:70px;border-radius:18px;background:var(--bg);color:var(--brand);display:flex;align-items:center;justify-content:center;margin-bottom:1.1rem}
+      .pbi-placeholder-title{font-size:1.05rem;font-weight:600;color:var(--text);margin-bottom:0.35rem}
+      .pbi-placeholder-sub{font-size:0.9rem}
+      .pbi-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--white);z-index:2}
+      .pbi-spinner{width:34px;height:34px;border:3px solid var(--brand-light);border-top-color:var(--brand);border-radius:50%;animation:pbiSpin .8s linear infinite}
+      @keyframes pbiSpin{to{transform:rotate(360deg)}}
     </style>
 
     <!-- AVAILABILITY CALENDAR -->
@@ -1456,7 +1485,7 @@
       const navItem = document.querySelector('.nav-item[data-section="' + savedSection + '"]');
       if (navItem) navItem.classList.add('active');
       document.getElementById('section-' + savedSection).classList.add('active');
-      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings,
+      const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, properties: loadProperties, settings: loadSettings,
         channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes,
         markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms,
         availability: initAvailabilitySection, countries: loadCountries,
@@ -1520,10 +1549,55 @@
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
       hashSet({ section: s, property: null });
-      const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
+      const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
       loaders[s]?.();
     });
   });
+
+  // ── MY DASHBOARD (Power BI embed) ─────────────────────────────────
+  // Per-company embed URLs. Key by company slug. Paste the Power BI
+  // "Publish to web" iframe src (the https://app.powerbi.com/view?r=... URL).
+  const PBI_EMBEDS = {
+    // 'cd': 'https://app.powerbi.com/view?r=XXXX',   // Company Demo
+    // 'tch': 'https://app.powerbi.com/view?r=YYYY',  // The Central House
+  };
+
+  function loadMyDashboard() {
+    const container = document.getElementById('pbi-container');
+    if (!container) return;
+    const slug = (currentCompany && (currentCompany.slug || currentCompany.code || '')).toLowerCase();
+    const url = PBI_EMBEDS[slug];
+
+    // Not configured yet → show placeholder
+    if (!url) {
+      container.innerHTML =
+        '<div class="pbi-placeholder">' +
+          '<div class="pbi-placeholder-ico"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></div>' +
+          '<div class="pbi-placeholder-title">Aún no hay un dashboard configurado</div>' +
+          '<div class="pbi-placeholder-sub">En breve verás aquí tu cuadro de mando personalizado.</div>' +
+        '</div>';
+      return;
+    }
+
+    // Already loaded the same URL? don't reload.
+    const existing = container.querySelector('iframe');
+    if (existing && existing.dataset.src === url) return;
+
+    // Loading spinner + iframe
+    container.innerHTML =
+      '<div class="pbi-loading" id="pbi-loading"><div class="pbi-spinner"></div></div>';
+    const iframe = document.createElement('iframe');
+    iframe.dataset.src = url;
+    iframe.setAttribute('title', 'Power BI report');
+    iframe.setAttribute('allowfullscreen', 'true');
+    iframe.setAttribute('frameborder', '0');
+    iframe.addEventListener('load', () => {
+      const l = document.getElementById('pbi-loading');
+      if (l) l.remove();
+    });
+    iframe.src = url;
+    container.appendChild(iframe);
+  }
 
   // ── OVERVIEW ──────────────────────────────────────────────────────
   async function loadOverview() {
@@ -4650,7 +4724,7 @@
     const sectionEl = document.getElementById(`section-${section}`);
     if (sectionEl) sectionEl.classList.add('active');
     hashSet({ section: section });
-    const loaders = { overview: loadOverview, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
+    const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
     loaders[section]?.();
     window.scrollTo(0, 0);
   }
