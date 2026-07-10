@@ -10,4 +10,4 @@ Disallow: /company-select.html
 Disallow: /js/
 Disallow: /css/
 
-Sitemap: https://dani-beyondata.github.io/beyondata-portal/sitemap.xml
+Sitemap: https://beyondata.es/sitemap.xml
