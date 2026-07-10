@@ -1,0 +1,13 @@
+# BeyonData — robots.txt
+User-agent: *
+Allow: /$
+Allow: /index.html
+
+# Área privada de clientes: no indexar
+Disallow: /dashboard.html
+Disallow: /login.html
+Disallow: /company-select.html
+Disallow: /js/
+Disallow: /css/
+
+Sitemap: https://dani-beyondata.github.io/beyondata-portal/sitemap.xml
