@@ -78,5 +78,35 @@ const Plan = (() => {
     return { error };
   }
 
-  return { get, requestChange, approve, emptyModules, MODULE_KEYS };
+  // Admin: fetch all companies that have a pending change request.
+  // Returns [{ companyId, rooms, active, requested, requestedAt }]
+  async function getAllPending() {
+    const { data, error } = await sb
+      .from('client_params')
+      .select('company_id, param_key, param_value')
+      .in('param_key', ['plan_rooms', 'plan_active', 'plan_requested', 'plan_status', 'plan_requested_at']);
+    if (error) return { data: [], error };
+
+    // group by company
+    const byCompany = {};
+    (data || []).forEach(p => {
+      (byCompany[p.company_id] = byCompany[p.company_id] || {})[p.param_key] = p.param_value;
+    });
+
+    const pending = [];
+    Object.entries(byCompany).forEach(([companyId, map]) => {
+      if (map.plan_status === 'pending') {
+        pending.push({
+          companyId,
+          rooms: parseInt(map.plan_rooms) || 40,
+          active: parseModules(map.plan_active),
+          requested: parseModules(map.plan_requested),
+          requestedAt: map.plan_requested_at || null
+        });
+      }
+    });
+    return { data: pending, error: null };
+  }
+
+  return { get, requestChange, approve, getAllPending, emptyModules, MODULE_KEYS };
 })();
