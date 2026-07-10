@@ -62,6 +62,7 @@
     </div>
     <div class="nav-section" id="nav-admin">
       <div class="nav-section-label">Admin</div>
+      <div class="nav-item" data-section="plan_requests"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg></span>Solicitudes <span id="plan-req-badge" class="nav-badge" style="display:none"></span></div>
       <div class="nav-item" data-section="company"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg></span>Company</div>
       <div class="nav-item" data-section="users"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Users</div>
       <div class="nav-item" data-section="countries" id="nav-countries"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg></span>Countries</div>
@@ -301,6 +302,15 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- PLAN REQUESTS (admin) -->
+    <div class="section" id="section-plan_requests">
+      <div class="section-header">
+        <h2>Solicitudes de plan</h2>
+        <p>Peticiones de cambio de módulos pendientes de aprobación.</p>
+      </div>
+      <div id="plan-requests-list"></div>
     </div>
 
     <!-- SEGMENTS -->
@@ -837,8 +847,7 @@
       .ov-cards .ov-card:nth-child(5){ animation-delay:.18s; }
       .ov-cards .ov-card:nth-child(6){ animation-delay:.22s; }
       /* Power BI embed */
-      .pbi-container{position:relative;width:100%;height:calc(100vh - var(--topbar-h) - 130px);min-height:520px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:0 1px 3px rgba(61,101,168,0.05)}
-      .pbi-container iframe{width:100%;height:100%;border:0;display:block}
+      .pbi-container{position:relative;width:100%;height:calc(100vh - var(--topbar-h) - 130px);min-height:520px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:0 1px 3px rgba(61,101,168,0.05)}      .pbi-container iframe{width:100%;height:100%;border:0;display:block}
       .pbi-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--text-muted);padding:2rem}
       .pbi-placeholder-ico{width:70px;height:70px;border-radius:18px;background:var(--bg);color:var(--brand);display:flex;align-items:center;justify-content:center;margin-bottom:1.1rem}
       .pbi-placeholder-title{font-size:1.05rem;font-weight:600;color:var(--text);margin-bottom:0.35rem}
@@ -896,6 +905,27 @@
         .plan-summary-bar{flex-direction:column;align-items:stretch}
         .plan-actions .btn{width:100%}
       }
+
+      /* Plan requests (admin) */
+      .nav-badge{background:var(--error,#dc2626);color:#fff;font-size:0.62rem;font-weight:700;min-width:17px;height:17px;border-radius:100px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;margin-left:auto}
+      .plan-req-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem 1.75rem;margin-bottom:1.1rem;box-shadow:0 1px 3px rgba(61,101,168,0.05)}
+      .plan-req-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.2rem}
+      .plan-req-company{font-size:1.15rem;font-weight:600;color:var(--text)}
+      .plan-req-meta{font-size:0.82rem;color:var(--text-muted);margin-top:0.2rem}
+      .plan-req-price{display:flex;align-items:center;gap:0.6rem;font-weight:600}
+      .prp-old{color:var(--text-muted);text-decoration:line-through;font-size:0.95rem}
+      .prp-arrow{color:var(--text-muted)}
+      .prp-new{color:var(--brand);font-size:1.25rem}
+      .prp-new small{font-size:0.72rem;color:var(--text-muted);font-weight:400}
+      .plan-req-body{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;padding:1.2rem 0;border-top:1px solid var(--border)}
+      .prc-label{font-family:'DM Mono',monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:0.6rem}
+      .plan-chips{display:flex;flex-wrap:wrap;gap:0.4rem}
+      .plan-chip{font-size:0.78rem;padding:0.25rem 0.65rem;border-radius:100px;font-weight:500}
+      .plan-chip.chip-on{background:var(--bg);color:var(--text-muted)}
+      .plan-chip.chip-added{background:#e7f6ec;color:#16794c}
+      .plan-chip.chip-removed{background:#fdecea;color:#b42318;text-decoration:line-through}
+      .plan-req-actions{display:flex;justify-content:flex-end;gap:0.6rem;margin-top:0.5rem}
+      @media (max-width:640px){ .plan-req-body{grid-template-columns:1fr} }
     </style>
 
     <!-- AVAILABILITY CALENDAR -->
@@ -1618,6 +1648,12 @@
     // Hide admin nav for plain users
     if (currentProfile.role === 'company_user') {
       document.getElementById('nav-admin').style.display = 'none';
+    } else {
+      // admin: populate the pending-requests badge in the sidebar
+      Plan.getAllPending().then(({ data }) => {
+        const badge = document.getElementById('plan-req-badge');
+        if (badge && data && data.length) { badge.textContent = data.length; badge.style.display = 'inline-flex'; }
+      }).catch(() => {});
     }
     if (currentProfile.role !== 'system_admin') {
       const navCountries = document.getElementById('nav-countries');
@@ -1642,7 +1678,7 @@
       const navItem = document.querySelector('.nav-item[data-section="' + savedSection + '"]');
       if (navItem) navItem.classList.add('active');
       document.getElementById('section-' + savedSection).classList.add('active');
-      const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, properties: loadProperties, settings: loadSettings,
+      const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, plan_requests: loadPlanRequests, properties: loadProperties, settings: loadSettings,
         channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes,
         markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms,
         availability: initAvailabilitySection, countries: loadCountries,
@@ -1706,7 +1742,7 @@
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
       hashSet({ section: s, property: null });
-      const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
+      const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, plan_requests: loadPlanRequests, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
       loaders[s]?.();
     });
   });
@@ -1845,6 +1881,104 @@
       btn.disabled = false; btn.textContent = 'Solicitar cambios';
       if (error) { alert('No se pudo enviar la solicitud. Inténtalo de nuevo.'); return; }
       loadMyPlan(); // refresh banner to pending
+    });
+  }
+
+  // ── PLAN REQUESTS (admin approval) ────────────────────────────────
+  const PLAN_MODULE_LABELS = { ventas:'Ventas & Revenue', pl:'P&L / Contabilidad', forecast:'Forecast & Presupuesto', extras:'Análisis de Extras', markets:'Segmentación de Mercados', consultoria:'Consultoría a medida' };
+  const PLAN_PRICES = { ventas:2, pl:1, forecast:1, extras:1, markets:1 }; // per room; consultoria is flat
+  const PLAN_CONSULT_FLAT = 300;
+
+  function planMonthly(modules, rooms) {
+    let perRoom = 0, flat = 0;
+    Object.entries(modules).forEach(([k,on]) => {
+      if (!on) return;
+      if (k === 'consultoria') flat += PLAN_CONSULT_FLAT;
+      else perRoom += (PLAN_PRICES[k] || 0);
+    });
+    return perRoom * rooms + flat;
+  }
+
+  function planModuleChips(modules, compareTo) {
+    return Object.keys(PLAN_MODULE_LABELS).map(k => {
+      const on = !!modules[k];
+      const changed = compareTo && (!!compareTo[k] !== on);
+      if (!on && !changed) return '';
+      const cls = !on ? 'chip-removed' : (changed ? 'chip-added' : 'chip-on');
+      const label = PLAN_MODULE_LABELS[k];
+      return `<span class="plan-chip ${cls}">${!on ? '− ' : (changed ? '+ ' : '')}${label}</span>`;
+    }).filter(Boolean).join('');
+  }
+
+  async function loadPlanRequests() {
+    const list = document.getElementById('plan-requests-list');
+    list.innerHTML = '<div class="empty-state">Cargando solicitudes…</div>';
+
+    const { data: pending, error } = await Plan.getAllPending();
+    if (error) { list.innerHTML = '<div class="empty-state">No se pudieron cargar las solicitudes.</div>'; return; }
+
+    // update sidebar badge
+    const badge = document.getElementById('plan-req-badge');
+    if (badge) {
+      if (pending.length) { badge.textContent = pending.length; badge.style.display = 'inline-flex'; }
+      else badge.style.display = 'none';
+    }
+
+    if (!pending.length) {
+      list.innerHTML = '<div class="empty-state">No hay solicitudes pendientes.</div>';
+      return;
+    }
+
+    // Need company names: fetch all companies once
+    const { data: companies } = await Companies.getAll();
+    const nameById = {};
+    (companies || []).forEach(c => nameById[c.id] = c.name);
+
+    list.innerHTML = pending.map(req => {
+      const cname = nameById[req.companyId] || req.companyId;
+      const curMonthly = planMonthly(req.active, req.rooms);
+      const newMonthly = planMonthly(req.requested, req.rooms);
+      const when = req.requestedAt ? new Date(req.requestedAt).toLocaleDateString('es-ES', { day:'numeric', month:'short', year:'numeric' }) : '';
+      return `
+        <div class="plan-req-card" data-company="${req.companyId}">
+          <div class="plan-req-head">
+            <div>
+              <div class="plan-req-company">${escapeHtml(cname)}</div>
+              <div class="plan-req-meta">${req.rooms} habitaciones · solicitado el ${when}</div>
+            </div>
+            <div class="plan-req-price">
+              <span class="prp-old">${curMonthly.toLocaleString('es-ES')}€</span>
+              <span class="prp-arrow">→</span>
+              <span class="prp-new">${newMonthly.toLocaleString('es-ES')}€<small>/mes</small></span>
+            </div>
+          </div>
+          <div class="plan-req-body">
+            <div class="plan-req-col">
+              <div class="prc-label">Plan actual</div>
+              <div class="plan-chips">${planModuleChips(req.active) || '<span class="plan-chip chip-on">Ventas & Revenue</span>'}</div>
+            </div>
+            <div class="plan-req-col">
+              <div class="prc-label">Plan solicitado</div>
+              <div class="plan-chips">${planModuleChips(req.requested, req.active)}</div>
+            </div>
+          </div>
+          <div class="plan-req-actions">
+            <button class="btn btn-sm plan-req-approve" data-company="${req.companyId}" style="background:var(--success,#16a34a);color:#fff">Aprobar</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    // wire approve buttons
+    list.querySelectorAll('.plan-req-approve').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const companyId = btn.dataset.company;
+        const req = pending.find(r => r.companyId === companyId);
+        if (!req) return;
+        btn.disabled = true; btn.textContent = 'Aprobando…';
+        const { error } = await Plan.approve(companyId, req.requested);
+        if (error) { btn.disabled = false; btn.textContent = 'Aprobar'; alert('No se pudo aprobar.'); return; }
+        loadPlanRequests(); // refresh
+      });
     });
   }
 
@@ -4973,7 +5107,7 @@
     const sectionEl = document.getElementById(`section-${section}`);
     if (sectionEl) sectionEl.classList.add('active');
     hashSet({ section: section });
-    const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
+    const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, plan_requests: loadPlanRequests, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
     loaders[section]?.();
     window.scrollTo(0, 0);
   }
