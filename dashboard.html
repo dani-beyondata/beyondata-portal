@@ -164,13 +164,11 @@
         <span>Este número es orientativo. Cuando conectemos tus datos, ajustaremos las habitaciones —y por tanto el precio— a las reales de tu hotel.</span>
       </div>
 
-      <!-- modules (left) + docs (right) side by side -->
-      <div class="plan-split">
-        <div class="plan-split-col">
-          <div class="plan-col-head">
-            <h3>Módulos</h3>
-            <p>Activa lo que necesites.</p>
-          </div>
+      <!-- modules on top, compact documents below -->
+      <div class="plan-col-head">
+        <h3>Módulos</h3>
+        <p>Activa lo que necesites.</p>
+      </div>
           <div class="plan-modules" id="plan-modules">
             <div class="plan-mod base" data-module="ventas" data-price="2">
               <div class="plan-mod-info">
@@ -225,14 +223,11 @@
           </div>
         </div>
 
-        <div class="plan-split-col">
-          <div class="plan-col-head">
-            <h3>Qué necesitamos de ti</h3>
-            <p>La información con la que trabajaremos.</p>
-          </div>
-          <div class="plan-docs" id="plan-docs"><!-- injected by JS --></div>
-        </div>
+      <div class="plan-col-head" style="margin-top:1.6rem">
+        <h3>Qué necesitamos de ti</h3>
+        <p>La información con la que trabajaremos.</p>
       </div>
+      <div class="plan-docs" id="plan-docs"><!-- injected by JS --></div>
 
       <!-- consultoria (full width, no document) -->
       <div class="plan-modules" id="plan-modules-consult">
@@ -897,9 +892,10 @@
       .plan-mod{display:flex;justify-content:space-between;align-items:center;gap:1rem;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.4rem;transition:border-color .2s,box-shadow .2s}
       .plan-mod.consult{}
       /* 2-column split: modules left, docs right */
-      .plan-split{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1rem;align-items:start}
-      .plan-split-col{min-width:0}
-      .plan-split-col .plan-modules{margin-bottom:0}
+      #plan-modules{display:grid;grid-template-columns:1fr 1fr;gap:0.7rem;margin-bottom:0}
+      #plan-modules .plan-mod{padding:0.8rem 1rem}
+      #plan-modules .plan-mod-desc{font-size:0.8rem}
+      #plan-modules .plan-mod-right{gap:0.8rem}
       .plan-col-head{margin-bottom:1rem}
       .plan-col-head h3{font-size:1.1rem;margin-bottom:0.15rem}
       .plan-col-head p{color:var(--text-muted);font-size:0.85rem}
@@ -938,23 +934,21 @@
       .plan-docs-wrap{margin:2rem 0 1.5rem}
       .plan-docs-head h3{font-size:1.15rem;margin-bottom:0.3rem}
       .plan-docs-head p{color:var(--text-muted);font-size:0.9rem;margin-bottom:1.2rem;max-width:60ch}
-      @media (max-width:1024px){ .plan-split{grid-template-columns:1fr} }
-      .plan-docs{display:flex;flex-direction:column;gap:0.85rem}
-      .plan-doc{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1.15rem 1.35rem;transition:opacity .2s,border-color .2s,box-shadow .2s,transform .15s;position:relative}
+      @media (max-width:1024px){ #plan-modules{grid-template-columns:1fr} }
+      .plan-docs{display:flex;flex-direction:column;gap:0.55rem}
+      .plan-doc{display:flex;align-items:center;gap:0.7rem;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:0.55rem 0.9rem;transition:opacity .2s,border-color .2s,box-shadow .2s;position:relative}
       .plan-doc.inactive{opacity:0.4;filter:grayscale(0.5)}
-      .plan-doc.highlight{border-color:var(--brand);box-shadow:0 8px 24px rgba(61,101,168,0.16);transform:translateY(-2px)}
-      .plan-doc-top{display:flex;align-items:flex-start;gap:0.8rem;margin-bottom:0.5rem}
-      .plan-doc-ico{width:40px;height:40px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--brand)}
-      .plan-doc-ico svg{width:20px;height:20px}
-      .plan-doc-title{font-size:1rem;font-weight:600;color:var(--text)}
-      .plan-doc-for{font-size:0.75rem;color:var(--text-muted);margin-top:0.1rem}
-      .plan-doc-desc{font-size:0.86rem;color:var(--text-muted);line-height:1.5;margin-bottom:0.7rem}
-      .plan-doc-methods{display:flex;gap:0.4rem;margin-top:0.7rem}
-      .pdm-btn{flex:1;border:1.5px solid var(--border);background:var(--white);border-radius:8px;padding:0.4rem 0.5rem;font-size:0.8rem;font-family:inherit;font-weight:500;color:var(--text-muted);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:0.35rem}
+      .plan-doc.highlight{border-color:var(--brand);box-shadow:0 4px 14px rgba(61,101,168,0.16)}
+      .plan-doc-ico{width:28px;height:28px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--brand)}
+      .plan-doc-ico svg{width:15px;height:15px}
+      .plan-doc-main{display:flex;align-items:baseline;gap:0.55rem;flex:1;min-width:0;flex-wrap:wrap}
+      .plan-doc-title{font-size:0.92rem;font-weight:600;color:var(--text);white-space:nowrap}
+      .plan-doc-for{font-size:0.75rem;color:var(--text-muted);white-space:nowrap}
+      .plan-doc-methods{display:flex;gap:0.35rem;flex-shrink:0}
+      .pdm-btn{border:1.5px solid var(--border);background:var(--white);border-radius:7px;padding:0.28rem 0.55rem;font-size:0.75rem;font-family:inherit;font-weight:500;color:var(--text-muted);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:0.3rem}
       .pdm-btn:hover{border-color:var(--brand);color:var(--brand)}
       .pdm-btn.selected{background:var(--brand-light);border-color:var(--brand);color:var(--brand-dark);font-weight:600}
-      .plan-doc-method-fixed{display:inline-flex;align-items:center;gap:0.35rem;font-size:0.8rem;color:var(--text-muted);background:var(--bg);border-radius:6px;padding:0.3rem 0.6rem;margin-top:0.4rem}
-      @media (max-width:640px){ .plan-docs{grid-template-columns:1fr} }
+      .plan-doc-method-fixed{display:inline-flex;align-items:center;gap:0.3rem;font-size:0.75rem;color:var(--text-muted);background:var(--bg);border-radius:6px;padding:0.28rem 0.55rem;flex-shrink:0}
       @media (max-width:640px){
         .plan-modules{grid-template-columns:1fr}
         .plan-mod{flex-direction:column;align-items:flex-start}
@@ -1967,15 +1961,12 @@
         : `<div class="plan-doc-method-fixed"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${METHOD_ICONS[doc.methods[0]]}</svg> Formato ${METHOD_LABELS[doc.methods[0]]}</div>`;
 
       return `
-        <div class="plan-doc ${isActive ? '' : 'inactive'}" data-doc="${docKey}" data-modules="${doc.forModules.join(' ')}">
-          <div class="plan-doc-top">
-            <div class="plan-doc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${doc.icon}</svg></div>
-            <div>
-              <div class="plan-doc-title">${doc.title}</div>
-              <div class="plan-doc-for">Para: ${doc.forLabel}</div>
-            </div>
+        <div class="plan-doc ${isActive ? '' : 'inactive'}" data-doc="${docKey}" data-modules="${doc.forModules.join(' ')}" title="${doc.desc}">
+          <div class="plan-doc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${doc.icon}</svg></div>
+          <div class="plan-doc-main">
+            <span class="plan-doc-title">${doc.title}</span>
+            <span class="plan-doc-for">Se usa para: ${doc.forLabel}</span>
           </div>
-          <div class="plan-doc-desc">${doc.desc}</div>
           ${methodsHtml}
         </div>`;
     }).join('');
