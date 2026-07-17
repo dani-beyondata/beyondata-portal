@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BeyonData — Nueva contraseña</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<meta name="theme-color" content="#1e3a5f">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+</head>
+<body class="login-page">
+
+<div class="login-wrap">
+  <div class="login-brand">
+    <div class="brand-name">BEYON<span>DATA</span></div>
+    <div class="brand-sub">Client Portal</div>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:1.05rem;font-weight:500;margin-bottom:1.25rem">Crear nueva contraseña</h2>
+
+    <div class="alert error" id="alert-error"></div>
+
+    <div id="reset-form">
+      <div class="field">
+        <label>Nueva contraseña</label>
+        <input type="password" id="password" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+      </div>
+
+      <div class="field">
+        <label>Repite la contraseña</label>
+        <input type="password" id="password2" placeholder="••••••••" autocomplete="new-password">
+      </div>
+
+      <button class="btn btn-primary btn-full" id="btn-reset" style="margin-top:0.5rem">Guardar contraseña</button>
+    </div>
+
+    <div id="invalid-link" style="display:none;font-size:0.9rem;color:#6b7280;line-height:1.55">
+      Este enlace no es válido o ha caducado. Vuelve a la página de acceso y pulsa «¿Has olvidado tu contraseña?» para recibir uno nuevo.
+      <a href="login.html" class="btn btn-primary btn-full" style="display:block;text-align:center;text-decoration:none;margin-top:1.1rem">Ir al acceso</a>
+    </div>
+  </div>
+
+  <div class="login-footer">BeyonData Analytics · Hotel Intelligence Platform</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  function showError(msg) {
+    const el = document.getElementById('alert-error');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+
+  // The recovery link signs the user in automatically (detectSessionInUrl).
+  // If after a short wait there is no session, the link is invalid/expired.
+  let hasSession = false;
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if (session) hasSession = true;
+  });
+
+  (async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) { hasSession = true; return; }
+    setTimeout(async () => {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) hasSession = true;
+      if (!hasSession) {
+        document.getElementById('reset-form').style.display = 'none';
+        document.getElementById('invalid-link').style.display = 'block';
+      }
+    }, 1800);
+  })();
+
+  document.getElementById('btn-reset').addEventListener('click', async () => {
+    const p1  = document.getElementById('password').value;
+    const p2  = document.getElementById('password2').value;
+    const btn = document.getElementById('btn-reset');
+
+    document.getElementById('alert-error').classList.remove('show');
+
+    if (p1.length < 8) { showError('La contraseña debe tener al menos 8 caracteres.'); return; }
+    if (p1 !== p2)     { showError('Las contraseñas no coinciden.'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+
+    try {
+      const { data, error } = await sb.auth.updateUser({ password: p1 });
+
+      if (error) {
+        showError(error.message);
+        btn.disabled = false;
+        btn.textContent = 'Guardar contraseña';
+        return;
+      }
+
+      btn.textContent = 'Contraseña guardada ✓';
+      try {
+        await Auth.redirectAfterLogin(data.user.id);
+      } catch (e) {
+        window.location.href = 'dashboard.html';
+      }
+    } catch (e) {
+      console.error('Reset exception:', e);
+      showError('Ha ocurrido un error inesperado. Inténtalo de nuevo.');
+      btn.disabled = false;
+      btn.textContent = 'Guardar contraseña';
+    }
+  });
+
+  document.getElementById('password2').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-reset').click();
+  });
+</script>
+</body>
+</html>

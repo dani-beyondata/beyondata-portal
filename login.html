@@ -38,6 +38,10 @@
     </div>
 
     <button class="btn btn-primary btn-full" id="btn-login" style="margin-top:0.5rem">Sign in</button>
+
+    <div style="text-align:center;margin-top:0.95rem">
+      <a href="#" id="link-forgot" style="font-size:0.85rem;color:#6b7280;text-decoration:underline">¿Has olvidado tu contraseña?</a>
+    </div>
   </div>
 
   <div class="login-footer">BeyonData Analytics · Hotel Intelligence Platform</div>
@@ -99,6 +103,36 @@
 
   document.getElementById('password').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('btn-login').click();
+  });
+
+  document.getElementById('link-forgot').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const link  = e.currentTarget;
+    const email = document.getElementById('email').value.trim();
+    document.getElementById('alert-error').classList.remove('show');
+
+    if (!email) {
+      showError('Escribe tu email en el campo de arriba y vuelve a pulsar el enlace.');
+      return;
+    }
+
+    link.textContent = 'Enviando…';
+    link.style.pointerEvents = 'none';
+
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://beyondata.es/reset.html'
+    });
+
+    if (error) {
+      showError(error.message);
+      link.textContent = '¿Has olvidado tu contraseña?';
+      link.style.pointerEvents = '';
+      return;
+    }
+
+    link.textContent = 'Enlace enviado — revisa tu correo';
+    link.style.color = '#16794c';
+    link.style.textDecoration = 'none';
   });
 </script>
 </body>
