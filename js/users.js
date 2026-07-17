@@ -12,46 +12,32 @@ const Users = (() => {
   }
 
   async function create(companyId, email, password, fullName, role) {
-    // Step 1: sign up the new user — this changes the active session
-    const { data: authData, error: authError } = await sb.auth.signUp({ email, password });
+    // Isolated client: signUp here does NOT touch the admin's session in `sb`
+    const temp = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+    });
+
+    const { data: authData, error: authError } = await temp.auth.signUp({ email, password });
     if (authError) return { data: null, error: authError };
+    if (!authData.user) return { data: null, error: { message: 'Auth user was not created.' } };
 
-    const newUserId = authData.user.id;
+    // Insert the profile as the (still logged-in) admin.
+    // Allowed by the profiles_admin_manage RLS policy.
+    const { data, error } = await sb
+      .from('profiles')
+      .insert({
+        id: authData.user.id,
+        company_id: companyId,
+        role,
+        full_name: fullName,
+        active: true
+      })
+      .select()
+      .single();
 
-    // Step 2: sign back in as the admin immediately
-    // We need to restore the admin session before inserting the profile
-    // so the RLS policy sees the admin as the inserting user
-    // We use a small workaround: store admin session, restore it
-    const { data: { session: adminSession } } = await sb.auth.getSession();
-
-    // Step 3: insert profile using a direct REST call with admin auth header
-    // This avoids the RLS issue by using the admin's token explicitly
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/profiles`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${adminSession?.access_token}`,
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify({
-          id: newUserId,
-          company_id: companyId,
-          role,
-          full_name: fullName,
-          active: true
-        })
-      }
-    );
-
-    if (!response.ok) {
-      const err = await response.json();
-      return { data: null, error: { message: err.message || 'Failed to create profile' } };
+    if (error) {
+      return { data: null, error: { message: `Profile insert failed (auth user ${email} was created — retry or contact support): ${error.message}` } };
     }
-
-    const data = await response.json();
     return { data, error: null };
   }
 
