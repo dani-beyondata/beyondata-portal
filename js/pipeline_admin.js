@@ -26,6 +26,7 @@ const PipelineAdmin = (() => {
       entities: [
         { entity: 'reservations', etl: 'littlehotelier_reservations_etl', gold: 'reservations_clean.csv', reads_from: null,           pattern: '*_reservations_*.csv' },
         { entity: 'nights',       etl: 'littlehotelier_nights_etl',       gold: 'nights_clean.csv',       reads_from: 'reservations', pattern: '*_reservations_*.csv' },
+        { entity: 'extras',       etl: 'littlehotelier_extras_etl',       gold: 'extras_clean.csv (+ extras_master.csv)', reads_from: null, pattern: '*_extras_*.csv' },
       ],
     },
   };

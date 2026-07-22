@@ -375,7 +375,7 @@ const DataUpload = (() => {
 
   // ── gold outputs ───────────────────────────────────────────────────────
   const GOLD_BUCKET = 'gold';
-  const GOLD_FILES = ['reservations_clean.csv', 'nights_clean.csv', 'extras_master.csv'];
+  const GOLD_FILES = ['reservations_clean.csv', 'nights_clean.csv', 'extras_clean.csv', 'extras_master.csv'];
 
   async function listGold() {
     const { pcode } = sel();
