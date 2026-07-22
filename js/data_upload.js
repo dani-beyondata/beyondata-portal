@@ -1,14 +1,22 @@
 // data_upload.js — upload client source files to the Supabase `raw` bucket.
 // Path (plain segments, no '=' which Supabase download rejects):
 //   {client}/{source}/{property}/{entity}/file/{filename}
+//
+// The source segment is NOT user-selectable: it comes from the company's PMS
+// (companies.pms), so files always land where the pipeline expects them.
+// Entities offered for upload/Run ETL come from the client's active
+// pipeline_jobs (with a static fallback if the table can't be read).
 
 const DataUpload = (() => {
 
   const RAW_BUCKET = 'raw';
   const PERIOD_RE = /_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})\.(xlsx|xls|csv)$/i;
-  const PERIOD_REQUIRED = ['reservations', 'nights', 'extras'];
+  const NAME_RE = /^([A-Za-z]+_\d{3})_([a-z]+)_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})\.(xlsx|xls|csv)$/i;
 
   let existingNames = new Set();
+  let jobs = [];              // active file jobs for this client (from pipeline_jobs)
+  let jobsLoaded = false;
+  let pendingRenames = [];    // files awaiting the rename assistant
 
   // Local helpers (escapeHtml is global; escapeAttr is not defined in dashboard)
   const escAttr = (s) => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;')
@@ -20,9 +28,18 @@ const DataUpload = (() => {
     return code.toLowerCase();
   }
 
+  function currentPms() {
+    return (currentCompany.pms || 'mews').toLowerCase();
+  }
+
+  function pmsLabel() {
+    const labels = { mews: 'Mews', littlehotelier: 'Little Hotelier' };
+    return labels[currentPms()] || currentPms();
+  }
+
   function sel() {
     return {
-      source: document.getElementById('du-source').value,
+      source: currentPms(),
       pcode:  document.getElementById('du-property').value,
       entity: document.getElementById('du-entity').value,
     };
@@ -49,8 +66,82 @@ const DataUpload = (() => {
 
   function updatePathHint() {
     document.getElementById('du-path-hint').textContent = `${RAW_BUCKET}/${prefix()}/`;
+    const srcEl = document.getElementById('du-source-display');
+    if (srcEl) srcEl.textContent = pmsLabel();
   }
 
+  // ── pipeline_jobs: which entities exist for this client ────────────────
+  async function loadJobs() {
+    jobs = []; jobsLoaded = false;
+    try {
+      const { data, error } = await sb.from('pipeline_jobs')
+        .select('entity, reads_from_entity, source_system, is_active, source_type')
+        .eq('client', currentClientCode())
+        .eq('source_type', 'file')
+        .eq('is_active', true);
+      if (!error && data && data.length) { jobs = data; jobsLoaded = true; }
+    } catch (e) { /* fall through to fallback */ }
+
+    if (!jobsLoaded) {
+      // Fallback: static catalog per PMS (kept in sync with the runner's ETL_MAP)
+      const catalog = {
+        mews: [
+          { entity: 'reservations', reads_from_entity: null },
+          { entity: 'nights',       reads_from_entity: 'reservations' },
+          { entity: 'extras',       reads_from_entity: 'reservations' },
+        ],
+        littlehotelier: [
+          { entity: 'reservations', reads_from_entity: null },
+          { entity: 'nights',       reads_from_entity: 'reservations' },
+        ],
+      };
+      jobs = catalog[currentPms()] || catalog.mews;
+    }
+
+    renderEntityOptions();
+    renderRunEntities();
+  }
+
+  // Upload targets = entities whose files are uploaded directly (no reads_from).
+  // Entities with reads_from consume another entity's raw files, so offering
+  // them as upload destinations would create dead uploads the runner ignores.
+  function uploadEntities() {
+    const direct = jobs.filter(j => !j.reads_from_entity).map(j => j.entity);
+    return [...new Set(direct)];
+  }
+
+  function allEntities() {
+    return [...new Set(jobs.map(j => j.entity))];
+  }
+
+  function renderEntityOptions() {
+    const el = document.getElementById('du-entity');
+    const prev = el.value;
+    const ents = uploadEntities();
+    el.innerHTML = ents.map(e =>
+      `<option value="${escAttr(e)}">${escapeHtml(e.charAt(0).toUpperCase() + e.slice(1))}</option>`
+    ).join('');
+    if (ents.includes(prev)) el.value = prev;
+  }
+
+  function renderRunEntities() {
+    const wrap = document.getElementById('du-run-entities');
+    if (!wrap) return;
+    const ents = allEntities();
+    wrap.innerHTML = ents.map(e => `
+      <label class="du-run-entity">
+        <input type="checkbox" value="${escAttr(e)}" checked>
+        <span>${escapeHtml(e)}</span>
+      </label>`).join('');
+  }
+
+  function selectedRunEntities() {
+    const wrap = document.getElementById('du-run-entities');
+    if (!wrap) return allEntities();
+    return Array.from(wrap.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.value);
+  }
+
+  // ── properties / listings ──────────────────────────────────────────────
   async function loadProperties() {
     const selEl = document.getElementById('du-property');
     const { data, error } = await sb.from('properties')
@@ -110,15 +201,105 @@ const DataUpload = (() => {
     }).join('');
   }
 
+  // ── filename validation + rename assistant ─────────────────────────────
   function validateFilename(entity, filename) {
-    if (!PERIOD_REQUIRED.includes(entity)) return { ok: true };
-    const m = filename.match(PERIOD_RE);
-    if (!m) return { ok: false, message:
-      `Must include a date range like "..._2026-01-01_to_2026-01-31.xlsx".` };
-    if (m[1] > m[2]) return { ok: false, message: `Start ${m[1]} is after end ${m[2]}.` };
-    return { ok: true, start: m[1], end: m[2] };
+    const { pcode } = sel();
+    const m = filename.match(NAME_RE);
+    if (!m) return { ok: false };
+    if (m[1].toUpperCase() !== String(pcode).toUpperCase()) return { ok: false };
+    if (m[2].toLowerCase() !== String(entity).toLowerCase()) return { ok: false };
+    if (m[3] > m[4]) return { ok: false, message: `Start ${m[3]} is after end ${m[4]}.` };
+    return { ok: true, start: m[3], end: m[4] };
   }
 
+  function extOf(filename) {
+    const m = filename.match(/\.(xlsx|xls|csv)$/i);
+    return m ? m[1].toLowerCase() : null;
+  }
+
+  function generatedName(idx) {
+    const item = pendingRenames[idx];
+    const { pcode, entity } = sel();
+    const start = document.getElementById(`du-rn-start-${idx}`)?.value || '';
+    const end = document.getElementById(`du-rn-end-${idx}`)?.value || '';
+    if (!start || !end) return null;
+    return `${pcode}_${entity}_${start}_to_${end}.${item.ext}`;
+  }
+
+  function refreshRenamePreview(idx) {
+    const prevEl = document.getElementById(`du-rn-preview-${idx}`);
+    const btn = document.getElementById(`du-rn-btn-${idx}`);
+    const name = generatedName(idx);
+    const start = document.getElementById(`du-rn-start-${idx}`)?.value || '';
+    const end = document.getElementById(`du-rn-end-${idx}`)?.value || '';
+    if (!name) {
+      prevEl.textContent = 'Pick the date range the file covers…';
+      prevEl.style.color = 'var(--text-muted)';
+      btn.disabled = true;
+      return;
+    }
+    if (start > end) {
+      prevEl.textContent = `Start ${start} is after end ${end}.`;
+      prevEl.style.color = '#dc2626';
+      btn.disabled = true;
+      return;
+    }
+    prevEl.textContent = name;
+    prevEl.style.color = '';
+    btn.disabled = false;
+  }
+
+  function renderRenamePanel() {
+    const panel = document.getElementById('du-rename-panel');
+    if (!pendingRenames.length) { panel.style.display = 'none'; panel.innerHTML = ''; return; }
+    panel.style.display = 'block';
+    panel.innerHTML = `
+      <div class="du-rename-head">
+        <strong>Rename assistant</strong>
+        <span class="du-run-hint">These files don't follow the required naming. Pick the date range each file covers and we'll rename them on upload — the original file on your computer is untouched.</span>
+      </div>` +
+      pendingRenames.map((item, idx) => item.done ? '' : `
+      <div class="du-rename-row" id="du-rn-row-${idx}">
+        <div class="du-rn-file"><span class="du-stg-name">${escapeHtml(item.file.name)}</span>
+          <span style="color:var(--text-muted);font-size:0.78rem">${fmtSize(item.file.size)}</span></div>
+        <div class="du-rn-dates">
+          <label>From <input type="date" id="du-rn-start-${idx}" onchange="duRenamePreview(${idx})"></label>
+          <label>To <input type="date" id="du-rn-end-${idx}" onchange="duRenamePreview(${idx})"></label>
+        </div>
+        <div class="du-rn-out">
+          <code id="du-rn-preview-${idx}" style="color:var(--text-muted)">Pick the date range the file covers…</code>
+          <button class="btn btn-primary btn-sm" id="du-rn-btn-${idx}" disabled onclick="duRenameUpload(${idx})">Upload renamed</button>
+        </div>
+      </div>`).join('');
+  }
+
+  async function renameUpload(idx) {
+    const item = pendingRenames[idx];
+    const name = generatedName(idx);
+    if (!item || !name) return;
+    const btn = document.getElementById(`du-rn-btn-${idx}`);
+    btn.disabled = true; btn.textContent = 'Uploading…';
+    const { error } = await sb.storage.from(RAW_BUCKET).upload(buildPath(name), item.file, {
+      upsert: true,
+      contentType: item.file.type || 'application/octet-stream',
+    });
+    if (error) {
+      btn.disabled = false; btn.textContent = 'Upload renamed';
+      UI.showAlert('du-error', `${name}: ${error.message}`);
+      return;
+    }
+    item.done = true;
+    const row = document.getElementById(`du-rn-row-${idx}`);
+    if (row) row.innerHTML = `<div class="du-rn-file"><span class="du-stg-name">${escapeHtml(item.file.name)}</span>
+      <span class="du-stg-status" style="color:#16a34a">✓ uploaded as <code>${escapeHtml(name)}</code></span></div>`;
+    UI.showAlert('du-success', 'Upload complete.', 'success');
+    listFiles();
+    if (pendingRenames.every(p => p.done)) {
+      setTimeout(() => { pendingRenames = []; renderRenamePanel(); }, 4000);
+    }
+  }
+
+  // ── staging + upload ───────────────────────────────────────────────────
   async function stageAndUpload(fileList) {
     const files = Array.from(fileList);
     if (!files.length) return;
@@ -129,29 +310,34 @@ const DataUpload = (() => {
     const staged = document.getElementById('du-staged');
     staged.style.display = 'flex';
     staged.innerHTML = '';
+    pendingRenames = [];
 
     let anyUploaded = false;
     for (const file of files) {
+      const ext = extOf(file.name);
+      const check = ext ? validateFilename(entity, file.name) : { ok: false, message: 'Unsupported file type.' };
+
+      if (!check.ok) {
+        if (!ext) {
+          const row = document.createElement('div');
+          row.className = 'du-staged-item';
+          row.innerHTML = `<span class="du-stg-name">${escapeHtml(file.name)}</span>
+            <span class="du-stg-status" style="color:#dc2626">✗ Only .xlsx / .xls / .csv files are supported.</span>`;
+          staged.appendChild(row);
+        } else {
+          // Send to the rename assistant instead of rejecting
+          pendingRenames.push({ file, ext, done: false });
+        }
+        continue;
+      }
+
+      const exists = existingNames.has(file.name.toLowerCase());
       const row = document.createElement('div');
       row.className = 'du-staged-item';
-      const check = validateFilename(entity, file.name);
-      const exists = existingNames.has(file.name.toLowerCase());
-
-      let statusHtml, canUpload = true;
-      if (!check.ok) {
-        statusHtml = `<span class="du-stg-status" style="color:#dc2626">✗ ${escapeHtml(check.message)}</span>`;
-        canUpload = false;
-      } else if (exists) {
-        statusHtml = `<span class="du-stg-status" style="color:#d97706">⚠ already exists — will overwrite</span>`;
-      } else {
-        statusHtml = `<span class="du-stg-status" style="color:#16a34a">✓ new</span>`;
-      }
       row.innerHTML = `<span class="du-stg-name">${escapeHtml(file.name)}</span>
         <span style="color:var(--text-muted);font-size:0.78rem">${fmtSize(file.size)}</span>
-        ${statusHtml}`;
+        <span class="du-stg-status" style="color:${exists ? '#d97706' : '#16a34a'}">${exists ? '⚠ already exists — will overwrite' : '✓ new'}</span>`;
       staged.appendChild(row);
-
-      if (!canUpload) continue;
 
       const path = buildPath(file.name);
       const { error } = await sb.storage.from(RAW_BUCKET).upload(path, file, {
@@ -169,6 +355,9 @@ const DataUpload = (() => {
       }
     }
 
+    if (!staged.children.length) staged.style.display = 'none';
+    renderRenamePanel();
+
     if (anyUploaded) {
       UI.showAlert('du-success', 'Upload complete.', 'success');
       listFiles();
@@ -177,13 +366,14 @@ const DataUpload = (() => {
 
   async function deleteFile(fullPath) {
     const name = fullPath.split('/').pop();
-    if (!confirm(`Permanently delete "${name}"?\n\nYou can re-upload it from Mews if needed.`)) return;
+    if (!confirm(`Permanently delete "${name}"?\n\nYou can re-upload it from your PMS export if needed.`)) return;
     const { error } = await sb.storage.from(RAW_BUCKET).remove([fullPath]);
     if (error) { UI.showAlert('du-error', error.message); return; }
     UI.showAlert('du-success', `Deleted "${name}".`, 'success');
     listFiles();
   }
 
+  // ── gold outputs ───────────────────────────────────────────────────────
   const GOLD_BUCKET = 'gold';
   const GOLD_FILES = ['reservations_clean.csv', 'nights_clean.csv', 'extras_master.csv'];
 
@@ -242,6 +432,7 @@ const DataUpload = (() => {
     }
   }
 
+  // ── Run ETL ────────────────────────────────────────────────────────────
   async function runETL() {
     const btn = document.getElementById('du-run-etl-btn');
     const statusEl = document.getElementById('du-run-status');
@@ -249,6 +440,14 @@ const DataUpload = (() => {
     const progTitle = document.getElementById('du-run-progress-title');
     const progDetail = document.getElementById('du-run-progress-detail');
     const client = currentClientCode();
+
+    const expectedEntities = selectedRunEntities();
+    if (!expectedEntities.length) {
+      statusEl.style.display = 'block';
+      statusEl.className = 'alert error';
+      statusEl.textContent = 'Select at least one entity to process.';
+      return;
+    }
 
     btn.disabled = true;
     btn.textContent = '▶ Triggering…';
@@ -266,7 +465,7 @@ const DataUpload = (() => {
           'Authorization': 'Bearer ' + SUPABASE_KEY,
           'apikey': SUPABASE_KEY,
         },
-        body: JSON.stringify({ client }),
+        body: JSON.stringify({ client, entities: expectedEntities }),
       });
       const data = await resp.json();
       if (!(resp.ok && data.ok)) {
@@ -283,7 +482,6 @@ const DataUpload = (() => {
       progDetail.textContent = 'Starting up (this takes ~1–2 minutes). Watching for results…';
       btn.textContent = '▶ Running…';
 
-      const expectedEntities = ['reservations', 'nights', 'extras'];
       let elapsed = 0;
       const poll = setInterval(async () => {
         elapsed += 5;
@@ -295,7 +493,7 @@ const DataUpload = (() => {
 
         const done = (runs || []).filter(r => r.status === 'SUCCESS').map(r => r.entity);
         const failed = (runs || []).filter(r => r.status === 'FAILED');
-        const uniqDone = [...new Set(done)];
+        const uniqDone = [...new Set(done)].filter(e => expectedEntities.includes(e));
 
         progDetail.textContent =
           `Completed: ${uniqDone.length ? uniqDone.join(', ') : '…'} ` +
@@ -309,7 +507,7 @@ const DataUpload = (() => {
           btn.disabled = false; btn.textContent = '▶ Run ETL';
           if (allDone) {
             statusEl.className = 'alert success';
-            statusEl.textContent = `✓ ETL finished for "${client}". Gold outputs updated.`;
+            statusEl.textContent = `✓ ETL finished for "${client}" (${expectedEntities.join(', ')}). Gold outputs updated.`;
             listFiles(); listGold();
           } else if (failed.length) {
             statusEl.className = 'alert error';
@@ -332,9 +530,13 @@ const DataUpload = (() => {
   }
 
   function init() {
+    loadJobs();
     loadProperties();
-    const relist = () => { document.getElementById('du-staged').style.display='none'; listFiles(); listGold(); };
-    document.getElementById('du-source').onchange   = relist;
+    const relist = () => {
+      document.getElementById('du-staged').style.display='none';
+      pendingRenames = []; renderRenamePanel();
+      listFiles(); listGold();
+    };
     document.getElementById('du-property').onchange = relist;
     document.getElementById('du-entity').onchange   = relist;
 
@@ -353,7 +555,9 @@ const DataUpload = (() => {
     document.getElementById('du-run-etl-btn').onclick = runETL;
   }
 
-  return { init, listFiles, deleteFile };
+  return { init, listFiles, deleteFile, renameUpload, refreshRenamePreview };
 })();
 
 function duDeleteFile(path) { DataUpload.deleteFile(path); }
+function duRenameUpload(idx) { DataUpload.renameUpload(idx); }
+function duRenamePreview(idx) { DataUpload.refreshRenamePreview(idx); }
