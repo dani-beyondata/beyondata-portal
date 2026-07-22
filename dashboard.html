@@ -66,6 +66,7 @@
       <div class="nav-item" data-section="company"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg></span>Company</div>
       <div class="nav-item" data-section="users"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Users</div>
       <div class="nav-item" data-section="countries" id="nav-countries"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg></span>Countries</div>
+      <div class="nav-item" data-section="pipeline" id="nav-pipeline"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="18" r="2"/></svg></span>Pipeline</div>
     </div>
   </div>
 
@@ -299,6 +300,15 @@
         <div class="table-header"><h3>Parameters</h3></div>
         <div id="params-list"></div>
       </div>
+    </div>
+
+    <!-- PIPELINE (system admin) -->
+    <div class="section" id="section-pipeline">
+      <div class="section-header">
+        <h2>Pipeline</h2>
+        <p>PMS ↔ jobs ↔ ETL configuration: what the code supports, what each company has configured, and what's missing.</p>
+      </div>
+      <div id="pipeline-root"></div>
     </div>
 
     <!-- COMPANY -->
@@ -817,6 +827,22 @@
       .du-filter select { padding:0.4rem 0.6rem; border:1px solid var(--border,#ccc); border-radius:6px; font-size:0.9rem; background:white; }
       .du-path-preview { flex:1; min-width:220px; }
       .du-path-preview code { font-size:0.75rem; color:var(--brand,#3D65A8); background:white; padding:0.4rem 0.6rem; border-radius:6px; border:1px solid var(--border,#ccc); overflow-x:auto; white-space:nowrap; display:block; }
+      .pl-hint { font-size:0.8rem; color:var(--text-muted); margin:0.35rem 0 0.75rem; }
+      .pl-catalog { display:flex; gap:1.25rem; flex-wrap:wrap; }
+      .pl-catalog-pms { flex:1; min-width:340px; }
+      .pl-pms-badge { display:inline-block; background:var(--brand-light,#eef3fb); color:var(--brand,#3D65A8); font-size:0.72rem; font-weight:600; padding:0.15rem 0.55rem; border-radius:999px; margin-bottom:0.4rem; }
+      .pl-pms-badge.pl-warn { background:#fef3c7; color:#92400e; }
+      .pl-company { border:1px solid var(--border,#e4e9f2); border-radius:10px; padding:0.8rem 1rem; margin-bottom:0.9rem; }
+      .pl-company-head { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem; }
+      .pl-property { margin:0.5rem 0 0.75rem; }
+      .pl-property-head { font-size:0.8rem; font-weight:600; color:var(--text-muted); margin-bottom:0.3rem; }
+      .pl-badge { display:inline-block; font-size:0.7rem; font-weight:600; padding:0.12rem 0.5rem; border-radius:999px; }
+      .pl-on { background:#dcfce7; color:#166534; }
+      .pl-off { background:#f1f5f9; color:#64748b; }
+      .pl-warn { background:#fef3c7; color:#92400e; }
+      .pl-reads { font-size:0.78rem; color:var(--text-muted); }
+      .pl-direct { font-size:0.78rem; color:#166534; }
+      .pl-missing td { background:#fafbfd; }
       .du-run-entities { display:flex; gap:0.9rem; margin-top:0.55rem; flex-wrap:wrap; }
       .du-run-entity { display:inline-flex; align-items:center; gap:0.3rem; font-size:0.82rem; color:var(--text,#243044); cursor:pointer; }
       .du-rename-panel { border:1px solid var(--border,#c3cedd); border-left:4px solid #d97706; border-radius:10px; padding:0.9rem 1rem; margin-top:0.75rem; background:#fffdf7; }
@@ -1668,6 +1694,7 @@
 <script src="js/masters_export.js"></script>
 <script src="js/masters_import.js"></script>
 <script src="js/data_upload.js"></script>
+<script src="js/pipeline_admin.js"></script>
 <script src="js/plan.js"></script>
 <script src="js/table_enhance.js"></script>
 <script>
@@ -1728,6 +1755,8 @@
     if (currentProfile.role !== 'system_admin') {
       const navCountries = document.getElementById('nav-countries');
       if (navCountries) navCountries.style.display = 'none';
+      const navPipeline = document.getElementById('nav-pipeline');
+      if (navPipeline) navPipeline.style.display = 'none';
     }
 
     document.getElementById('company-pill').textContent = currentCompany.name;
@@ -1751,7 +1780,7 @@
       const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, plan_requests: loadPlanRequests, properties: loadProperties, settings: loadSettings,
         channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes,
         markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms,
-        availability: initAvailabilitySection, countries: loadCountries,
+        availability: initAvailabilitySection, countries: loadCountries, pipeline: PipelineAdmin.load,
         users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
       const loader = loaders[savedSection];
       if (loader) {
@@ -2346,6 +2375,8 @@
     const { data: params } = await Params.getAll(currentCompany.id);
     const mode = params.occupancy_mode || 'both';
 
+    const pms = (currentCompany.pms || '').toLowerCase();
+    const isSys = currentProfile.role === 'system_admin';
     document.getElementById('params-list').innerHTML = `
       <div class="param-row">
         <div class="param-info">
@@ -2361,7 +2392,28 @@
             ${isAdmin ? `onclick="setParam('occupancy_mode','both')"` : 'disabled'}>Both</button>
         </div>
       </div>
+      <div class="param-row">
+        <div class="param-info">
+          <h4>PMS</h4>
+          <p>Property management system this company exports data from. Drives the data pipeline: upload paths and which ETLs process the files.${isSys ? '' : ' Managed by BeyonData.'}</p>
+        </div>
+        <div class="toggle-wrap">
+          <button class="toggle-btn ${pms === 'mews' ? 'active' : ''}"
+            ${isSys ? `onclick="setPms('mews')"` : 'disabled'}>Mews</button>
+          <button class="toggle-btn ${pms === 'littlehotelier' ? 'active' : ''}"
+            ${isSys ? `onclick="setPms('littlehotelier')"` : 'disabled'}>Little Hotelier</button>
+        </div>
+      </div>
     `;
+  }
+
+  async function setPms(value) {
+    if ((currentCompany.pms || '').toLowerCase() === value) return;
+    if (!confirm(`Change this company's PMS to "${value}"?\n\nThis redirects the whole data pipeline: upload paths and which ETLs run. Existing pipeline jobs are NOT changed automatically — review them in the Pipeline section afterwards.`)) return;
+    const { error } = await Companies.update(currentCompany.id, { pms: value });
+    if (error) { alert('Could not update PMS: ' + error.message); return; }
+    currentCompany.pms = value;
+    loadSettings();
   }
 
   async function setParam(key, value) {
@@ -5333,7 +5385,7 @@
     const sectionEl = document.getElementById(`section-${section}`);
     if (sectionEl) sectionEl.classList.add('active');
     hashSet({ section: section });
-    const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, plan_requests: loadPlanRequests, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
+    const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, plan_requests: loadPlanRequests, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, pipeline: PipelineAdmin.load, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
     loaders[section]?.();
     window.scrollTo(0, 0);
   }
