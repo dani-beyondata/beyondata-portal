@@ -64,7 +64,7 @@ const PipelineAdmin = (() => {
   // ── Card 1: what the pipeline code supports ────────────────────────────
   function renderCatalog() {
     const blocks = Object.entries(CATALOG).map(([pms, def]) => `
-      <div class="pl-catalog-pms">
+      <div class="pl-catalog-pms" style="min-width:0;margin-bottom:1rem">
         <div class="pl-pms-badge">${esc(def.label)}</div>
         <table>
           <thead><tr><th>Entity</th><th>ETL script</th><th>Gold output</th><th>Reads raw from</th></tr></thead>
@@ -84,7 +84,7 @@ const PipelineAdmin = (() => {
         <div class="table-header"><h3>ETL catalog (what the code supports)</h3>
           <span class="du-count-badge">${Object.keys(CATALOG).length} PMS</span></div>
         <p class="pl-hint">This mirrors the runner's ETL_MAP in <code>beyondata-pipeline</code>. Adding a new entity or PMS means shipping a new ETL script first — then it can be configured for companies below.</p>
-        <div class="pl-catalog">${blocks}</div>
+        <div class="pl-catalog" style="display:block">${blocks}</div>
       </div>`;
   }
 
@@ -93,7 +93,11 @@ const PipelineAdmin = (() => {
     const fileJobs = jobsCache.filter(j => j.source_type === 'file');
     const apiJobs = jobsCache.filter(j => j.source_type !== 'file');
 
-    const cards = companiesCache.map(c => {
+    const currentId = (typeof currentCompany !== 'undefined' && currentCompany) ? currentCompany.id : null;
+    const ordered = [...companiesCache].sort((a, b) =>
+      (a.id === currentId ? -1 : 0) - (b.id === currentId ? -1 : 0));
+
+    const cards = ordered.map(c => {
       const pms = (c.pms || '').toLowerCase();
       const def = CATALOG[pms];
       const slug = (c.slug || '').toLowerCase();
@@ -150,15 +154,32 @@ const PipelineAdmin = (() => {
         </div>`;
       }).join('') : '<p class="pl-hint">No properties yet — create one in Properties first; jobs hang from a property.</p>';
 
-      return `<div class="pl-company">
-        <div class="pl-company-head">
+      const myJobs = fileJobs.filter(j => (j.client || '').toLowerCase() === slug);
+      const nActive = myJobs.filter(j => j.is_active).length;
+      const expected = props.length * def.entities.length;
+      const nMissing = Math.max(0, expected - myJobs.length);
+      const nDrift = myJobs.filter(j => (j.source_system || '').toLowerCase() !== pms).length;
+      const isCurrent = c.id === currentId;
+
+      const headInner = `
           <strong>${esc(c.name)}</strong>
           <code style="font-size:0.75rem">${esc(slug)}</code>
           <span class="pl-pms-badge">${esc(def.label)}</span>
+          ${isCurrent ? '<span class="pl-badge pl-on">current company</span>' : ''}
           ${c.active === false ? '<span class="pl-badge pl-off">company inactive</span>' : ''}
-        </div>
+          <span class="pl-summary">${nActive} active job${nActive === 1 ? '' : 's'}${nMissing ? ` · <span style="color:#92400e">${nMissing} missing</span>` : ''}${nDrift ? ` · <span style="color:#dc2626">${nDrift} PMS mismatch</span>` : ''}</span>`;
+
+      if (isCurrent) {
+        return `<div class="pl-company" style="border-color:var(--brand,#3D65A8)">
+          <div class="pl-company-head">${headInner}</div>
+          ${propBlocks}
+        </div>`;
+      }
+      return `<details class="pl-company">
+        <summary class="pl-company-head" style="cursor:pointer;list-style:none">${headInner}
+          <span style="margin-left:auto;color:var(--text-muted);font-size:0.75rem">click to expand</span></summary>
         ${propBlocks}
-      </div>`;
+      </details>`;
     }).join('');
 
     const apiNote = apiJobs.length ? `<p class="pl-hint" style="margin-top:0.75rem">ℹ ${apiJobs.length} API-type job(s) exist in pipeline_jobs (e.g. legacy tests). They are not managed here — the file runner ignores them.</p>` : '';
