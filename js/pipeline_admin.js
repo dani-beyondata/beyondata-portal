@@ -58,15 +58,24 @@ const PipelineAdmin = (() => {
     propertiesCache = pRes.data || [];
     jobsCache = jRes.data || [];
 
-    root.innerHTML = renderCatalog() + renderCompanies();
+    root.innerHTML = scopedStyles() + renderCatalog() + renderCompanies();
+  }
+
+  function scopedStyles() {
+    return `<style>
+      .pl-body { padding: 1rem 1.25rem 1.25rem; }
+      .pl-body .pl-hint { margin: 0 0 0.9rem; }
+      .pl-table { border: 1px solid var(--border,#e4e9f2); border-radius: 8px; overflow: hidden; margin-top: 0.35rem; }
+      .pl-company > .pl-body, details.pl-company > .pl-body { padding: 0; }
+    </style>`;
   }
 
   // ── Card 1: what the pipeline code supports ────────────────────────────
   function renderCatalog() {
     const blocks = Object.entries(CATALOG).map(([pms, def]) => `
-      <div class="pl-catalog-pms" style="min-width:0;margin-bottom:1rem">
+      <div class="pl-catalog-pms" style="min-width:0;margin-bottom:1.1rem">
         <div class="pl-pms-badge">${esc(def.label)}</div>
-        <table>
+        <div class="pl-table"><table>
           <thead><tr><th>Entity</th><th>ETL script</th><th>Gold output</th><th>Reads raw from</th></tr></thead>
           <tbody>
             ${def.entities.map(e => `
@@ -77,14 +86,16 @@ const PipelineAdmin = (() => {
                 <td>${e.reads_from ? `<span class="pl-reads">↳ ${esc(e.reads_from)} files</span>` : '<span class="pl-direct">direct upload</span>'}</td>
               </tr>`).join('')}
           </tbody>
-        </table>
+        </table></div>
       </div>`).join('');
     return `
       <div class="table-wrap" style="margin-bottom:1.25rem">
         <div class="table-header"><h3>ETL catalog (what the code supports)</h3>
           <span class="du-count-badge">${Object.keys(CATALOG).length} PMS</span></div>
-        <p class="pl-hint">This mirrors the runner's ETL_MAP in <code>beyondata-pipeline</code>. Adding a new entity or PMS means shipping a new ETL script first — then it can be configured for companies below.</p>
-        <div class="pl-catalog" style="display:block">${blocks}</div>
+        <div class="pl-body">
+          <p class="pl-hint">This mirrors the runner's ETL_MAP in <code>beyondata-pipeline</code>. Adding a new entity or PMS means shipping a new ETL script first — then it can be configured for companies below.</p>
+          <div class="pl-catalog" style="display:block">${blocks}</div>
+        </div>
       </div>`;
   }
 
@@ -147,10 +158,10 @@ const PipelineAdmin = (() => {
 
         return `<div class="pl-property">
           <div class="pl-property-head">${esc(p.property_id)}${p.property_name ? ' — ' + esc(p.property_name) : ''}</div>
-          <table>
+          <div class="pl-table"><table>
             <thead><tr><th>Entity</th><th>ETL</th><th>File pattern</th><th>Reads from</th><th>Status</th><th></th></tr></thead>
             <tbody>${rows}${extraRows}</tbody>
-          </table>
+          </table></div>
         </div>`;
       }).join('') : '<p class="pl-hint">No properties yet — create one in Properties first; jobs hang from a property.</p>';
 
@@ -188,9 +199,11 @@ const PipelineAdmin = (() => {
       <div class="table-wrap">
         <div class="table-header"><h3>Companies &amp; configured jobs</h3>
           <span class="du-count-badge">${companiesCache.length} companies</span></div>
-        <p class="pl-hint">Each row is a pipeline job: "for this company + property + entity, process uploaded files with this ETL". The Run ETL selector in Data Upload offers exactly the <em>active</em> entities listed here.</p>
-        ${cards}
-        ${apiNote}
+        <div class="pl-body">
+          <p class="pl-hint">Each row is a pipeline job: "for this company + property + entity, process uploaded files with this ETL". The Run ETL selector in Data Upload offers exactly the <em>active</em> entities listed here.</p>
+          ${cards}
+          ${apiNote}
+        </div>
       </div>`;
   }
 
