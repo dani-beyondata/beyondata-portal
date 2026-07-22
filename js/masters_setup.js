@@ -180,7 +180,7 @@ const MastersSetup = (() => {
           company_id: companyId,
           raw_value: rawValue,
           display_name: displayName || rawValue,
-          category: extraFields?.category || 'UNCATEGORISED',
+          category: extraFields?.category,  // required — validated in the UI before calling
           charge_timing: 'during_stay',
           default_amount: 0,
           status: 'active',
@@ -364,7 +364,10 @@ const MastersSetup = (() => {
       if (v === undefined || v === null) v = '';
       v = String(v).trim();
       if (v === '' || v.toLowerCase() === 'nan') continue; // skip blank/NaN
-      counts.set(v, (counts.get(v) || 0) + 1);
+      // Pre-aggregated files (extras_master.csv) carry an occurrences column:
+      // weight by it so the count shown is real usage, not "1" per row.
+      const weight = ('occurrences' in r && !isNaN(Number(r['occurrences']))) ? Number(r['occurrences']) : 1;
+      counts.set(v, (counts.get(v) || 0) + weight);
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1]); // most frequent first
   }
@@ -553,9 +556,13 @@ const MastersSetup = (() => {
               <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
             </div>`;
         } else if (config.actionType === 'extras') {
+          // A real category is REQUIRED: no UNCATEGORISED fallback. If none
+          // exist yet, the select shows a disabled hint and the "+ New"
+          // button creates one inline (extras_categories insert) and
+          // re-renders with it available everywhere.
           const catOptions = extrasCategories.length
-            ? extrasCategories.map(c => `<option value="${escapeAttr(c.category_name)}">${escapeHtml(c.category_name)}</option>`).join('')
-            : '<option value="UNCATEGORISED">UNCATEGORISED</option>';
+            ? '<option value="">Category...</option>' + extrasCategories.map(c => `<option value="${escapeAttr(c.category_name)}">${escapeHtml(c.category_name)}</option>`).join('')
+            : '<option value="" selected>No categories yet — create one →</option>';
           actionHtml = `
             <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
               <input type="text" placeholder="Display name"
@@ -566,6 +573,7 @@ const MastersSetup = (() => {
                       style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px">
                 ${catOptions}
               </select>
+              <button class="btn btn-secondary btn-sm" data-action="new-category" title="Create a new extras category">＋ New</button>
               <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
             </div>`;
         } else if (config.actionType === 'channel') {
@@ -681,7 +689,11 @@ const MastersSetup = (() => {
             };
           } else if (config.actionType === 'extras') {
             const catEl = row.querySelector('select[data-role="extra-category"]');
-            extraFields = { category: catEl?.value || 'UNCATEGORISED' };
+            if (!catEl?.value) {
+              catEl.style.borderColor = '#dc2626';
+              return; // a real category is required — no UNCATEGORISED shortcut
+            }
+            extraFields = { category: catEl.value };
           } else if (config.actionType === 'channel') {
             const typeEl      = row.querySelector('select[data-role="channel-type"]');
             const subtypeEl   = row.querySelector('select[data-role="channel-subtype"]');
@@ -714,6 +726,106 @@ const MastersSetup = (() => {
         }
       });
     });
+
+    // "+ New" category (extras): create an extras_categories row inline and
+    // re-render so every row's dropdown picks it up.
+    tbody.querySelectorAll('button[data-action="new-category"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const name = prompt('New extras category name (e.g. Breakfast, Bar, Parking, Taxes):');
+        if (!name || !name.trim()) return;
+        btn.disabled = true;
+        try {
+          const { error } = await sb.from('extras_categories').insert({
+            company_id: currentCompany.id,
+            category_name: name.trim().toUpperCase(),
+            status: 'active',
+          });
+          if (error) throw error;
+          await renderResults(masterKey, column);
+        } catch (e) {
+          UI.showAlert('ms-file-error', `Could not create category: ${e.message}`);
+          btn.disabled = false;
+        }
+      });
+    });
+
+    // Bulk add: process every visible row whose inputs are already complete
+    // (suggested country selected, display name + category/type filled...).
+    // Incomplete rows are skipped and reported, never guessed.
+    const bulkBtn = document.getElementById('ms-bulk-add');
+    if (bulkBtn) {
+      const bulkClone = bulkBtn.cloneNode(true); // drop stale listeners from previous renders
+      bulkBtn.replaceWith(bulkClone);
+      bulkClone.style.display = '';
+      bulkClone.disabled = false;
+      bulkClone.textContent = '＋ Add all ready';
+      bulkClone.addEventListener('click', async () => {
+        const rows = [...tbody.querySelectorAll('tr')];
+        const ready = [];
+        for (const row of rows) {
+          const addBtn = row.querySelector('button[data-action="add"], button[data-action="resolve"]');
+          if (!addBtn || addBtn.disabled) continue;
+          const value = addBtn.getAttribute('data-value');
+          const action = addBtn.getAttribute('data-action');
+
+          if (config.actionType === 'country_select') {
+            const sel = row.querySelector('select[data-role="country-select"]');
+            if (sel?.value) ready.push({ action, value, second: sel.value,
+              existingId: addBtn.getAttribute('data-existing-id') });
+            continue;
+          }
+          const nameEl = row.querySelector('input[data-role="display-name-input"]');
+          const name = nameEl?.value.trim();
+          if (!name) continue;
+          if (config.actionType === 'extras') {
+            const cat = row.querySelector('select[data-role="extra-category"]')?.value;
+            if (cat) ready.push({ action, value, second: name, extraFields: { category: cat } });
+          } else if (config.actionType === 'channel') {
+            const t = row.querySelector('select[data-role="channel-type"]')?.value;
+            const st = row.querySelector('select[data-role="channel-subtype"]')?.value;
+            const rt = row.querySelector('select[data-role="channel-rate-type"]')?.value || 'gross';
+            if (t && st) ready.push({ action, value, second: name,
+              extraFields: { channel_type: t, channel_subtype: st, rate_type: rt } });
+          } else if (config.actionType === 'room') {
+            ready.push({ action, value, second: name, extraFields: {
+              category_id: nameEl.dataset.categoryId || null,
+              beds_per_room: parseInt(nameEl.dataset.beds) || 1,
+              property_id: nameEl.dataset.propertyId || null,
+              property_uuid: propertyUuidMap.get(nameEl.dataset.propertyId) || null,
+            }});
+          } else {
+            ready.push({ action, value, second: name });
+          }
+        }
+
+        if (!ready.length) {
+          UI.showAlert('ms-file-error', 'No rows are ready — fill in the missing selections first.');
+          return;
+        }
+        if (!confirm(`Add ${ready.length} value(s) to the master in one go?`)) return;
+
+        bulkClone.disabled = true;
+        let done = 0, failed = 0;
+        for (const item of ready) {
+          bulkClone.textContent = `Adding ${done + failed + 1}/${ready.length}…`;
+          try {
+            if (item.action === 'resolve') {
+              const { error } = await ClientCountryMapping.update(item.existingId,
+                { country_code: item.second, status: 'active' });
+              if (error) throw error;
+            } else {
+              await config.addValue(currentCompany.id, item.value, item.second, item.extraFields || null);
+            }
+            done++;
+          } catch (e) { failed++; }
+        }
+        const skipped = rows.length - ready.length;
+        UI.showAlert('ms-file-error',
+          `Bulk add finished: ${done} added${failed ? `, ${failed} failed` : ''}${skipped > 0 ? `, ${skipped} skipped (incomplete)` : ''}.`);
+        await renderResults(masterKey, column);
+        updateMemoryCounts();
+      });
+    }
 
     // "resolve" handles the case where a raw_value row already exists
     // (seen before, e.g. inserted with no country_code) and just needs its
