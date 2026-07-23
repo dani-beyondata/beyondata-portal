@@ -239,7 +239,7 @@ const PipelineAdmin = (() => {
     load();
   }
 
-  return { load, toggleJob, createJob };
+  return { load, toggleJob, createJob, CATALOG };
 })();
 
 function plToggleJob(jobId, newActive) { PipelineAdmin.toggleJob(jobId, newActive); }
