@@ -336,6 +336,11 @@
           </div>
         </div>
       </div>
+
+      <div class="table-wrap" id="company-pbi-card" style="max-width:760px;margin-top:1.25rem;display:none">
+        <div class="table-header"><h3>Power BI connection</h3></div>
+        <div style="padding:1rem 1.25rem 1.25rem" id="company-pbi-body"></div>
+      </div>
     </div>
 
     <!-- PLAN REQUESTS (admin) -->
@@ -829,6 +834,9 @@
       .du-filter select { padding:0.4rem 0.6rem; border:1px solid var(--border,#ccc); border-radius:6px; font-size:0.9rem; background:white; }
       .du-path-preview { flex:1; min-width:220px; }
       .du-path-preview code { font-size:0.75rem; color:var(--brand,#3D65A8); background:white; padding:0.4rem 0.6rem; border-radius:6px; border:1px solid var(--border,#ccc); overflow-x:auto; white-space:nowrap; display:block; }
+      .pbi-param { display:flex; gap:0.6rem; align-items:center; margin-top:0.25rem; font-size:0.83rem; }
+      .pbi-param > span { color:var(--text-muted); width:90px; flex-shrink:0; }
+      .pbi-param code { background:#f4f6fa; padding:0.15rem 0.45rem; border-radius:4px; }
       #ms-categories-panel { border:1px solid var(--border,#e4e9f2); border-left:4px solid var(--brand,#3D65A8); border-radius:10px; padding:0.85rem 1rem; margin:0.5rem 0 1rem; background:#fafcff; }
       .ms-cat-head { display:flex; align-items:baseline; gap:0.7rem; margin-bottom:0.5rem; flex-wrap:wrap; }
       .ms-cat-table { margin-bottom:0.6rem; }
@@ -5356,6 +5364,47 @@
     document.getElementById('company-active').value = currentCompany.active ? 'true' : 'false';
     UI.hideAlert('company-error');
     UI.hideAlert('company-success');
+    renderPbiCard();
+  }
+
+  // Power BI connection card (system admin): the exact values the report
+  // template's Power Query parameters need (client_slug, property_id) plus
+  // the gold file URLs, ready to copy. One block per property.
+  async function renderPbiCard() {
+    const card = document.getElementById('company-pbi-card');
+    if (!card) return;
+    if (currentProfile.role !== 'system_admin') { card.style.display = 'none'; return; }
+
+    const slug = (currentCompany.slug || '').toLowerCase();
+    const { data: props } = await sb.from('properties')
+      .select('property_id, property_name').eq('company_id', currentCompany.id).order('property_id');
+    const goldFiles = ['reservations_clean.csv', 'nights_clean.csv', 'extras_clean.csv', 'extras_master.csv'];
+    const base = `${SUPABASE_URL}/storage/v1/object/gold`;
+
+    const copyBtn = (val) =>
+      `<button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${val.replace(/'/g, "\\'")}');this.textContent='✓';setTimeout(()=>this.textContent='Copy',1200)">Copy</button>`;
+
+    const blocks = (props || []).map(pr => `
+      <div style="margin-bottom:1rem">
+        <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.4rem">${escapeHtml(pr.property_id)}${pr.property_name ? ' — ' + escapeHtml(pr.property_name) : ''}</div>
+        <div class="pbi-param"><span>client_slug</span><code>${escapeHtml(slug)}</code>${copyBtn(slug)}</div>
+        <div class="pbi-param"><span>property_id</span><code>${escapeHtml(pr.property_id)}</code>${copyBtn(pr.property_id)}</div>
+        <details style="margin-top:0.4rem">
+          <summary style="cursor:pointer;font-size:0.8rem;color:var(--text-muted)">Gold file URLs (for query debugging)</summary>
+          ${goldFiles.map(f => {
+            const url = `${base}/${slug}/${pr.property_id}/${f}`;
+            return `<div class="pbi-param" style="margin-top:0.3rem"><code style="font-size:0.7rem;word-break:break-all">${escapeHtml(url)}</code>${copyBtn(url)}</div>`;
+          }).join('')}
+        </details>
+      </div>`).join('');
+
+    document.getElementById('company-pbi-body').innerHTML = `
+      <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 0.75rem">
+        Values for the report template's Power Query parameters (Transform data → Manage parameters).
+        URLs require the anon key headers — they are what the model's Web.Contents queries build from these parameters.
+      </p>
+      ${blocks || '<p style="color:var(--text-muted)">No properties yet.</p>'}`;
+    card.style.display = 'block';
   }
 
   document.getElementById('btn-save-company').addEventListener('click', async () => {
