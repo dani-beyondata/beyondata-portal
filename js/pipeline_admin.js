@@ -136,9 +136,10 @@ const PipelineAdmin = (() => {
             </tr>`;
           }
           const drift = (job.source_system || '').toLowerCase() !== pms;
+          const goldInfo = e.gold ? `<div style="color:var(--text-muted);font-size:0.7rem;margin-top:2px">→ ${esc(e.gold)}</div>` : '';
           return `<tr>
             <td>${esc(job.entity)}</td>
-            <td style="font-family:monospace;font-size:0.78rem">${esc(job.etl_name || '—')}</td>
+            <td style="font-family:monospace;font-size:0.78rem">${esc(job.etl_name || '—')}${goldInfo}</td>
             <td style="font-family:monospace;font-size:0.78rem">${esc(job.file_pattern || '—')}</td>
             <td>${job.reads_from_entity ? `<span class="pl-reads">↳ ${esc(job.reads_from_entity)}</span>` : '<span class="pl-direct">direct</span>'}
               ${drift ? `<span class="pl-badge pl-warn" title="Job source_system is '${esc(job.source_system)}' but the company PMS is '${esc(pms)}' — the runner will use the wrong ETL">PMS mismatch</span>` : ''}</td>
