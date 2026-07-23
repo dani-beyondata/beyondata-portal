@@ -392,11 +392,114 @@ const MastersSetup = (() => {
     return null;
   }
 
+  // Embedded categories grid: when curating channels or extras, the
+  // relevant categories master (channel_subtypes / extras_categories) is
+  // shown right here -- view, add (full fields), activate/deactivate --
+  // so the review flow never has to leave the page. Mirrors the dedicated
+  // sections' capabilities using their same CRUD helpers.
+  async function renderCategoriesPanel(masterKey, column, actionType) {
+    const panel = document.getElementById('ms-categories-panel');
+    if (!panel) return;
+    if (actionType !== 'extras' && actionType !== 'channel') {
+      panel.style.display = 'none'; panel.innerHTML = ''; return;
+    }
+    panel.style.display = 'block';
+
+    const rerender = () => renderResults(masterKey, column);
+
+    if (actionType === 'extras') {
+      const { data } = await ExtrasCategories.getByCompany(currentCompany.id);
+      const cats = data || [];
+      panel.innerHTML = `
+        <div class="ms-cat-head"><strong>Extras categories master</strong>
+          <span style="color:var(--text-muted);font-size:0.8rem">${cats.length} categor${cats.length === 1 ? 'y' : 'ies'} — required before adding extras</span></div>
+        <table class="ms-cat-table">
+          <thead><tr><th>Category</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            ${cats.map(c => `<tr>
+              <td>${escapeHtml(c.category_name)}</td>
+              <td><span class="badge" style="background:${c.status === 'active' ? '#d1fae5;color:#065f46' : '#f1f5f9;color:#64748b'}">${c.status}</span></td>
+              <td><button class="btn btn-secondary btn-sm" data-cat-toggle="${escapeAttr(c.id)}" data-cat-status="${escapeAttr(c.status)}">${c.status === 'active' ? 'Deactivate' : 'Activate'}</button></td>
+            </tr>`).join('') || '<tr><td colspan="3" style="color:var(--text-muted)">No categories yet — add the first one below.</td></tr>'}
+          </tbody>
+        </table>
+        <div class="ms-cat-addrow">
+          <input type="text" id="ms-newcat-name" placeholder="New category name (e.g. BREAKFAST, TAXES)"
+                 style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:260px">
+          <button class="btn btn-primary btn-sm" id="ms-newcat-add">+ Add category</button>
+        </div>`;
+
+      panel.querySelector('#ms-newcat-add').addEventListener('click', async () => {
+        const nameEl = panel.querySelector('#ms-newcat-name');
+        const name = nameEl.value.trim().toUpperCase();
+        if (!name) { nameEl.style.borderColor = '#dc2626'; return; }
+        const { error } = await ExtrasCategories.create(currentCompany.id, name);
+        if (error) { UI.showAlert('ms-file-error', `Could not create category: ${error.message}`); return; }
+        rerender();
+      });
+      panel.querySelectorAll('button[data-cat-toggle]').forEach(b => b.addEventListener('click', async () => {
+        await ExtrasCategories.toggle(b.dataset.catToggle, b.dataset.catStatus);
+        rerender();
+      }));
+      return;
+    }
+
+    // channels: channel_subtypes master (type + subtype pairs)
+    const { data } = await ChannelSubtypes.getByCompany(currentCompany.id);
+    const subs = data || [];
+    const types = [...new Set(subs.map(x => x.type_name))].sort();
+    panel.innerHTML = `
+      <div class="ms-cat-head"><strong>Channel types &amp; subtypes master</strong>
+        <span style="color:var(--text-muted);font-size:0.8rem">${subs.length} subtype${subs.length === 1 ? '' : 's'} — each channel needs a type + subtype</span></div>
+      <table class="ms-cat-table">
+        <thead><tr><th>Type</th><th>Subtype</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          ${subs.map(x => `<tr>
+            <td>${escapeHtml(x.type_name)}</td>
+            <td>${escapeHtml(x.subtype_name)}</td>
+            <td><span class="badge" style="background:${x.status === 'active' ? '#d1fae5;color:#065f46' : '#f1f5f9;color:#64748b'}">${x.status}</span></td>
+            <td><button class="btn btn-secondary btn-sm" data-cat-toggle="${escapeAttr(x.id)}" data-cat-status="${escapeAttr(x.status)}">${x.status === 'active' ? 'Deactivate' : 'Activate'}</button></td>
+          </tr>`).join('') || '<tr><td colspan="4" style="color:var(--text-muted)">No types/subtypes yet — add the first one below.</td></tr>'}
+        </tbody>
+      </table>
+      <div class="ms-cat-addrow">
+        <select id="ms-newsub-type" style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px">
+          <option value="">— Existing type —</option>
+          ${types.map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('')}
+        </select>
+        <span style="color:var(--text-muted);font-size:0.8rem">or new type</span>
+        <input type="text" id="ms-newsub-typenew" placeholder="e.g. direct, indirect"
+               style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:140px">
+        <input type="text" id="ms-newsub-name" placeholder="Subtype name (e.g. ota, gds, walk-in)"
+               style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:200px">
+        <button class="btn btn-primary btn-sm" id="ms-newsub-add">+ Add subtype</button>
+      </div>`;
+
+    panel.querySelector('#ms-newsub-add').addEventListener('click', async () => {
+      const typeName = panel.querySelector('#ms-newsub-typenew').value.trim()
+        || panel.querySelector('#ms-newsub-type').value;
+      const subName = panel.querySelector('#ms-newsub-name').value.trim();
+      if (!typeName || !subName) {
+        if (!typeName) panel.querySelector('#ms-newsub-typenew').style.borderColor = '#dc2626';
+        if (!subName) panel.querySelector('#ms-newsub-name').style.borderColor = '#dc2626';
+        return;
+      }
+      const { error } = await ChannelSubtypes.create(currentCompany.id, typeName, subName);
+      if (error) { UI.showAlert('ms-file-error', `Could not create subtype: ${error.message}`); return; }
+      rerender();
+    });
+    panel.querySelectorAll('button[data-cat-toggle]').forEach(b => b.addEventListener('click', async () => {
+      await ChannelSubtypes.toggle(b.dataset.catToggle, b.dataset.catStatus);
+      rerender();
+    }));
+  }
+
   async function renderResults(masterKey, column) {
     const tbody = document.getElementById('ms-results-tbody');
     UI.tableLoading('ms-results-tbody', 4);
 
     const config = MASTER_CONFIG[masterKey];
+    await renderCategoriesPanel(masterKey, column, config.actionType);
     const distinct = computeDistinctValues(parsedRows, column);
 
     let existing;
@@ -565,7 +668,7 @@ const MastersSetup = (() => {
           // re-renders with it available everywhere.
           const catOptions = extrasCategories.length
             ? '<option value="">Category...</option>' + extrasCategories.map(c => `<option value="${escapeAttr(c.category_name)}">${escapeHtml(c.category_name)}</option>`).join('')
-            : '<option value="" selected>No categories yet — create one →</option>';
+            : '<option value="" selected>No categories yet — create one above ↑</option>';
           actionHtml = `
             <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
               <input type="text" placeholder="Display name"
@@ -576,7 +679,6 @@ const MastersSetup = (() => {
                       style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px">
                 ${catOptions}
               </select>
-              <button class="btn btn-secondary btn-sm" data-action="new-category" title="Create a new extras category">＋ New</button>
               <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
             </div>`;
         } else if (config.actionType === 'channel') {
@@ -726,28 +828,6 @@ const MastersSetup = (() => {
           btn.disabled = false;
           inputEl.disabled = false;
           btn.textContent = '+ Add';
-        }
-      });
-    });
-
-    // "+ New" category (extras): create an extras_categories row inline and
-    // re-render so every row's dropdown picks it up.
-    tbody.querySelectorAll('button[data-action="new-category"]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const name = prompt('New extras category name (e.g. Breakfast, Bar, Parking, Taxes):');
-        if (!name || !name.trim()) return;
-        btn.disabled = true;
-        try {
-          const { error } = await sb.from('extras_categories').insert({
-            company_id: currentCompany.id,
-            category_name: name.trim().toUpperCase(),
-            status: 'active',
-          });
-          if (error) throw error;
-          await renderResults(masterKey, column);
-        } catch (e) {
-          UI.showAlert('ms-file-error', `Could not create category: ${e.message}`);
-          btn.disabled = false;
         }
       });
     });

@@ -522,6 +522,7 @@
       </div>
 
       <div id="ms-after-upload" style="display:none">
+        <div id="ms-categories-panel" style="display:none"></div>
         <div class="action-bar" style="margin-top:0.5rem">
           <h3 id="ms-results-count">Review distinct values</h3>
           <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;color:var(--text-muted);cursor:pointer">
@@ -828,6 +829,11 @@
       .du-filter select { padding:0.4rem 0.6rem; border:1px solid var(--border,#ccc); border-radius:6px; font-size:0.9rem; background:white; }
       .du-path-preview { flex:1; min-width:220px; }
       .du-path-preview code { font-size:0.75rem; color:var(--brand,#3D65A8); background:white; padding:0.4rem 0.6rem; border-radius:6px; border:1px solid var(--border,#ccc); overflow-x:auto; white-space:nowrap; display:block; }
+      #ms-categories-panel { border:1px solid var(--border,#e4e9f2); border-left:4px solid var(--brand,#3D65A8); border-radius:10px; padding:0.85rem 1rem; margin:0.5rem 0 1rem; background:#fafcff; }
+      .ms-cat-head { display:flex; align-items:baseline; gap:0.7rem; margin-bottom:0.5rem; flex-wrap:wrap; }
+      .ms-cat-table { margin-bottom:0.6rem; }
+      .ms-cat-table th, .ms-cat-table td { padding:0.35rem 0.6rem; font-size:0.83rem; }
+      .ms-cat-addrow { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; border-top:1px solid var(--border,#e4e9f2); padding-top:0.6rem; }
       .pl-hint { font-size:0.8rem; color:var(--text-muted); margin:0.35rem 0 0.75rem; }
       .pl-catalog { display:flex; gap:1.25rem; flex-wrap:wrap; }
       .pl-catalog-pms { flex:1; min-width:340px; }
