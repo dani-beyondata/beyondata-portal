@@ -53,8 +53,8 @@ const Onboarding = (() => {
     ]);
     const props = propsRes.data || [];
     const jobs = jobsRes.data || [];
-    const params = {};
-    (paramsRes.data || []).forEach(r => { params[r.param_key] = r.param_value; });
+    // Params.getAll already returns a {param_key: param_value} map in .data
+    const params = paramsRes.data || {};
 
     // masters counts in parallel
     const [nSubtypes, nChannels, nRoomCats, nRooms, nCountries, nExtCats, nExtCatalog, nAvail, availMax, nAdmins] = await Promise.all([
