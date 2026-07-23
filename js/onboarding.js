@@ -162,7 +162,9 @@ const Onboarding = (() => {
 
     root.innerHTML = `
       <style>
-        .ob-row { display:flex; gap:0.8rem; align-items:flex-start; padding:0.65rem 0; border-bottom:1px solid var(--border,#edf1f7); }
+        .ob-body { padding: 1rem 1.5rem 1.25rem; }
+        .ob-row { display:flex; gap:0.9rem; align-items:flex-start; padding:0.75rem 0; border-bottom:1px solid var(--border,#edf1f7); }
+        .ob-row:last-child { border-bottom:none; }
         .ob-ic { width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:700; flex-shrink:0; margin-top:2px; }
         .ob-ok { background:#d1fae5; color:#065f46; } .ob-ko { background:#fef3c7; color:#92400e; } .ob-na { background:#f1f5f9; color:#64748b; }
         .ob-main { flex:1; } .ob-fase { display:inline-block; font-size:0.68rem; font-weight:600; color:var(--brand,#3D65A8); background:var(--brand-light,#eef3fb); border-radius:999px; padding:0.08rem 0.5rem; margin-right:0.5rem; }
@@ -171,10 +173,10 @@ const Onboarding = (() => {
       </style>
       <div class="table-wrap"><div class="table-header"><h3>Comprobaciones automáticas (datos en vivo)</h3>
         <span class="du-count-badge">${autoDone}/${rows.length}</span></div>
-        <div class="pl-body">${rows.join('')}</div></div>
+        <div class="ob-body">${rows.join('')}</div></div>
       <div class="table-wrap" style="margin-top:1.25rem"><div class="table-header"><h3>Pasos manuales</h3>
         <span class="du-count-badge">${manualDone}/${manualRows.length}</span></div>
-        <div class="pl-body">${manualRows.join('')}
+        <div class="ob-body">${manualRows.join('')}
           <p style="font-size:0.78rem;color:var(--text-muted);margin-top:0.75rem">Referencia completa del proceso: <code>checklist_activacion_cliente.md</code>. El estado manual se guarda por company.</p>
         </div></div>`;
   }
