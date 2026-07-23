@@ -415,7 +415,10 @@ const MastersSetup = (() => {
         UI.tableEmpty('ms-results-tbody', 4, `Error loading countries list: ${error.message}`);
         return;
       }
-      countryOptions = data || [];
+      // getAll() orders by continent (for the Countries page); for a flat
+      // dropdown alphabetical by name is what the eye expects.
+      countryOptions = (data || []).slice().sort((a, b) =>
+        String(a.country_name).localeCompare(String(b.country_name)));
     }
 
     // For extras: fetch registered categories for the dropdown
