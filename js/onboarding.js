@@ -82,9 +82,17 @@ const Onboarding = (() => {
     const items = [];
     const manual = (key) => params[`onboarding_${key}`] === 'done';
 
-    items.push({ fase: 'f0', manualKey: 'fase0_info', status: manual('fase0_info'),
-      label: 'Información del cliente completa',
-      detail: 'Nombre, slug, PMS, nº habitaciones REAL confirmado con el cliente, módulos, ficheros de muestra' });
+    // Fase 0 is derivable: each piece of client info leaves a trace in the DB.
+    const f0checks = [
+      ['Nombre', !!currentCompany.name],
+      ['Slug', !!slug],
+      ['PMS', !!pms],
+      ['Habitaciones (total_rooms)', props.length > 0 && props.every(pr => (pr.total_rooms || 0) > 0)],
+    ];
+    items.push({ fase: 'f0', status: f0checks.every(([, ok]) => ok),
+      label: 'Información del cliente registrada',
+      detail: f0checks.map(([l, ok]) => `${ok ? '✓' : '✗'} ${esc(l)}`).join(' · ')
+        + '<div style="margin-top:2px;color:var(--text-muted)">Módulos → plan (Fase 3) · ficheros de muestra → raw (Fase 2)</div>' });
 
     items.push({ fase: 'f1', goto: 'settings', status: !!pms && !!catalog,
       label: 'PMS asignado y soportado',
