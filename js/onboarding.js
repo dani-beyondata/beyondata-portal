@@ -1,32 +1,21 @@
 // onboarding.js — live activation checklist for the current company
-// (system admin). Auto-verifies everything the database can answer;
-// manual steps persist as client_params rows (onboarding_* keys).
-// Canonical reference: checklist_activacion_cliente.md.
+// (system admin), organized by execution phase. Auto-verifies what the
+// database can answer; manual steps persist as client_params rows
+// (onboarding_* keys). Every step links to the portal section where it
+// gets done. Canonical reference: checklist_activacion_cliente.md.
 
 const Onboarding = (() => {
 
   const esc = (s) => escapeHtml(String(s ?? ''));
 
-  const MANUAL_ITEMS = [
-    { key: 'fase0_info',       fase: 'Fase 0', label: 'Información del cliente completa', detail: 'Nombre, slug, PMS, nº habitaciones REAL confirmado, módulos, ficheros de muestra' },
-    { key: 'pbi_params',       fase: 'Fase 5', label: 'Power BI: parámetros configurados', detail: 'client_slug + property_id en Manage parameters; sin restos hardcodeados de otro cliente' },
-    { key: 'pbi_refresh',      fase: 'Fase 5', label: 'Power BI: refresco completo en verde', detail: 'Native queries aprobadas · carga paralela OFF (pooler 15 conexiones)' },
-    { key: 'pbi_totals',       fase: 'Fase 5', label: 'Power BI: totales verificados contra el ETL', detail: 'Nº reservas · producción al céntimo · nights · extras vs informes de verificación' },
-    { key: 'user_login',       fase: 'Fase 4', label: 'Login end-to-end del usuario del cliente', detail: 'Dashboard carga con rol y company correctos' },
-    { key: 'publication',      fase: 'Fase 5', label: 'Publicación del informe decidida/hecha', detail: 'Publish to web SOLO demo; datos reales → Embedded' },
+  const FASES = [
+    { id: 'f0', title: 'Fase 0 — Información del cliente' },
+    { id: 'f1', title: 'Fase 1 — Alta base' },
+    { id: 'f2', title: 'Fase 2 — Datos al pipeline' },
+    { id: 'f3', title: 'Fase 3 — Masters y configuración' },
+    { id: 'f4', title: 'Fase 4 — Usuarios' },
+    { id: 'f5', title: 'Fase 5 — Power BI' },
   ];
-
-  function row(status, fase, label, detail, extraHtml = '') {
-    const icon = status === true ? '<span class="ob-ic ob-ok">✓</span>'
-               : status === false ? '<span class="ob-ic ob-ko">✗</span>'
-               : '<span class="ob-ic ob-na">—</span>';
-    return `<div class="ob-row">
-      ${icon}
-      <div class="ob-main"><span class="ob-fase">${esc(fase)}</span><strong>${esc(label)}</strong>
-        <div class="ob-detail">${detail}</div></div>
-      ${extraHtml}
-    </div>`;
-  }
 
   async function safeCount(q) {
     try { const { count, error } = await q; return error ? null : (count ?? 0); }
@@ -56,7 +45,6 @@ const Onboarding = (() => {
     // Params.getAll already returns a {param_key: param_value} map in .data
     const params = paramsRes.data || {};
 
-    // masters counts in parallel
     const [nSubtypes, nChannels, nRoomCats, nRooms, nCountries, nExtCats, nExtCatalog, nAvail, availMax, nAdmins] = await Promise.all([
       safeCount(sb.from('channel_subtypes').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status', 'active')),
       safeCount(sb.from('channels').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status', 'active')),
@@ -72,7 +60,6 @@ const Onboarding = (() => {
       safeCount(sb.from('profiles').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('role', 'company_admin').eq('active', true)),
     ]);
 
-    // storage: raw + gold per property
     const directEntities = catalog ? catalog.entities.filter(e => !e.reads_from).map(e => e.entity) : [];
     const goldExpected = catalog ? catalog.entities.map(e => e.gold.split(' (')[0]) : [];
     const storage = { raw: {}, gold: {} };
@@ -89,14 +76,23 @@ const Onboarding = (() => {
       } catch (e) { storage.gold[pr.property_id] = null; }
     }
 
-    // ── build rows ──
-    const rows = [];
+    // ── unified item list, in execution order ──
+    // status: true (done) | false (pending) | null (not verifiable)
+    // manualKey: persisted toggle · goto: portal section
+    const items = [];
+    const manual = (key) => params[`onboarding_${key}`] === 'done';
 
-    rows.push(row(!!pms && !!catalog, 'Fase 1', 'PMS asignado y soportado',
-      pms ? `PMS: <code>${esc(pms)}</code>${catalog ? '' : ' — ⚠ sin catálogo de ETLs'}` : 'Sin PMS en la company (Settings → PMS)'));
+    items.push({ fase: 'f0', manualKey: 'fase0_info', status: manual('fase0_info'),
+      label: 'Información del cliente completa',
+      detail: 'Nombre, slug, PMS, nº habitaciones REAL confirmado con el cliente, módulos, ficheros de muestra' });
 
-    rows.push(row(props.length > 0 && props.every(p => (p.total_rooms || 0) > 0), 'Fase 1', 'Properties con habitaciones',
-      props.length ? props.map(p => `${esc(p.property_id)}: ${p.total_rooms || 0} rooms`).join(' · ') : 'Sin properties'));
+    items.push({ fase: 'f1', goto: 'settings', status: !!pms && !!catalog,
+      label: 'PMS asignado y soportado',
+      detail: pms ? `PMS: <code>${esc(pms)}</code>${catalog ? '' : ' — ⚠ sin catálogo de ETLs'}` : 'Sin PMS en la company' });
+
+    items.push({ fase: 'f1', goto: 'properties', status: props.length > 0 && props.every(p => (p.total_rooms || 0) > 0),
+      label: 'Properties con habitaciones',
+      detail: props.length ? props.map(p => `${esc(p.property_id)}: ${p.total_rooms || 0} rooms`).join(' · ') : 'Sin properties' });
 
     let jobsOk = null, jobsDetail = 'PMS sin catálogo — no verificable';
     if (catalog) {
@@ -107,25 +103,30 @@ const Onboarding = (() => {
       }
       const drift = jobs.filter(j => (j.source_system || '').toLowerCase() !== pms).length;
       jobsOk = props.length > 0 && missing.length === 0 && drift === 0;
-      jobsDetail = missing.length ? `Faltan/inactivos: ${esc(missing.join(', '))} → página Pipeline`
-                 : drift ? `${drift} job(s) con PMS mismatch → página Pipeline`
+      jobsDetail = missing.length ? `Faltan/inactivos: ${esc(missing.join(', '))}`
+                 : drift ? `${drift} job(s) con PMS mismatch`
                  : `${jobs.filter(j => j.is_active).length} jobs activos, catálogo completo`;
     }
-    rows.push(row(jobsOk, 'Fase 1', 'Pipeline jobs completos y activos', jobsDetail));
+    items.push({ fase: 'f1', goto: 'pipeline', status: jobsOk,
+      label: 'Pipeline jobs completos y activos', detail: jobsDetail });
 
     const rawMissing = Object.entries(storage.raw).filter(([, n]) => !n).map(([k]) => k);
-    rows.push(row(Object.keys(storage.raw).length > 0 && rawMissing.length === 0, 'Fase 2', 'Raw subido (entidades de subida directa)',
-      Object.keys(storage.raw).length
+    items.push({ fase: 'f2', goto: 'data_upload',
+      status: Object.keys(storage.raw).length > 0 && rawMissing.length === 0,
+      label: 'Raw subido (entidades de subida directa)',
+      detail: Object.keys(storage.raw).length
         ? (rawMissing.length ? `Sin ficheros: ${esc(rawMissing.join(', '))}` : Object.entries(storage.raw).map(([k, n]) => `${esc(k)}: ${n} fichero(s)`).join(' · '))
-        : 'Nada que verificar aún'));
+        : 'Nada que verificar aún' });
 
     const goldMissing = [];
     for (const pr of props) {
       const have = storage.gold[pr.property_id] || [];
       for (const g of goldExpected) if (!have.includes(g)) goldMissing.push(`${pr.property_id}/${g}`);
     }
-    rows.push(row(props.length > 0 && goldExpected.length > 0 && goldMissing.length === 0, 'Fase 2', 'Gold generado (todas las entidades)',
-      goldMissing.length ? `Faltan: ${esc(goldMissing.join(', '))} → Run ETL` : goldExpected.map(esc).join(' · ')));
+    items.push({ fase: 'f2', goto: 'data_upload',
+      status: props.length > 0 && goldExpected.length > 0 && goldMissing.length === 0,
+      label: 'Gold generado (Run ETL de todas las entidades)',
+      detail: goldMissing.length ? `Faltan: ${esc(goldMissing.join(', '))}` : goldExpected.map(esc).join(' · ') });
 
     const hasExtras = catalog ? catalog.entities.some(e => e.entity === 'extras') : false;
     const mastersChecks = [
@@ -133,52 +134,91 @@ const Onboarding = (() => {
       ['Room categories', nRoomCats], ['Rooms', nRooms], ['Country mapping (resueltos)', nCountries],
       ...(hasExtras ? [['Extras categories', nExtCats], ['Extras catalog', nExtCatalog]] : []),
     ];
-    const mastersBad = mastersChecks.filter(([, n]) => !n);
-    rows.push(row(mastersBad.length === 0, 'Fase 3', 'Masters poblados',
-      mastersChecks.map(([l, n]) => `${esc(l)}: <strong>${n ?? '?'}</strong>`).join(' · ')
-      + '<div style="margin-top:2px;color:var(--text-muted)">Vacíos legítimos (no verificados aquí): booking purposes · segments · otas según PMS</div>'));
+    items.push({ fase: 'f3', goto: 'masters_setup',
+      status: mastersChecks.every(([, n]) => (n || 0) > 0),
+      label: 'Masters poblados',
+      detail: mastersChecks.map(([l, n]) => `${esc(l)}: <strong>${n ?? '?'}</strong>`).join(' · ')
+        + '<div style="margin-top:2px;color:var(--text-muted)">Vacíos legítimos según PMS (no verificados aquí): booking purposes · segments · otas</div>' });
 
-    rows.push(row((nAvail || 0) > 0, 'Fase 3', 'Availability calendar (denominador de ocupación)',
-      nAvail ? `${nAvail} filas · última fecha: ${esc(availMax || '?')}` : '⛔ VACÍO — la ocupación del informe saldrá en blanco. Sección Availability.'));
+    items.push({ fase: 'f3', goto: 'availability', status: (nAvail || 0) > 0,
+      label: 'Availability calendar (denominador de ocupación)',
+      detail: nAvail ? `${nAvail} filas · última fecha: ${esc(availMax || '?')}` : '⛔ VACÍO — la ocupación del informe saldrá en blanco' });
 
-    rows.push(row(!!params['occupancy_mode'], 'Fase 3', 'Occupancy mode configurado',
-      params['occupancy_mode'] ? `<code>${esc(params['occupancy_mode'])}</code>` : 'Settings → Occupancy Mode'));
+    items.push({ fase: 'f3', goto: 'settings', status: !!params['occupancy_mode'],
+      label: 'Occupancy mode configurado',
+      detail: params['occupancy_mode'] ? `<code>${esc(params['occupancy_mode'])}</code>` : 'Pendiente en Settings' });
 
-    rows.push(row(params['plan_active'] === 'true' && params['plan_status'] === 'approved', 'Fase 3', 'Plan activo y aprobado',
-      `plan_rooms: ${esc(params['plan_rooms'] || '—')} · active: ${esc(params['plan_active'] || '—')} · status: ${esc(params['plan_status'] || '—')}`));
+    items.push({ fase: 'f3', goto: 'my_plan',
+      status: params['plan_active'] === 'true' && params['plan_status'] === 'approved',
+      label: 'Plan activo y aprobado',
+      detail: `plan_rooms: ${esc(params['plan_rooms'] || '—')} · active: ${esc(params['plan_active'] || '—')} · status: ${esc(params['plan_status'] || '—')}` });
 
-    rows.push(row((nAdmins || 0) > 0, 'Fase 4', 'Usuario admin del cliente creado',
-      nAdmins ? `${nAdmins} admin(s) activos` : 'Users → Add user con rol "Admin" (= company_admin: gestiona SOLO su company, no es system admin)'));
+    items.push({ fase: 'f4', goto: 'users', status: (nAdmins || 0) > 0,
+      label: 'Usuario admin del cliente creado',
+      detail: nAdmins ? `${nAdmins} admin(s) activos` : 'Add user con rol "Admin" (= company_admin: gestiona SOLO su company, no es system admin)' });
 
-    // manual items with persisted toggles
-    const manualRows = MANUAL_ITEMS.map(m => {
-      const done = params[`onboarding_${m.key}`] === 'done';
-      return row(done ? true : false, m.fase, m.label, esc(m.detail),
-        `<button class="btn ${done ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="obToggle('${m.key}', ${done})">${done ? 'Desmarcar' : 'Marcar hecho'}</button>`);
-    });
+    items.push({ fase: 'f4', goto: 'users', manualKey: 'user_login', status: manual('user_login'),
+      label: 'Login end-to-end del usuario del cliente',
+      detail: 'Entrar con el usuario nuevo: dashboard con rol y company correctos' });
 
-    const autoDone = rows.filter(r => r.includes('ob-ok')).length;
-    const manualDone = manualRows.filter(r => r.includes('ob-ok')).length;
+    items.push({ fase: 'f5', goto: 'company', manualKey: 'pbi_params', status: manual('pbi_params'),
+      label: 'Power BI: parámetros configurados',
+      detail: 'client_slug + property_id en Manage parameters (valores en Company → Power BI connection); sin restos de otro cliente' });
+
+    items.push({ fase: 'f5', manualKey: 'pbi_refresh', status: manual('pbi_refresh'),
+      label: 'Power BI: refresco completo en verde',
+      detail: 'Native queries aprobadas · carga paralela OFF (pooler 15 conexiones)' });
+
+    items.push({ fase: 'f5', goto: 'data_upload', manualKey: 'pbi_totals', status: manual('pbi_totals'),
+      label: 'Power BI: totales verificados contra el ETL',
+      detail: 'Nº reservas · producción al céntimo · nights · extras vs informes de verificación / Gold outputs' });
+
+    items.push({ fase: 'f5', manualKey: 'publication', status: manual('publication'),
+      label: 'Publicación del informe decidida/hecha',
+      detail: 'Publish to web SOLO demo; datos reales → Embedded' });
+
+    // ── render grouped by fase ──
+    const done = items.filter(i => i.status === true).length;
+    const groups = FASES.map(f => {
+      const its = items.filter(i => i.fase === f.id);
+      if (!its.length) return '';
+      const fDone = its.filter(i => i.status === true).length;
+      const rows = its.map(i => {
+        const icon = i.status === true ? '<span class="ob-ic ob-ok">✓</span>'
+                   : i.status === false ? '<span class="ob-ic ob-ko">✗</span>'
+                   : '<span class="ob-ic ob-na">—</span>';
+        const gotoBtn = i.goto ? `<button class="btn btn-secondary btn-sm" onclick="obGo('${i.goto}')">Ir →</button>` : '';
+        const manualBtn = i.manualKey
+          ? `<button class="btn ${i.status ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="obToggle('${i.manualKey}', ${!!i.status})">${i.status ? 'Desmarcar' : 'Marcar hecho'}</button>`
+          : '';
+        return `<div class="ob-row">${icon}
+          <div class="ob-main"><strong>${esc(i.label)}</strong>${i.manualKey ? ' <span class="ob-manual">manual</span>' : ''}
+            <div class="ob-detail">${i.detail}</div></div>
+          <div class="ob-actions">${gotoBtn}${manualBtn}</div>
+        </div>`;
+      }).join('');
+      return `<div class="table-wrap" style="margin-bottom:1.1rem">
+        <div class="table-header"><h3>${esc(f.title)}</h3><span class="du-count-badge">${fDone}/${its.length}</span></div>
+        <div class="ob-body">${rows}</div>
+      </div>`;
+    }).join('');
 
     root.innerHTML = `
       <style>
-        .ob-body { padding: 1rem 1.5rem 1.25rem; }
+        .ob-body { padding: 0.6rem 1.5rem 0.9rem; }
         .ob-row { display:flex; gap:0.9rem; align-items:flex-start; padding:0.75rem 0; border-bottom:1px solid var(--border,#edf1f7); }
         .ob-row:last-child { border-bottom:none; }
         .ob-ic { width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:700; flex-shrink:0; margin-top:2px; }
         .ob-ok { background:#d1fae5; color:#065f46; } .ob-ko { background:#fef3c7; color:#92400e; } .ob-na { background:#f1f5f9; color:#64748b; }
-        .ob-main { flex:1; } .ob-fase { display:inline-block; font-size:0.68rem; font-weight:600; color:var(--brand,#3D65A8); background:var(--brand-light,#eef3fb); border-radius:999px; padding:0.08rem 0.5rem; margin-right:0.5rem; }
+        .ob-main { flex:1; }
+        .ob-manual { font-size:0.66rem; font-weight:600; color:#7c3aed; background:#f3e8ff; border-radius:999px; padding:0.08rem 0.45rem; vertical-align:middle; }
         .ob-detail { font-size:0.8rem; color:var(--text-muted); margin-top:2px; }
-        .ob-head { display:flex; justify-content:space-between; align-items:center; padding:0 0 0.5rem; }
+        .ob-actions { display:flex; gap:0.4rem; flex-shrink:0; margin-top:2px; }
       </style>
-      <div class="table-wrap"><div class="table-header"><h3>Comprobaciones automáticas (datos en vivo)</h3>
-        <span class="du-count-badge">${autoDone}/${rows.length}</span></div>
-        <div class="ob-body">${rows.join('')}</div></div>
-      <div class="table-wrap" style="margin-top:1.25rem"><div class="table-header"><h3>Pasos manuales</h3>
-        <span class="du-count-badge">${manualDone}/${manualRows.length}</span></div>
-        <div class="ob-body">${manualRows.join('')}
-          <p style="font-size:0.78rem;color:var(--text-muted);margin-top:0.75rem">Referencia completa del proceso: <code>checklist_activacion_cliente.md</code>. El estado manual se guarda por company.</p>
-        </div></div>`;
+      <div style="display:flex;justify-content:flex-end;margin-bottom:0.75rem">
+        <span class="du-count-badge" style="font-size:0.85rem">Total: ${done}/${items.length}</span>
+      </div>
+      ${groups}`;
   }
 
   async function toggle(key, currentlyDone) {
@@ -191,3 +231,4 @@ const Onboarding = (() => {
 
 function initOnboarding() { Onboarding.load(); }
 function obToggle(key, done) { Onboarding.toggle(key, done); }
+function obGo(section) { navTo(section); }
