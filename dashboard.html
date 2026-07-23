@@ -5400,7 +5400,6 @@
         <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.4rem">${escapeHtml(pr.property_id)}${pr.property_name ? ' — ' + escapeHtml(pr.property_name) : ''}</div>
         <div class="pbi-param"><span>client_slug</span><code>${escapeHtml(slug)}</code>${copyBtn(slug)}</div>
         <div class="pbi-param"><span>property_id</span><code>${escapeHtml(pr.property_id)}</code>${copyBtn(pr.property_id)}</div>
-        <div class="pbi-param" style="opacity:0.75"><span>company_id</span><code style="font-size:0.72rem">${escapeHtml(currentCompany.id)}</code>${copyBtn(currentCompany.id)}<span style="font-size:0.72rem;color:var(--text-muted)">SQL reference only — NOT a report parameter (queries resolve it from client_slug)</span></div>
       </div>`).join('');
 
     document.getElementById('company-pbi-body').innerHTML = `
