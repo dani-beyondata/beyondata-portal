@@ -5378,8 +5378,6 @@
     const slug = (currentCompany.slug || '').toLowerCase();
     const { data: props } = await sb.from('properties')
       .select('property_id, property_name').eq('company_id', currentCompany.id).order('property_id');
-    const goldFiles = ['reservations_clean.csv', 'nights_clean.csv', 'extras_clean.csv', 'extras_master.csv'];
-    const base = `${SUPABASE_URL}/storage/v1/object/gold`;
 
     const copyBtn = (val) =>
       `<button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${val.replace(/'/g, "\\'")}');this.textContent='✓';setTimeout(()=>this.textContent='Copy',1200)">Copy</button>`;
@@ -5389,19 +5387,13 @@
         <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.4rem">${escapeHtml(pr.property_id)}${pr.property_name ? ' — ' + escapeHtml(pr.property_name) : ''}</div>
         <div class="pbi-param"><span>client_slug</span><code>${escapeHtml(slug)}</code>${copyBtn(slug)}</div>
         <div class="pbi-param"><span>property_id</span><code>${escapeHtml(pr.property_id)}</code>${copyBtn(pr.property_id)}</div>
-        <details style="margin-top:0.4rem">
-          <summary style="cursor:pointer;font-size:0.8rem;color:var(--text-muted)">Gold file URLs (for query debugging)</summary>
-          ${goldFiles.map(f => {
-            const url = `${base}/${slug}/${pr.property_id}/${f}`;
-            return `<div class="pbi-param" style="margin-top:0.3rem"><code style="font-size:0.7rem;word-break:break-all">${escapeHtml(url)}</code>${copyBtn(url)}</div>`;
-          }).join('')}
-        </details>
+        <div class="pbi-param" style="opacity:0.75"><span>company_id</span><code style="font-size:0.72rem">${escapeHtml(currentCompany.id)}</code>${copyBtn(currentCompany.id)}<span style="font-size:0.72rem;color:var(--text-muted)">SQL reference only — NOT a report parameter (queries resolve it from client_slug)</span></div>
       </div>`).join('');
 
     document.getElementById('company-pbi-body').innerHTML = `
       <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 0.75rem">
-        Values for the report template's Power Query parameters (Transform data → Manage parameters).
-        URLs require the anon key headers — they are what the model's Web.Contents queries build from these parameters.
+        Values for the report template's two Power Query parameters (Transform data → Manage parameters).
+        File URLs and master queries are built from these inside the model — nothing else to configure.
       </p>
       ${blocks || '<p style="color:var(--text-muted)">No properties yet.</p>'}`;
     card.style.display = 'block';
