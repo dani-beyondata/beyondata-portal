@@ -147,8 +147,8 @@ const Onboarding = (() => {
     rows.push(row(params['plan_active'] === 'true' && params['plan_status'] === 'approved', 'Fase 3', 'Plan activo y aprobado',
       `plan_rooms: ${esc(params['plan_rooms'] || '—')} · active: ${esc(params['plan_active'] || '—')} · status: ${esc(params['plan_status'] || '—')}`));
 
-    rows.push(row((nAdmins || 0) > 0, 'Fase 4', 'Usuario company_admin creado',
-      nAdmins ? `${nAdmins} admin(s) activos` : 'Add user con rol company_admin'));
+    rows.push(row((nAdmins || 0) > 0, 'Fase 4', 'Usuario admin del cliente creado',
+      nAdmins ? `${nAdmins} admin(s) activos` : 'Users → Add user con rol "Admin" (= company_admin: gestiona SOLO su company, no es system admin)'));
 
     // manual items with persisted toggles
     const manualRows = MANUAL_ITEMS.map(m => {
