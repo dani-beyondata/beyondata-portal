@@ -156,10 +156,22 @@ const Onboarding = (() => {
       label: 'Occupancy mode configurado',
       detail: params['occupancy_mode'] ? `<code>${esc(params['occupancy_mode'])}</code>` : 'Pendiente en Settings' });
 
+    // Plan semantics (plan.js): base module "ventas" is implicit — every
+    // company starts with it, no params needed. plan_status: none (normal,
+    // no requests) | pending (needs admin approval) | approved. What the
+    // onboarding really needs: explicit plan_rooms (code defaults to 40
+    // otherwise — wrong for most clients) and no request stuck in pending.
+    let activeModules = ['ventas'];
+    try {
+      const pa = JSON.parse(params['plan_active'] || '{}');
+      activeModules = ['ventas', ...Object.keys(pa).filter(k => k !== 'ventas' && pa[k])];
+    } catch (e) { /* base only */ }
+    const planStatus = params['plan_status'] || 'none';
+    const roomsSet = !!params['plan_rooms'];
     items.push({ fase: 'f3', goto: 'my_plan',
-      status: params['plan_active'] === 'true' && params['plan_status'] === 'approved',
-      label: 'Plan activo y aprobado',
-      detail: `plan_rooms: ${esc(params['plan_rooms'] || '—')} · active: ${esc(params['plan_active'] || '—')} · status: ${esc(params['plan_status'] || '—')}` });
+      status: roomsSet && planStatus !== 'pending',
+      label: 'Plan configurado',
+      detail: `Habitaciones del plan: ${roomsSet ? `<strong>${esc(params['plan_rooms'])}</strong>` : '⚠ sin fijar (el código usa 40 por defecto)'} · módulos: ${activeModules.map(esc).join(', ')} · ${planStatus === 'pending' ? '⚠ petición pendiente de aprobar (Plan Requests)' : planStatus === 'approved' ? 'cambio aprobado' : 'plan base, sin peticiones'}` });
 
     items.push({ fase: 'f4', goto: 'users', status: (nAdmins || 0) > 0,
       label: 'Usuario admin del cliente creado',
