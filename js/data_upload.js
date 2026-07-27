@@ -300,6 +300,32 @@ const DataUpload = (() => {
   }
 
   // ── staging + upload ───────────────────────────────────────────────────
+  // Content guard (A: "wrong entity selected" accident). For CSV uploads,
+  // the first line must contain the entity's signature columns; if it
+  // matches ANOTHER entity's signature instead, say so explicitly.
+  // xlsx files (Mews) are binary and skip the sniff. Sniff failures never block.
+  const ENTITY_SIGNATURES = {
+    reservations: ['Referencia de la reserva'],
+    extras: ['Número de reserva', 'Extra'],
+  };
+
+  async function sniffEntityMismatch(file, entity) {
+    const sig = ENTITY_SIGNATURES[entity];
+    if (!sig) return null;
+    try {
+      const head = await file.slice(0, 8192).text();
+      const firstLine = (head.split(/\r?\n/)[0] || '');
+      const cols = firstLine.split(',').map(t => t.trim().replace(/^"|"$/g, ''));
+      if (sig.every(c => cols.includes(c))) return null;
+      for (const [other, osig] of Object.entries(ENTITY_SIGNATURES)) {
+        if (other !== entity && osig.every(c => cols.includes(c))) {
+          return `Las columnas de este fichero son de "${other}", no de "${entity}". Cambia el selector de entidad (o revisa el fichero) y vuelve a intentarlo.`;
+        }
+      }
+      return `Las columnas de este fichero no cuadran con un export de "${entity}" (falta "${sig[0]}"). Revisa el selector de entidad y el fichero.`;
+    } catch (e) { return null; }
+  }
+
   async function stageAndUpload(fileList) {
     const files = Array.from(fileList);
     if (!files.length) return;
@@ -315,6 +341,19 @@ const DataUpload = (() => {
     let anyUploaded = false;
     for (const file of files) {
       const ext = extOf(file.name);
+
+      if (ext === 'csv') {
+        const mismatch = await sniffEntityMismatch(file, entity);
+        if (mismatch) {
+          const row = document.createElement('div');
+          row.className = 'du-staged-item';
+          row.innerHTML = `<span class="du-stg-name">${escapeHtml(file.name)}</span>
+            <span class="du-stg-status" style="color:#dc2626">✗ ${escapeHtml(mismatch)}</span>`;
+          staged.appendChild(row);
+          continue;
+        }
+      }
+
       const check = ext ? validateFilename(entity, file.name) : { ok: false, message: 'Unsupported file type.' };
 
       if (!check.ok) {
