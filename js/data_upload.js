@@ -159,39 +159,74 @@ const DataUpload = (() => {
     listFiles(); listGold();
   }
 
+  // Fixed brand-ish colors for known entities; unknown future entities
+  // (forecasts, general_journal...) get a stable color from a small palette.
+  const ENTITY_COLORS = {
+    reservations: '#3D65A8', extras: '#7c3aed',
+    forecasts: '#0d9488', general_journal: '#b45309', budget: '#be185d',
+  };
+  function entityColor(e) {
+    if (ENTITY_COLORS[e]) return ENTITY_COLORS[e];
+    const pal = ['#3D65A8', '#7c3aed', '#0d9488', '#b45309', '#be185d', '#4d7c0f'];
+    let h = 0; for (const c of String(e)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return pal[h % pal.length];
+  }
+  function entityTag(e) {
+    const c = entityColor(e);
+    return `<span style="display:inline-block;font-size:0.7rem;font-weight:600;padding:0.12rem 0.55rem;border-radius:999px;background:${c}18;color:${c}">${escapeHtml(e)}</span>`;
+  }
+
+  function prefixFor(entity) {
+    const { pcode } = sel();
+    return `${currentClientCode()}/${currentPms()}/${pcode}/${entity}/file`;
+  }
+
   async function listFiles() {
     updatePathHint();
-    const { pcode } = sel();
+    const { pcode, entity: selectedEntity } = sel();
     const tbody = document.getElementById('du-files-tbody');
     const countEl = document.getElementById('du-browser-count');
     existingNames = new Set();
     if (!pcode) {
-      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted)">Select a property…</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted)">Select a property…</td></tr>';
       countEl.textContent = '';
       return;
     }
-    const { data, error } = await sb.storage.from(RAW_BUCKET)
-      .list(prefix(), { limit: 200, sortBy: { column: 'name', order: 'asc' } });
-    if (error) {
-      tbody.innerHTML = `<tr><td colspan="5" style="color:#dc2626">${escapeHtml(error.message)}</td></tr>`;
-      countEl.textContent = '';
-      return;
-    }
-    const files = (data || []).filter(f =>
-      f.name && !f.name.startsWith('.') && /\.(xlsx|xls|csv)$/i.test(f.name)
-    );
-    files.forEach(f => existingNames.add(f.name.toLowerCase()));
-    countEl.textContent = files.length ? `${files.length} file${files.length > 1 ? 's' : ''}` : 'empty';
 
-    if (!files.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted)">No files yet for this selection.</td></tr>';
+    // One listing per direct-upload entity: the browser always shows the
+    // whole property's raw picture, not just the selected entity's folder.
+    const entities = uploadEntities();
+    const all = [];
+    let firstError = null;
+    for (const ent of entities) {
+      const { data, error } = await sb.storage.from(RAW_BUCKET)
+        .list(prefixFor(ent), { limit: 200, sortBy: { column: 'name', order: 'asc' } });
+      if (error) { firstError = firstError || error; continue; }
+      for (const f of (data || [])) {
+        if (!f.name || f.name.startsWith('.') || !/\.(xlsx|xls|csv)$/i.test(f.name)) continue;
+        all.push({ ...f, _entity: ent });
+        // overwrite-warning semantics stay scoped to the SELECTED entity
+        if (ent === selectedEntity) existingNames.add(f.name.toLowerCase());
+      }
+    }
+    if (firstError && !all.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="color:#dc2626">${escapeHtml(firstError.message)}</td></tr>`;
+      countEl.textContent = '';
       return;
     }
-    tbody.innerHTML = files.map(f => {
+    countEl.textContent = all.length ? `${all.length} file${all.length > 1 ? 's' : ''}` : 'empty';
+
+    if (!all.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted)">No files yet for this property.</td></tr>';
+      return;
+    }
+    all.sort((a, b) => a._entity.localeCompare(b._entity) || a.name.localeCompare(b.name));
+    tbody.innerHTML = all.map(f => {
       const size = fmtSize(f.metadata?.size);
       const when = f.updated_at ? new Date(f.updated_at).toLocaleString() : '—';
-      const full = `${prefix()}/${f.name}`;
+      const full = `${prefixFor(f._entity)}/${f.name}`;
       return `<tr>
+        <td>${entityTag(f._entity)}</td>
         <td style="font-family:monospace;font-size:0.8rem">${escapeHtml(f.name)}</td>
         <td style="font-size:0.8rem">${periodOf(f.name)}</td>
         <td>${size}</td>
