@@ -76,6 +76,7 @@ const RcalTools = (() => {
         <strong style="font-size:0.9rem">Coherence check</strong>
         <span style="font-size:0.78rem;color:var(--text-muted)">hotel calendar (Availability) vs sum of rooms, day by day, over the range above</span>
         <button class="btn btn-secondary btn-sm" onclick="RcalTools.checkCoherence()">Run check</button>
+        <button class="btn btn-primary btn-sm" onclick="RcalTools.fillHotelFromRooms()" title="Aggregate the rooms calendar (open rooms, sum of beds) into the hotel-level Availability calendar for the range above">Fill hotel calendar from rooms →</button>
       </div>
       <div id="rt-coh-results"></div>`;
     host.insertBefore(panel, anchor);
@@ -276,5 +277,52 @@ const RcalTools = (() => {
     }
   }
 
-  return { ensure, refreshRooms, scopeAll, toggleCat, setStatus, toggleBedsInput, quickRange, apply, checkCoherence };
+  // ── derive: hotel calendar FROM the rooms calendar ─────────────────────
+  // Bottom-up is the healthy direction: the granular table is the truth,
+  // the aggregate is computed. Days with room rows and 0 open rooms become
+  // "closed"; days with NO room rows are skipped (we never invent data).
+  async function fillHotelFromRooms() {
+    const propertyId = el('rcal-property')?.value;
+    const from = el('rt-from').value, to = el('rt-to').value;
+    if (!propertyId || !from || !to) { Toast.error('Pick a range first.'); return; }
+
+    let roomDays;
+    try { roomDays = await fetchAllRoomDays(propertyId, from, to); }
+    catch (e) { Toast.error('Could not read the rooms calendar: ' + e.message); return; }
+
+    const agg = {};
+    roomDays.forEach(r => {
+      const a = (agg[r.date] = agg[r.date] || { rooms: 0, beds: 0 });
+      if (r.status === 'open') { a.rooms += 1; a.beds += (r.beds_available || 0); }
+    });
+    const days = Object.keys(agg).sort();
+    if (!days.length) { Toast.error('The rooms calendar has no rows in this range — fill it first.'); return; }
+    const skipped = datesBetween(from, to).length - days.length;
+    const closedDays = days.filter(d => agg[d].rooms === 0).length;
+
+    if (!confirm(`Overwrite the hotel Availability calendar for ${days.length} day(s) from the rooms data?\n` +
+      `(${closedDays} day(s) become "closed" — 0 rooms open` +
+      `${skipped > 0 ? `; ${skipped} day(s) without room rows are left untouched` : ''})`)) return;
+
+    const now = new Date().toISOString();
+    const rows = days.map(d => ({
+      company_id: currentCompany.id, property_uuid: propertyId, property_id: propertyId,
+      date: d,
+      status: agg[d].rooms > 0 ? 'open' : 'closed',
+      number_of_rooms: agg[d].rooms,
+      number_of_beds: agg[d].beds,
+      updated_at: now,
+    }));
+    let failed = null;
+    for (let i = 0; i < rows.length; i += 500) {
+      const { error } = await sb.from('availability_calendar')
+        .upsert(rows.slice(i, i + 500), { onConflict: 'company_id,property_uuid,date' });
+      if (error) { failed = error; break; }
+    }
+    if (failed) { Toast.error('Failed: ' + failed.message); return; }
+    Toast.success(`Hotel calendar filled for ${days.length} day(s) from the rooms data.`);
+    checkCoherence(); // by construction it should now come back green for covered days
+  }
+
+  return { ensure, refreshRooms, scopeAll, toggleCat, setStatus, toggleBedsInput, quickRange, apply, checkCoherence, fillHotelFromRooms };
 })();
