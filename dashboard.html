@@ -4818,6 +4818,28 @@
   window._rcalRoomAttrMap = roomAttrMap;
   rooms.forEach(function(r) { window._rcalRoomMap[r.id] = r; });
 
+  // Alias-coherence banner: physical rooms with more than one ACTIVE row
+  (function() {
+    const byDisplay = {};
+    rooms.filter(function(r){ return r.status === 'active'; }).forEach(function(r) {
+      const k = (r.display_name || '').trim().toLowerCase();
+      (byDisplay[k] = byDisplay[k] || []).push(r);
+    });
+    const dups = Object.values(byDisplay).filter(function(g){ return g.length > 1; });
+    let warn = document.getElementById('rooms-alias-warning');
+    if (!warn) {
+      const tbl = document.getElementById('rooms-tbody').closest('table');
+      warn = document.createElement('div'); warn.id = 'rooms-alias-warning';
+      tbl.parentNode.insertBefore(warn, tbl);
+    }
+    warn.innerHTML = dups.length
+      ? '<div style="background:#fef3c7;color:#92400e;border-radius:8px;padding:0.5rem 0.8rem;margin-bottom:0.6rem;font-size:0.82rem">⚠ ' +
+        dups.length + ' physical room(s) with more than one ACTIVE row: ' +
+        dups.map(function(g){ return '<b>' + escapeHtml(g[0].display_name) + '</b> (' + g.map(function(r){ return escapeHtml(r.raw_value); }).join(' + ') + ')'; }).join(' · ') +
+        ' — only one row per room should be active; the rest are aliases (disable them).</div>'
+      : '';
+  })();
+
   document.getElementById('rooms-tbody').innerHTML = rooms.map(function(r) {
     const rAttrs = roomAttrMap[r.id] || {};
     const attrPills = attrTypes.slice(0,3).map(function(at) {
@@ -4939,6 +4961,24 @@
   });
 
   async function toggleRoom(id, status) {
+    if (status !== 'active') {
+      // Enabling: one physical room (display_name) = ONE active row.
+      // Inactive rows with the same display are sales-mapping aliases.
+      const room = window._rcalRoomMap?.[id];
+      if (room) {
+        const key = (room.display_name || '').trim().toLowerCase();
+        const clash = Object.values(window._rcalRoomMap).find(r =>
+          r.id !== id && r.status === 'active' &&
+          (r.display_name || '').trim().toLowerCase() === key);
+        if (clash) {
+          alert('"' + room.raw_value + '" cannot be enabled: the physical room "' + room.display_name +
+            '" is already represented by the active row "' + clash.raw_value + '".\n\n' +
+            'Only one row per display name can be active (the rest are sales-mapping aliases). ' +
+            'To switch which row represents the physical room, disable the other one first.');
+          return;
+        }
+      }
+    }
     await Rooms.toggleRoom(id, status);
     loadRoomsList();
   }
@@ -5086,8 +5126,20 @@
     const beds_per_room = parseInt(document.getElementById('room-beds').value) || 1;
     UI.hideAlert('room-error');
     if (!raw_value || !display_name) { UI.showAlert('room-error', 'Raw value and display name are required.'); return; }
+    // Alias guard: a physical room can only have one ACTIVE row.
+    const clashRow = Object.values(window._rcalRoomMap || {}).find(r =>
+      r.status === 'active' &&
+      (r.display_name || '').trim().toLowerCase() === display_name.toLowerCase());
+    const asAlias = !!clashRow;
+    if (asAlias && !confirm('"' + display_name + '" is already represented by the active row "' + clashRow.raw_value + '".\n\n' +
+      'OK: create "' + raw_value + '" as an INACTIVE ALIAS (maps historical sales under this name; adds no capacity).\n' +
+      'Cancel: create nothing.')) return;
     UI.setLoading('btn-save-room', true, 'Save');
     const { error } = await Rooms.create(currentCompany.id, propertyId, { raw_value, display_name, category_id, beds_per_room });
+    if (!error && asAlias) {
+      await sb.from('rooms').update({ status: 'inactive' })
+        .eq('company_id', currentCompany.id).eq('property_id', propertyId).eq('raw_value', raw_value);
+    }
     UI.setLoading('btn-save-room', false, 'Save');
     if (error) { UI.showAlert('room-error', error.message); return; }
     UI.closeModal('modal-room');
