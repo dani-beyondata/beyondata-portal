@@ -1721,6 +1721,7 @@
 <script src="js/data_upload.js"></script>
 <script src="js/pipeline_admin.js"></script>
 <script src="js/onboarding.js"></script>
+<script src="js/rooms_availability_tools.js"></script>
 <script src="js/plan.js"></script>
 <script src="js/table_enhance.js"></script>
 <script>
@@ -3215,6 +3216,7 @@
   }
 
   async function rcalLoad() {
+    RcalTools.ensure();
     const propertyId = document.getElementById('rcal-property').value;
     if (!propertyId) return;
 

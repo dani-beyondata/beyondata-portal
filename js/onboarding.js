@@ -152,6 +152,43 @@ const Onboarding = (() => {
       label: 'Availability calendar (denominador de ocupación)',
       detail: nAvail ? `${nAvail} filas · última fecha: ${esc(availMax || '?')}` : '⛔ VACÍO — la ocupación del informe saldrá en blanco' });
 
+    // rooms-level calendar + hotel<->rooms coherence (current month sample)
+    const nRcal = await safeCount(sb.from('room_capacity_calendar').select('id', { count: 'exact', head: true }).eq('company_id', cid));
+    let cohStatus = null, cohDetail = 'No verificable';
+    try {
+      const t = new Date();
+      const mFrom = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-01`;
+      const mTo = new Date(t.getFullYear(), t.getMonth() + 1, 0).toISOString().slice(0, 10);
+      const [h, r] = await Promise.all([
+        sb.from('availability_calendar').select('date,status,number_of_rooms,number_of_beds').eq('company_id', cid).gte('date', mFrom).lte('date', mTo),
+        sb.from('room_capacity_calendar').select('date,beds_available,status').eq('company_id', cid).gte('date', mFrom).lte('date', mTo).limit(5000),
+      ]);
+      if (!h.error && !r.error) {
+        const agg = {};
+        (r.data || []).forEach(x => { const a = (agg[x.date] = agg[x.date] || { rooms: 0, beds: 0 });
+          if (x.status === 'open') { a.rooms += 1; a.beds += (x.beds_available || 0); } });
+        let bad = 0, checked = 0;
+        (h.data || []).forEach(x => {
+          if (x.status !== 'open') return;
+          checked++;
+          const a = agg[x.date];
+          if (!a || a.rooms !== (x.number_of_rooms || 0) || a.beds !== (x.number_of_beds || 0)) bad++;
+        });
+        cohStatus = checked > 0 ? bad === 0 : null;
+        cohDetail = checked === 0 ? 'Sin días abiertos este mes para comparar'
+          : bad === 0 ? `Mes actual coherente (${checked} días comparados)`
+          : `${bad}/${checked} días del mes actual descuadran → Room Calendar → Run check para el detalle`;
+      }
+    } catch (e) { /* leave as not verifiable */ }
+
+    items.push({ fase: 'f3', goto: 'availability', status: (nRcal || 0) > 0,
+      label: 'Room capacity calendar (camas por habitación)',
+      detail: nRcal ? `${nRcal} filas habitación-día` : 'Vacío — Room Calendar → Fast fill (necesario para el room mix del dashboard)' });
+
+    items.push({ fase: 'f3', goto: 'availability', status: cohStatus,
+      label: 'Coherencia hotel ↔ habitaciones',
+      detail: cohDetail });
+
     items.push({ fase: 'f3', goto: 'settings', status: !!params['occupancy_mode'],
       label: 'Occupancy mode configurado',
       detail: params['occupancy_mode'] ? `<code>${esc(params['occupancy_mode'])}</code>` : 'Pendiente en Settings' });
