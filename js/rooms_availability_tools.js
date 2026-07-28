@@ -306,9 +306,16 @@ const RcalTools = (() => {
       `${skipped > 0 ? `; ${skipped} day(s) without room rows are left untouched` : ''})`)) return;
 
     const now = new Date().toISOString();
-    // availability_calendar has property_uuid only (no property_id column)
+    // availability_calendar row shape: property_uuid + property_slug (the
+    // property CODE, e.g. TCH_001, NOT NULL) — mirrors the page's own saves.
+    let propertySlug = window._availPropertySlugMap?.[propertyId];
+    if (!propertySlug) {
+      const { data: pr } = await sb.from('properties').select('property_id').eq('id', propertyId).single();
+      propertySlug = pr?.property_id || '';
+    }
+    if (!propertySlug) { Toast.error('Could not resolve the property code.'); return; }
     const rows = days.map(d => ({
-      company_id: currentCompany.id, property_uuid: propertyId,
+      company_id: currentCompany.id, property_uuid: propertyId, property_slug: propertySlug,
       date: d,
       status: agg[d].rooms > 0 ? 'open' : 'closed',
       number_of_rooms: agg[d].rooms,
