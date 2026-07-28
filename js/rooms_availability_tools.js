@@ -76,7 +76,7 @@ const RcalTools = (() => {
         <strong style="font-size:0.9rem">Coherence check</strong>
         <span style="font-size:0.78rem;color:var(--text-muted)">hotel calendar (Availability) vs sum of rooms, day by day, over the range above</span>
         <button class="btn btn-secondary btn-sm" onclick="RcalTools.checkCoherence()">Run check</button>
-        <button class="btn btn-primary btn-sm" onclick="RcalTools.fillHotelFromRooms()" title="Aggregate the rooms calendar (open rooms, sum of beds) into the hotel-level Availability calendar for the range above">Fill hotel calendar from rooms →</button>
+        <span style="font-size:0.75rem;color:var(--text-muted)">(to fill the hotel calendar from these rooms, use the Availability page)</span>
       </div>
       <div id="rt-coh-results"></div>`;
     host.insertBefore(panel, anchor);
@@ -281,10 +281,11 @@ const RcalTools = (() => {
   // Bottom-up is the healthy direction: the granular table is the truth,
   // the aggregate is computed. Days with room rows and 0 open rooms become
   // "closed"; days with NO room rows are skipped (we never invent data).
-  async function fillHotelFromRooms() {
-    const propertyId = el('rcal-property')?.value;
-    const from = el('rt-from').value, to = el('rt-to').value;
-    if (!propertyId || !from || !to) { Toast.error('Pick a range first.'); return; }
+  async function fillHotelFromRooms(propertyId, from, to) {
+    // Callable from the Availability page panel (explicit args) or legacy.
+    propertyId = propertyId || el('rcal-property')?.value;
+    from = from || el('rt-from')?.value; to = to || el('rt-to')?.value;
+    if (!propertyId || !from || !to || from > to) { Toast.error('Pick a valid range first.'); return; }
 
     let roomDays;
     try { roomDays = await fetchAllRoomDays(propertyId, from, to); }
@@ -305,8 +306,9 @@ const RcalTools = (() => {
       `${skipped > 0 ? `; ${skipped} day(s) without room rows are left untouched` : ''})`)) return;
 
     const now = new Date().toISOString();
+    // availability_calendar has property_uuid only (no property_id column)
     const rows = days.map(d => ({
-      company_id: currentCompany.id, property_uuid: propertyId, property_id: propertyId,
+      company_id: currentCompany.id, property_uuid: propertyId,
       date: d,
       status: agg[d].rooms > 0 ? 'open' : 'closed',
       number_of_rooms: agg[d].rooms,
@@ -321,8 +323,63 @@ const RcalTools = (() => {
     }
     if (failed) { Toast.error('Failed: ' + failed.message); return; }
     Toast.success(`Hotel calendar filled for ${days.length} day(s) from the rooms data.`);
-    checkCoherence(); // by construction it should now come back green for covered days
+    return days.length;
   }
 
-  return { ensure, refreshRooms, scopeAll, toggleCat, setStatus, toggleBedsInput, quickRange, apply, checkCoherence, fillHotelFromRooms };
+  // ── Availability-page panel: "Fill from rooms calendar" with own range ──
+  let availPanelInjected = false;
+  function ensureAvailPanel() {
+    if (availPanelInjected) return;
+    const section = document.getElementById('section-availability');
+    const calWrap = section?.querySelector('.cal-wrap');
+    if (!calWrap) return;
+    const panel = document.createElement('div');
+    panel.id = 'avail-fill-tools';
+    panel.innerHTML = `
+      <div style="border:1px solid var(--border,#e4e9f2);border-left:4px solid var(--brand,#3D65A8);
+        border-radius:10px;padding:0.75rem 1rem;margin-bottom:0.9rem;background:#fafcff">
+        <div style="display:flex;gap:0.7rem;align-items:center;flex-wrap:wrap">
+          <strong style="font-size:0.9rem">Fill from rooms calendar</strong>
+          <span style="font-size:0.78rem;color:var(--text-muted)">aggregates the per-room calendar (open rooms · sum of beds) into this hotel calendar</span>
+        </div>
+        <div style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin-top:0.5rem">
+          <input type="date" class="rt-input" id="af-from" style="font-size:0.82rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:5px">
+          <span style="color:var(--text-muted)">→</span>
+          <input type="date" class="rt-input" id="af-to" style="font-size:0.82rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:5px">
+          <button class="btn btn-secondary btn-sm" onclick="RcalTools.afQuick('year')">This year</button>
+          <button class="btn btn-secondary btn-sm" onclick="RcalTools.afQuick('rest')">Rest of year</button>
+          <button class="btn btn-secondary btn-sm" onclick="RcalTools.afQuick('next')">Next year</button>
+          <button class="btn btn-primary btn-sm" id="af-apply" onclick="RcalTools.afApply()">Fill from rooms →</button>
+        </div>
+        <div id="af-result" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.35rem"></div>
+      </div>`;
+    calWrap.parentNode.insertBefore(panel, calWrap);
+    availPanelInjected = true;
+    afQuick('year');
+  }
+
+  function afQuick(kind) {
+    const now = new Date(); const y = now.getFullYear();
+    const iso = (d) => d.toISOString().slice(0, 10);
+    const set = (a, b) => { el('af-from').value = a; el('af-to').value = b; };
+    if (kind === 'year') set(`${y}-01-01`, `${y}-12-31`);
+    if (kind === 'rest') set(iso(now), `${y}-12-31`);
+    if (kind === 'next') set(`${y + 1}-01-01`, `${y + 1}-12-31`);
+  }
+
+  async function afApply() {
+    const propertyId = el('avail-property-filter')?.value;
+    const from = el('af-from').value, to = el('af-to').value;
+    const btn = el('af-apply'); btn.disabled = true;
+    try {
+      const n = await fillHotelFromRooms(propertyId, from, to);
+      if (n) {
+        el('af-result').textContent = `${n} day(s) written. Reloading calendar…`;
+        if (typeof loadAvailability === 'function') await loadAvailability();
+        el('af-result').textContent = `${n} day(s) written from the rooms calendar.`;
+      }
+    } finally { btn.disabled = false; }
+  }
+
+  return { ensure, refreshRooms, scopeAll, toggleCat, setStatus, toggleBedsInput, quickRange, apply, checkCoherence, fillHotelFromRooms, ensureAvailPanel, afQuick, afApply };
 })();

@@ -4376,6 +4376,7 @@
   const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
   async function loadAvailability() {
+    RcalTools.ensureAvailPanel();
     const propertyId = document.getElementById('avail-property-filter').value;
     if (!propertyId) return;
     availPending  = {};
