@@ -204,15 +204,25 @@ const RcalTools = (() => {
 
   // ── coherence check ────────────────────────────────────────────────────
   async function fetchAllRoomDays(propertyId, from, to) {
+    // Self-defense: rows belonging to ALIAS rooms (alias_of set) are
+    // excluded from every aggregation — even if legacy fills wrote them.
+    let aliasIds = new Set();
+    try {
+      const { data: aliasRooms } = await sb.from('rooms')
+        .select('id').eq('company_id', currentCompany.id)
+        .not('alias_of', 'is', null);
+      (aliasRooms || []).forEach(r => aliasIds.add(r.id));
+    } catch (e) { /* pre-migration: no column, nothing to exclude */ }
+
     const PAGE = 1000; let fromIdx = 0; let all = [];
     for (;;) {
       const { data, error } = await sb.from('room_capacity_calendar')
-        .select('date,beds_available,status')
+        .select('room_id,date,beds_available,status')
         .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
         .gte('date', from).lte('date', to)
         .range(fromIdx, fromIdx + PAGE - 1);
       if (error) throw error;
-      all = all.concat(data || []);
+      all = all.concat((data || []).filter(r => !aliasIds.has(r.room_id)));
       if (!data || data.length < PAGE) break;
       fromIdx += PAGE;
     }
