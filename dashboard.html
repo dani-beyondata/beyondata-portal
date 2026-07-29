@@ -1419,7 +1419,6 @@
       </select>
     </div>
     <div class="field"><label>Subcategory</label><input type="text" id="extra-subcategory" placeholder="e.g. SPA"></div>
-    <input type="hidden" id="extra-amount" value="0">
     <div class="field"><label>Unit price — GROSS, VAT incl. (€)</label>
       <input type="number" id="extra-price-gross" placeholder="e.g. 10.00" step="0.01" min="0" oninput="extraNetPreview()">
       <small style="color:var(--text-muted)">Used for the estimated Extras Production (units × price) when the PMS export carries no amounts. Free perks: 0.</small>
@@ -2451,14 +2450,12 @@
       <div class="param-row">
         <div class="param-info">
           <h4>Extras amount source</h4>
-          <p>Where the € of extras comes from in reports: real amounts in the gold (PMS export carries them) or estimated via the Extras master unit prices. "Auto" follows the PMS (Little Hotelier → Gold · Mews → Master). Effective now: <b>${(params.extras_amount_source || (pms === 'littlehotelier' ? 'gold' : 'master')).toUpperCase()}</b>${params.extras_amount_source ? '' : ' (auto)'}.</p>
+          <p>Where the € of extras comes from in reports: real amounts carried by the PMS export (Gold) or estimated as units × unit price from the Extras master (Master).${params.extras_amount_source ? '' : ` Not set yet — defaulting by PMS to <b>${(pms === 'littlehotelier' ? 'gold' : 'master').toUpperCase()}</b>; click to make it explicit.`}</p>
         </div>
         <div class="toggle-wrap">
-          <button class="toggle-btn ${!params.extras_amount_source ? 'active' : ''}"
-            ${isAdmin ? `onclick="setParam('extras_amount_source','')"` : 'disabled'}>Auto (PMS)</button>
-          <button class="toggle-btn ${params.extras_amount_source === 'gold' ? 'active' : ''}"
+          <button class="toggle-btn ${(params.extras_amount_source || (pms === 'littlehotelier' ? 'gold' : 'master')) === 'gold' ? 'active' : ''}"
             ${isAdmin ? `onclick="setParam('extras_amount_source','gold')"` : 'disabled'}>Gold (real €)</button>
-          <button class="toggle-btn ${params.extras_amount_source === 'master' ? 'active' : ''}"
+          <button class="toggle-btn ${(params.extras_amount_source || (pms === 'littlehotelier' ? 'gold' : 'master')) === 'master' ? 'active' : ''}"
             ${isAdmin ? `onclick="setParam('extras_amount_source','master')"` : 'disabled'}>Master (tarifario)</button>
         </div>
       </div>
@@ -3030,7 +3027,7 @@
         <td>${UI.badge(TIMING_LABELS[e.charge_timing] || e.charge_timing, TIMING_COLORS[e.charge_timing] || 'badge-user')}</td>
         <td>${UI.statusBadge(e.status === 'active')}</td>
         <td style="display:flex;gap:0.4rem">${isAdmin ? `
-          <button class="btn btn-secondary btn-sm" onclick="editExtra('${e.id}','${(e.raw_value||'').replace(/'/g,"\\'")}','${(e.display_name||'').replace(/'/g,"\\'")}','${(e.category||'').replace(/'/g,"\\'")}','${(e.subcategory||'').replace(/'/g,"\\'")}','${e.default_amount}','${e.charge_timing}')">Edit</button>
+          <button class="btn btn-secondary btn-sm" onclick="editExtra('${e.id}','${(e.raw_value||'').replace(/'/g,"\\'")}','${(e.display_name||'').replace(/'/g,"\\'")}','${(e.category||'').replace(/'/g,"\\'")}','${(e.subcategory||'').replace(/'/g,"\\'")}','${e.charge_timing}')">Edit</button>
           <button class="btn btn-secondary btn-sm" onclick="toggleExtra('${e.id}','${e.status}')">
             ${e.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}
         </td>
@@ -3121,7 +3118,7 @@
     UI.openModal('modal-extra');
   });
 
-  function editExtra(id, rawValue, displayName, category, subcategory, amount, timing) {
+  function editExtra(id, rawValue, displayName, category, subcategory, timing) {
     document.getElementById('extra-edit-id').value = id;
     document.getElementById('modal-extra-title').textContent = 'Edit extra';
     document.getElementById('extra-code').value = rawValue;
@@ -3130,7 +3127,6 @@
     document.getElementById('extra-display').value = displayName;
     document.getElementById('extra-category').value = category;
     document.getElementById('extra-subcategory').value = subcategory;
-    document.getElementById('extra-amount').value = amount;
     document.getElementById('extra-timing').value = timing;
     const rec = allExtras.find(x => x.id === id);
     document.getElementById('extra-price-gross').value =
@@ -3148,7 +3144,6 @@
     const display_name    = document.getElementById('extra-display').value.trim();
     const category        = document.getElementById('extra-category').value.trim();
     const subcategory     = document.getElementById('extra-subcategory').value.trim() || null;
-    const default_amount  = parseFloat(document.getElementById('extra-amount').value) || 0;
     const priceRaw        = document.getElementById('extra-price-gross').value;
     const unit_price_gross = priceRaw === '' ? null : parseFloat(priceRaw);
     const vatRaw          = document.getElementById('extra-vat').value;
@@ -3159,7 +3154,7 @@
     if (!raw_value || !category) { UI.showAlert('extra-error', 'Raw value and category are required.'); return; }
 
     UI.setLoading('btn-save-extra', true, 'Save');
-    const fields = { display_name: display_name || raw_value, category, subcategory, default_amount, charge_timing, unit_price_gross, vat_rate };
+    const fields = { display_name: display_name || raw_value, category, subcategory, charge_timing, unit_price_gross, vat_rate };
     const { error } = editId
       ? await ExtrasCatalog.update(editId, fields)
       : await ExtrasCatalog.create(currentCompany.id, { raw_value, ...fields });

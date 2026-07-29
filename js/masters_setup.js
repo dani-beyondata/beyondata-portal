@@ -214,7 +214,6 @@ const MastersSetup = (() => {
           display_name: displayName || rawValue,
           category: extraFields?.category,  // required — validated in the UI before calling
           charge_timing: 'during_stay',
-          default_amount: 0,
           status: 'active',
         });
         if (error) throw error;
