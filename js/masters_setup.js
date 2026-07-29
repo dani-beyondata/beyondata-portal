@@ -160,6 +160,15 @@ const MastersSetup = (() => {
           .eq('status', 'active');
         const physical = (twins || []).find(t =>
           (t.display_name || '').trim().toLowerCase() === finalDisplay.trim().toLowerCase());
+        if (physical) {
+          const ok = confirm(
+            `⚠ "${finalDisplay}" already exists as an ACTIVE physical room.\n\n` +
+            `Adding "${rawValue}" under that name registers it as an ALIAS of the SAME room: ` +
+            `it will map this raw value's sales onto "${finalDisplay}" and will NOT count as a ` +
+            `different physical room (no own beds, no capacity).\n\n` +
+            `Confirm it is the same room?`);
+          if (!ok) throw new Error('Cancelled — nothing was added.');
+        }
         const { error } = await sb.from('rooms').insert({
           company_id: companyId,
           raw_value: rawValue,
@@ -872,6 +881,7 @@ const MastersSetup = (() => {
       bulkClone.addEventListener('click', async () => {
         const rows = [...tbody.querySelectorAll('tr')];
         const ready = [];
+        const aliasSkipped = [];
         for (const row of rows) {
           const addBtn = row.querySelector('button[data-action="add"], button[data-action="resolve"]');
           if (!addBtn || addBtn.disabled) continue;
@@ -897,6 +907,11 @@ const MastersSetup = (() => {
             if (t && st) ready.push({ action, value, second: name,
               extraFields: { channel_type: t, channel_subtype: st, rate_type: rt } });
           } else if (config.actionType === 'room') {
+            // Alias candidates are EXCLUDED from bulk: creating an alias is a
+            // conscious decision (same physical room) -> individual + Add only.
+            const isAliasCandidate = existing.some(e => e.status === 'active' &&
+              (e.display_name || '').trim().toLowerCase() === name.trim().toLowerCase());
+            if (isAliasCandidate) { aliasSkipped.push(value); continue; }
             ready.push({ action, value, second: name, extraFields: {
               category_id: nameEl.dataset.categoryId || null,
               beds_per_room: parseInt(nameEl.dataset.beds) || 1,
@@ -909,7 +924,9 @@ const MastersSetup = (() => {
         }
 
         if (!ready.length) {
-          UI.showAlert('ms-file-error', 'No rows are ready — fill in the missing selections first.');
+          UI.showAlert('ms-file-error', aliasSkipped.length
+            ? `Nothing bulk-addable: ${aliasSkipped.length} row(s) look like ALIASES of existing rooms (${aliasSkipped.join(', ')}) — add those individually with + Add to confirm each one.`
+            : 'No rows are ready — fill in the missing selections first.');
           return;
         }
         if (!confirm(`Add ${ready.length} value(s) to the master in one go?`)) return;
@@ -929,9 +946,10 @@ const MastersSetup = (() => {
             done++;
           } catch (e) { failed++; }
         }
-        const skipped = rows.length - ready.length;
+        const skipped = rows.length - ready.length - aliasSkipped.length;
         UI.showAlert('ms-file-error',
-          `Bulk add finished: ${done} added${failed ? `, ${failed} failed` : ''}${skipped > 0 ? `, ${skipped} skipped (incomplete)` : ''}.`);
+          `Bulk add finished: ${done} added${failed ? `, ${failed} failed` : ''}${skipped > 0 ? `, ${skipped} skipped (incomplete)` : ''}` +
+          (aliasSkipped.length ? `, ${aliasSkipped.length} excluded as possible ALIASES (${aliasSkipped.join(', ')}) — add those individually with + Add.` : '') + '.');
         await renderResults(masterKey, column);
         updateMemoryCounts();
       });
