@@ -4874,20 +4874,27 @@
   // one; otherwise the canonical row (raw_value === display_name); otherwise
   // the first. Everything else is an ALIAS — a satellite with NO lifecycle
   // of its own: it follows its main (active or not) and renders locked.
-  const groups = {};
-  rooms.forEach(function(r) {
-    const k = (r.display_name || '').trim().toLowerCase();
-    (groups[k] = groups[k] || []).push(r);
-  });
+  // alias_of column (explicit) is the source of truth; the display-name
+  // heuristic remains as fallback until the migration runs.
+  window._roomsHasAliasCol = rooms.length ? ('alias_of' in rooms[0]) : true;
   const aliasIds = new Set();
-  Object.values(groups).forEach(function(g) {
-    if (g.length < 2) return;
-    const actives = g.filter(function(r) { return r.status === 'active'; });
-    let phys = actives.length === 1 ? actives[0]
-      : g.find(function(r) { return (r.raw_value || '').trim().toLowerCase() === (r.display_name || '').trim().toLowerCase(); })
-        || g[0];
-    g.forEach(function(r) { if (r.id !== phys.id) aliasIds.add(r.id); });
-  });
+  if (window._roomsHasAliasCol) {
+    rooms.forEach(function(r) { if (r.alias_of) aliasIds.add(r.id); });
+  } else {
+    const groups = {};
+    rooms.forEach(function(r) {
+      const k = (r.display_name || '').trim().toLowerCase();
+      (groups[k] = groups[k] || []).push(r);
+    });
+    Object.values(groups).forEach(function(g) {
+      if (g.length < 2) return;
+      const actives = g.filter(function(r) { return r.status === 'active'; });
+      let phys = actives.length === 1 ? actives[0]
+        : g.find(function(r) { return (r.raw_value || '').trim().toLowerCase() === (r.display_name || '').trim().toLowerCase(); })
+          || g[0];
+      g.forEach(function(r) { if (r.id !== phys.id) aliasIds.add(r.id); });
+    });
+  }
   const isAlias = function(r) { return aliasIds.has(r.id); };
   const ordered = [];
   rooms.filter(function(r) { return !isAlias(r); }).forEach(function(r) {
@@ -4904,7 +4911,9 @@
         '<td style="padding-left:1.6rem;color:var(--text-muted)">↳ ' + UI.mono(r.raw_value || r.room_code) + '</td>' +
         '<td colspan="4"><span style="font-size:0.78rem;color:var(--text-muted)">same physical room as <b>' + escapeHtml(r.display_name || '') + '</b> — maps its sales; beds, category, attributes and STATUS come from the room above</span></td>' +
         '<td><span style="font-size:0.72rem;font-weight:600;background:#e0e7ff;color:#4338ca;padding:1px 8px;border-radius:10px">ALIAS</span></td>' +
-        '<td></td>' +
+        '<td style="white-space:nowrap">' + (isAdmin
+          ? '<button class="btn btn-secondary btn-sm" data-room-id="' + r.id + '" onclick="detachAlias(this.dataset.roomId)" title="It is NOT the same room after all: detach it and make it its own physical room">Detach</button>'
+          : '') + '</td>' +
         '</tr>';
     }
     const rAttrs = roomAttrMap[r.id] || {};
@@ -5049,6 +5058,21 @@
     loadRoomsList();
   }
 
+  async function detachAlias(id) {
+    const room = window._rcalRoomMap?.[id];
+    if (!room) return;
+    if (!confirm('Detach "' + room.raw_value + '" from "' + (room.display_name || '') + '"?\n\n' +
+      'It will become its OWN room (name reset to "' + room.raw_value + '", kept inactive):\n' +
+      '1) Edit it to set its real name, category and beds\n2) Enable it when ready.\n\n' +
+      'Its historical sales will count under its own name from then on.')) return;
+    const upd = { display_name: room.raw_value, status: 'inactive' };
+    if (window._roomsHasAliasCol !== false) upd.alias_of = null;
+    const { error } = await Rooms.update(id, upd);
+    if (error) { Toast.error(error.message); return; }
+    Toast.success('"' + room.raw_value + '" detached — edit it to configure, then enable.');
+    loadRoomsList();
+  }
+
   let _editRoomAttrValues = {}; // current attribute values being edited
 
   function openEditRoomById(roomId) {
@@ -5168,8 +5192,10 @@
 
     // Save core room fields (alias conversion forces the coherent shape)
     const roomFields = asAlias
-      ? { display_name, category_id: clashPhys.category_id || category_id, beds_per_room: 0, status: 'inactive' }
-      : { display_name, category_id, beds_per_room };
+      ? { display_name, category_id: clashPhys.category_id || category_id, beds_per_room: 0, status: 'inactive',
+          ...(window._roomsHasAliasCol !== false ? { alias_of: clashPhys.id } : {}) }
+      : { display_name, category_id, beds_per_room,
+          ...(window._roomsHasAliasCol !== false ? { alias_of: null } : {}) };
     const { error } = await Rooms.update(id, roomFields);
     if (error) { UI.setLoading('btn-update-room', false, 'Save changes'); UI.showAlert('edit-room-error', error.message); return; }
 
@@ -5224,7 +5250,9 @@
     UI.setLoading('btn-save-room', true, 'Save');
     const { error } = await Rooms.create(currentCompany.id, propertyId, { raw_value, display_name, category_id, beds_per_room });
     if (!error && asAlias) {
-      await sb.from('rooms').update({ status: 'inactive' })
+      const aliasUpd = { status: 'inactive' };
+      if (window._roomsHasAliasCol !== false) aliasUpd.alias_of = clashRow.id;
+      await sb.from('rooms').update(aliasUpd)
         .eq('company_id', currentCompany.id).eq('property_id', propertyId).eq('raw_value', raw_value);
     }
     UI.setLoading('btn-save-room', false, 'Save');

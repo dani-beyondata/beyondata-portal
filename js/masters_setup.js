@@ -169,7 +169,7 @@ const MastersSetup = (() => {
             `Confirm it is the same room?`);
           if (!ok) throw new Error('Cancelled — nothing was added.');
         }
-        const { error } = await sb.from('rooms').insert({
+        const roomRow = {
           company_id: companyId,
           raw_value: rawValue,
           display_name: finalDisplay,
@@ -178,7 +178,14 @@ const MastersSetup = (() => {
           property_uuid: extraFields?.property_uuid || null,
           property_id: extraFields?.property_id || null,
           status: physical ? 'inactive' : 'active',
-        });
+        };
+        if (physical && window._roomsHasAliasCol !== false) roomRow.alias_of = physical.id;
+        let { error } = await sb.from('rooms').insert(roomRow);
+        if (error && physical && roomRow.alias_of) {
+          // graceful pre-migration: retry without the column
+          delete roomRow.alias_of;
+          ({ error } = await sb.from('rooms').insert(roomRow));
+        }
         if (error) throw error;
         if (physical && typeof Toast !== 'undefined') {
           Toast.success(`"${rawValue}" registered as an alias of "${finalDisplay}" (same physical room — maps sales, adds no capacity).`);
