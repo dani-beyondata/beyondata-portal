@@ -5143,10 +5143,31 @@
 
     UI.hideAlert('edit-room-error');
     if (!display_name) { UI.showAlert('edit-room-error', 'Display name is required.'); return; }
+
+    // ALIAS conversion via Edit: renaming this row to the display of another
+    // ACTIVE room means declaring it the SAME physical room -> same flow as
+    // the add paths: explicit confirmation, then inactive + beds 0 + the
+    // physical room's category.
+    const editedRoom = window._rcalRoomMap?.[id];
+    const clashPhys = Object.values(window._rcalRoomMap || {}).find(function(r) {
+      return r.id !== id && r.status === 'active' &&
+        (r.display_name || '').trim().toLowerCase() === display_name.toLowerCase();
+    });
+    let asAlias = false;
+    if (clashPhys) {
+      asAlias = confirm('⚠ "' + display_name + '" already exists as an ACTIVE physical room ("' + clashPhys.raw_value + '").\n\n' +
+        'Saving "' + (editedRoom?.raw_value || '') + '" under that name converts it into an ALIAS of the SAME room: ' +
+        'it will map its sales onto "' + display_name + '" and will NOT count as a different physical room ' +
+        '(status becomes inactive, no own beds, category inherited).\n\nConfirm it is the same room?');
+      if (!asAlias) { return; }
+    }
     UI.setLoading('btn-update-room', true, 'Save changes');
 
-    // Save core room fields
-    const { error } = await Rooms.update(id, { display_name, category_id, beds_per_room });
+    // Save core room fields (alias conversion forces the coherent shape)
+    const roomFields = asAlias
+      ? { display_name, category_id: clashPhys.category_id || category_id, beds_per_room: 0, status: 'inactive' }
+      : { display_name, category_id, beds_per_room };
+    const { error } = await Rooms.update(id, roomFields);
     if (error) { UI.setLoading('btn-update-room', false, 'Save changes'); UI.showAlert('edit-room-error', error.message); return; }
 
     // Save room attributes — upsert each
