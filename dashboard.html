@@ -4869,20 +4869,26 @@
       : '';
   })();
 
-  // Grouped rendering: an inactive row whose display matches an ACTIVE
-  // room is an ALIAS — the SAME physical room sold under another raw name.
-  // Aliases render as locked sub-rows under their physical room: no own
-  // beds/category/attributes (they inherit reality), no Edit — only Enable
-  // (guarded) for the day they become a genuinely distinct room.
-  const activeDisplayIdx = {};
+  // Grouped rendering: rows sharing a display_name are the SAME physical
+  // room. The PHYSICAL of each group is the active row if there is exactly
+  // one; otherwise the canonical row (raw_value === display_name); otherwise
+  // the first. Everything else is an ALIAS — a satellite with NO lifecycle
+  // of its own: it follows its main (active or not) and renders locked.
+  const groups = {};
   rooms.forEach(function(r) {
-    if (r.status === 'active') activeDisplayIdx[(r.display_name || '').trim().toLowerCase()] = r;
+    const k = (r.display_name || '').trim().toLowerCase();
+    (groups[k] = groups[k] || []).push(r);
   });
-  const isAlias = function(r) {
-    if (r.status === 'active') return false;
-    const phys = activeDisplayIdx[(r.display_name || '').trim().toLowerCase()];
-    return !!(phys && phys.id !== r.id);
-  };
+  const aliasIds = new Set();
+  Object.values(groups).forEach(function(g) {
+    if (g.length < 2) return;
+    const actives = g.filter(function(r) { return r.status === 'active'; });
+    let phys = actives.length === 1 ? actives[0]
+      : g.find(function(r) { return (r.raw_value || '').trim().toLowerCase() === (r.display_name || '').trim().toLowerCase(); })
+        || g[0];
+    g.forEach(function(r) { if (r.id !== phys.id) aliasIds.add(r.id); });
+  });
+  const isAlias = function(r) { return aliasIds.has(r.id); };
   const ordered = [];
   rooms.filter(function(r) { return !isAlias(r); }).forEach(function(r) {
     ordered.push({ r: r, alias: false });
@@ -4896,12 +4902,9 @@
     if (item.alias) {
       return '<tr style="background:var(--bg-subtle,#f8fafc)">' +
         '<td style="padding-left:1.6rem;color:var(--text-muted)">↳ ' + UI.mono(r.raw_value || r.room_code) + '</td>' +
-        '<td colspan="4"><span style="font-size:0.72rem;font-weight:600;background:#e0e7ff;color:#4338ca;padding:1px 8px;border-radius:10px">ALIAS</span>' +
-        ' <span style="font-size:0.78rem;color:var(--text-muted)">same physical room as <b>' + escapeHtml(r.display_name || '') + '</b> — maps its sales; beds, category and attributes come from the room above</span></td>' +
-        '<td>' + UI.statusBadge(false) + '</td>' +
-        '<td style="white-space:nowrap">' + (isAdmin
-          ? '<button class="btn btn-sm btn-secondary" data-room-id="' + r.id + '" data-room-status="' + r.status + '" onclick="toggleRoom(this.dataset.roomId,this.dataset.roomStatus)">Enable</button>'
-          : '') + '</td>' +
+        '<td colspan="4"><span style="font-size:0.78rem;color:var(--text-muted)">same physical room as <b>' + escapeHtml(r.display_name || '') + '</b> — maps its sales; beds, category, attributes and STATUS come from the room above</span></td>' +
+        '<td><span style="font-size:0.72rem;font-weight:600;background:#e0e7ff;color:#4338ca;padding:1px 8px;border-radius:10px">ALIAS</span></td>' +
+        '<td></td>' +
         '</tr>';
     }
     const rAttrs = roomAttrMap[r.id] || {};
