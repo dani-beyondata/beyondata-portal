@@ -758,8 +758,19 @@ const MastersSetup = (() => {
           actionHtml = `<span style="color:var(--text-muted);font-size:0.85rem">${countryLabel ? escapeHtml(countryLabel.country_name) : match.country_code}</span>`;
         }
       } else if (match.status !== 'active') {
-        statusHtml = `<span class="badge" style="background:#fee2e2;color:#991b1b">Exists, inactive</span>`;
-        actionHtml = `<span style="color:var(--text-muted);font-size:0.85rem">Reactivate from the ${masterKey.replace('_',' ')} section</span>`;
+        // Rooms: an inactive row whose display matches an ACTIVE room is an
+        // ALIAS of the same physical room — correct state, nothing to do.
+        const aliasOf = masterKey === 'rooms' && match.display_name
+          ? existing.find(e => e.id !== match.id && e.status === 'active' &&
+              (e.display_name || '').trim().toLowerCase() === (match.display_name || '').trim().toLowerCase())
+          : null;
+        if (aliasOf) {
+          statusHtml = `<span class="badge" style="background:#e0e7ff;color:#4338ca">Alias ✓</span>`;
+          actionHtml = `<span style="color:var(--text-muted);font-size:0.85rem">Same physical room as <b>${escapeHtml(aliasOf.display_name)}</b> — maps its sales. Nothing to do.</span>`;
+        } else {
+          statusHtml = `<span class="badge" style="background:#fee2e2;color:#991b1b">Exists, inactive</span>`;
+          actionHtml = `<span style="color:var(--text-muted);font-size:0.85rem">Reactivate from the ${masterKey.replace('_',' ')} section</span>`;
+        }
       } else {
         statusHtml = `<span class="badge" style="background:#d1fae5;color:#065f46">Active in master</span>`;
         const extraInfo = config.actionType === 'extras' && match.category
