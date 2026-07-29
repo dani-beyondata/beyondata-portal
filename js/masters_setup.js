@@ -147,17 +147,33 @@ const MastersSetup = (() => {
       },
       async addValue(companyId, rawValue, displayName, extraFields) {
         // extraFields: { category_id, beds_per_room, property_uuid }
+        // ALIAS RULE: if the display name matches an already-ACTIVE room of
+        // the same property, this raw value is the SAME physical room sold
+        // under another name -> create as an INACTIVE alias inheriting the
+        // physical room's category (mapping only: adds no capacity, and the
+        // Rooms list renders it locked under its physical room).
+        const finalDisplay = displayName || rawValue;
+        const { data: twins } = await sb.from('rooms')
+          .select('id, display_name, category_id, status')
+          .eq('company_id', companyId)
+          .eq('property_uuid', extraFields?.property_uuid || null)
+          .eq('status', 'active');
+        const physical = (twins || []).find(t =>
+          (t.display_name || '').trim().toLowerCase() === finalDisplay.trim().toLowerCase());
         const { error } = await sb.from('rooms').insert({
           company_id: companyId,
           raw_value: rawValue,
-          display_name: displayName || rawValue,
-          category_id: extraFields?.category_id || null,
-          beds_per_room: extraFields?.beds_per_room || 1,
+          display_name: finalDisplay,
+          category_id: physical ? physical.category_id : (extraFields?.category_id || null),
+          beds_per_room: physical ? 0 : (extraFields?.beds_per_room || 1),
           property_uuid: extraFields?.property_uuid || null,
           property_id: extraFields?.property_id || null,
-          status: 'active',
+          status: physical ? 'inactive' : 'active',
         });
         if (error) throw error;
+        if (physical && typeof Toast !== 'undefined') {
+          Toast.success(`"${rawValue}" registered as an alias of "${finalDisplay}" (same physical room — maps sales, adds no capacity).`);
+        }
       },
     },
     // extras_catalog: matches raw product names from extras_master.csv against

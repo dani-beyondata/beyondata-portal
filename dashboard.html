@@ -4869,7 +4869,41 @@
       : '';
   })();
 
-  document.getElementById('rooms-tbody').innerHTML = rooms.map(function(r) {
+  // Grouped rendering: an inactive row whose display matches an ACTIVE
+  // room is an ALIAS — the SAME physical room sold under another raw name.
+  // Aliases render as locked sub-rows under their physical room: no own
+  // beds/category/attributes (they inherit reality), no Edit — only Enable
+  // (guarded) for the day they become a genuinely distinct room.
+  const activeDisplayIdx = {};
+  rooms.forEach(function(r) {
+    if (r.status === 'active') activeDisplayIdx[(r.display_name || '').trim().toLowerCase()] = r;
+  });
+  const isAlias = function(r) {
+    if (r.status === 'active') return false;
+    const phys = activeDisplayIdx[(r.display_name || '').trim().toLowerCase()];
+    return !!(phys && phys.id !== r.id);
+  };
+  const ordered = [];
+  rooms.filter(function(r) { return !isAlias(r); }).forEach(function(r) {
+    ordered.push({ r: r, alias: false });
+    rooms.filter(function(x) { return isAlias(x) &&
+      (x.display_name || '').trim().toLowerCase() === (r.display_name || '').trim().toLowerCase(); })
+      .forEach(function(x) { ordered.push({ r: x, alias: true }); });
+  });
+
+  document.getElementById('rooms-tbody').innerHTML = ordered.map(function(item) {
+    const r = item.r;
+    if (item.alias) {
+      return '<tr style="background:var(--bg-subtle,#f8fafc)">' +
+        '<td style="padding-left:1.6rem;color:var(--text-muted)">↳ ' + UI.mono(r.raw_value || r.room_code) + '</td>' +
+        '<td colspan="4"><span style="font-size:0.72rem;font-weight:600;background:#e0e7ff;color:#4338ca;padding:1px 8px;border-radius:10px">ALIAS</span>' +
+        ' <span style="font-size:0.78rem;color:var(--text-muted)">same physical room as <b>' + escapeHtml(r.display_name || '') + '</b> — maps its sales; beds, category and attributes come from the room above</span></td>' +
+        '<td>' + UI.statusBadge(false) + '</td>' +
+        '<td style="white-space:nowrap">' + (isAdmin
+          ? '<button class="btn btn-sm btn-secondary" data-room-id="' + r.id + '" data-room-status="' + r.status + '" onclick="toggleRoom(this.dataset.roomId,this.dataset.roomStatus)">Enable</button>'
+          : '') + '</td>' +
+        '</tr>';
+    }
     const rAttrs = roomAttrMap[r.id] || {};
     const attrPills = attrTypes.slice(0,3).map(function(at) {
       const val = rAttrs[at.attribute_code];
@@ -4885,7 +4919,7 @@
 
     return '<tr>' +
       '<td>' + UI.mono(r.raw_value || r.room_code) + '</td>' +
-      '<td>' + (r.display_name || r.display_name || '') + '</td>' +
+      '<td>' + (r.display_name || '') + '</td>' +
       '<td>' + (r.room_categories?.display_name ?? '—') + '</td>' +
       '<td>' + r.beds_per_room + '</td>' +
       '<td>' + (attrPills || '<span style="color:var(--text-muted);font-size:0.8rem">—</span>') + '</td>' +
