@@ -635,7 +635,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Raw value (Mews)</th><th>Display name</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Raw value (Mews)</th><th>Display name</th><th>Type</th><th>Status</th><th></th></tr></thead>
             <tbody id="room-categories-tbody"></tbody>
           </table>
         </div>
@@ -1442,6 +1442,13 @@
     <div class="alert error" id="room-cat-error"></div>
     <div class="field"><label>Raw value (Mews text)</label><input type="text" id="rcat-code" placeholder="e.g. Bed in a shared mixed dormitory for 8 people"></div>
     <div class="field"><label>Display name (for reports)</label><input type="text" id="rcat-name" placeholder="e.g. Mixed Dorm 8"></div>
+    <div class="field"><label>Type (unit of sale)</label>
+      <select id="rcat-type">
+        <option value="">— not set —</option>
+        <option value="room">ROOM · private (sold as a whole unit)</option>
+        <option value="dorm">DORM · shared (sold per bed)</option>
+      </select>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-room-category')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-room-category">Save</button>
@@ -1461,6 +1468,13 @@
       <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem">Cannot be changed — this is the exact text from the source file.</p>
     </div>
     <div class="field"><label>Display name (for reports)</label><input type="text" id="rcat-edit-name" placeholder="e.g. S_M_8"></div>
+    <div class="field"><label>Type (unit of sale)</label>
+      <select id="rcat-edit-type">
+        <option value="">— not set —</option>
+        <option value="room">ROOM · private (sold as a whole unit)</option>
+        <option value="dorm">DORM · shared (sold per bed)</option>
+      </select>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-edit-room-category')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-edit-room-category">Save</button>
@@ -4725,15 +4739,24 @@
     ).join('');
   }
 
+  function rcatTypeBadge(t) {
+    if (t === 'room') return '<span style="font-size:0.7rem;font-weight:600;background:#dbeafe;color:#1d4ed8;padding:1px 8px;border-radius:10px">ROOM</span>';
+    if (t === 'dorm') return '<span style="font-size:0.7rem;font-weight:600;background:#f3e8ff;color:#7c3aed;padding:1px 8px;border-radius:10px">DORM</span>';
+    return '<span style="color:var(--text-muted);font-size:0.75rem">—</span>';
+  }
+
   async function loadRoomCategories() {
-    UI.tableLoading('room-categories-tbody', 4);
+    UI.tableLoading('room-categories-tbody', 5);
     const { data } = await Rooms.getCategories(currentCompany.id);
     allRoomCategories = data || [];
+    // graceful before the ALTER runs: only send category_type if the column exists
+    window._rcatHasType = allRoomCategories.length ? ('category_type' in allRoomCategories[0]) : true;
     document.getElementById('room-categories-count').textContent = `${allRoomCategories.length} categories`;
     document.getElementById('room-categories-tbody').innerHTML = allRoomCategories.map(c => `
       <tr>
         <td>${UI.mono(c.raw_value)}</td>
         <td>${c.display_name || '<em style="color:var(--text-muted)">not set</em>'}</td>
+        <td>${rcatTypeBadge(c.category_type)}</td>
         <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
         <td style="display:flex;gap:0.4rem">${isAdmin ? `
           <button class="btn btn-secondary btn-sm" onclick="editRoomCategory('${c.id}','${c.raw_value.replace(/'/g,"\\'")}','${(c.display_name||'').replace(/'/g,"\\'")}')">Edit</button>
@@ -4753,6 +4776,8 @@
     document.getElementById('rcat-edit-id').value = id;
     document.getElementById('rcat-edit-code').value = rawValue;
     document.getElementById('rcat-edit-name').value = displayName;
+    const cat = allRoomCategories.find(c => c.id === id);
+    document.getElementById('rcat-edit-type').value = cat?.category_type || '';
     UI.hideAlert('room-cat-edit-error');
     UI.openModal('modal-edit-room-category');
   }
@@ -4763,8 +4788,10 @@
     UI.hideAlert('room-cat-edit-error');
     if (!display_name) { UI.showAlert('room-cat-edit-error', 'Display name is required.'); return; }
     UI.setLoading('btn-save-edit-room-category', true, 'Save');
+    const upd = { display_name, updated_at: new Date().toISOString() };
+    if (window._rcatHasType !== false) upd.category_type = document.getElementById('rcat-edit-type').value || null;
     const { error } = await sb.from('room_categories')
-      .update({ display_name, updated_at: new Date().toISOString() })
+      .update(upd)
       .eq('id', id);
     UI.setLoading('btn-save-edit-room-category', false, 'Save');
     if (error) { UI.showAlert('room-cat-edit-error', error.message); return; }
@@ -4780,7 +4807,9 @@
     UI.hideAlert('room-cat-error');
     if (!raw_value || !display_name) { UI.showAlert('room-cat-error', 'Both raw value and display name are required.'); return; }
     UI.setLoading('btn-save-room-category', true, 'Save');
-    const { error } = await Rooms.createCategory(currentCompany.id, { raw_value, display_name });
+    const catFields = { raw_value, display_name };
+    if (window._rcatHasType !== false) catFields.category_type = document.getElementById('rcat-type').value || null;
+    const { error } = await Rooms.createCategory(currentCompany.id, catFields);
     UI.setLoading('btn-save-room-category', false, 'Save');
     if (error) { UI.showAlert('room-cat-error', error.message); return; }
     UI.closeModal('modal-room-category');
