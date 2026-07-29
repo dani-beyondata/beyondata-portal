@@ -592,7 +592,7 @@
           <table>
             <thead><tr>
               <th>Raw value (Mews)</th><th>Display name</th><th>Category</th><th>Subcategory</th>
-              <th>Default €</th><th>Charge timing</th><th>Status</th><th></th>
+              <th>Unit price</th><th>Charge timing</th><th>Status</th><th></th>
             </tr></thead>
             <tbody id="extras-tbody"></tbody>
           </table>
@@ -1419,7 +1419,20 @@
       </select>
     </div>
     <div class="field"><label>Subcategory</label><input type="text" id="extra-subcategory" placeholder="e.g. SPA"></div>
-    <div class="field"><label>Default amount (€)</label><input type="number" id="extra-amount" placeholder="0" step="0.01" min="0"></div>
+    <input type="hidden" id="extra-amount" value="0">
+    <div class="field"><label>Unit price — GROSS, VAT incl. (€)</label>
+      <input type="number" id="extra-price-gross" placeholder="e.g. 10.00" step="0.01" min="0" oninput="extraNetPreview()">
+      <small style="color:var(--text-muted)">Used for the estimated Extras Production (units × price) when the PMS export carries no amounts. Free perks: 0.</small>
+    </div>
+    <div class="field"><label>VAT rate</label>
+      <select id="extra-vat" onchange="extraNetPreview()">
+        <option value="">—</option>
+        <option value="0.10">10% (F&amp;B / alojamiento)</option>
+        <option value="0.21">21% (general)</option>
+        <option value="0">0%</option>
+      </select>
+      <small id="extra-net-preview" style="color:var(--text-muted)"></small>
+    </div>
     <div class="field">
       <label>Charge timing</label>
       <select id="extra-timing">
@@ -2437,6 +2450,20 @@
       </div>
       <div class="param-row">
         <div class="param-info">
+          <h4>Extras amount source</h4>
+          <p>Where the € of extras comes from in reports: real amounts in the gold (PMS export carries them) or estimated via the Extras master unit prices. "Auto" follows the PMS (Little Hotelier → Gold · Mews → Master). Effective now: <b>${(params.extras_amount_source || (pms === 'littlehotelier' ? 'gold' : 'master')).toUpperCase()}</b>${params.extras_amount_source ? '' : ' (auto)'}.</p>
+        </div>
+        <div class="toggle-wrap">
+          <button class="toggle-btn ${!params.extras_amount_source ? 'active' : ''}"
+            ${isAdmin ? `onclick="setParam('extras_amount_source','')"` : 'disabled'}>Auto (PMS)</button>
+          <button class="toggle-btn ${params.extras_amount_source === 'gold' ? 'active' : ''}"
+            ${isAdmin ? `onclick="setParam('extras_amount_source','gold')"` : 'disabled'}>Gold (real €)</button>
+          <button class="toggle-btn ${params.extras_amount_source === 'master' ? 'active' : ''}"
+            ${isAdmin ? `onclick="setParam('extras_amount_source','master')"` : 'disabled'}>Master (tarifario)</button>
+        </div>
+      </div>
+      <div class="param-row">
+        <div class="param-info">
           <h4>PMS</h4>
           <p>Property management system this company exports data from. Drives the data pipeline: upload paths and which ETLs process the files.${isSys ? '' : ' Managed by BeyonData.'}</p>
         </div>
@@ -2994,7 +3021,12 @@
         <td>${e.display_name || e.raw_value || '—'}</td>
         <td>${e.category || '—'}</td>
         <td>${e.subcategory || '—'}</td>
-        <td style="font-family:'DM Mono',monospace;font-size:0.85rem">${parseFloat(e.default_amount).toFixed(2)} €</td>
+        <td style="font-family:'DM Mono',monospace;font-size:0.85rem">${
+          e.unit_price_gross === null || e.unit_price_gross === undefined
+            ? '<span style="color:#b45309;font-weight:600">sin precio</span>'
+            : `${parseFloat(e.unit_price_gross).toFixed(2)} €` +
+              (e.vat_rate ? `<br><span style="font-size:0.7rem;color:var(--text-muted)">net ${(e.unit_price_gross/(1+parseFloat(e.vat_rate))).toFixed(2)}</span>` : '')
+        }</td>
         <td>${UI.badge(TIMING_LABELS[e.charge_timing] || e.charge_timing, TIMING_COLORS[e.charge_timing] || 'badge-user')}</td>
         <td>${UI.statusBadge(e.status === 'active')}</td>
         <td style="display:flex;gap:0.4rem">${isAdmin ? `
@@ -3009,6 +3041,13 @@
   async function toggleExtra(id, status) {
     await ExtrasCatalog.toggleStatus(id, status);
     loadExtras();
+  }
+
+  function extraNetPreview() {
+    const g = parseFloat(document.getElementById('extra-price-gross').value);
+    const v = parseFloat(document.getElementById('extra-vat').value);
+    const el = document.getElementById('extra-net-preview');
+    el.textContent = (!isNaN(g) && !isNaN(v)) ? `→ net: ${(g/(1+v)).toFixed(2)} €` : '';
   }
 
   async function loadExtrasCategories() {
@@ -3068,6 +3107,9 @@
 
   document.getElementById('btn-add-extra').addEventListener('click', () => {
     document.getElementById('extra-edit-id').value = '';
+    document.getElementById('extra-price-gross').value = '';
+    document.getElementById('extra-vat').value = '';
+    extraNetPreview();
     document.getElementById('modal-extra-title').textContent = 'Add extra';
     document.getElementById('extra-code').readOnly = false;
     document.getElementById('extra-code').style.opacity = '1';
@@ -3090,6 +3132,12 @@
     document.getElementById('extra-subcategory').value = subcategory;
     document.getElementById('extra-amount').value = amount;
     document.getElementById('extra-timing').value = timing;
+    const rec = allExtras.find(x => x.id === id);
+    document.getElementById('extra-price-gross').value =
+      (rec && rec.unit_price_gross !== null && rec.unit_price_gross !== undefined) ? rec.unit_price_gross : '';
+    document.getElementById('extra-vat').value =
+      (rec && rec.vat_rate !== null && rec.vat_rate !== undefined) ? String(rec.vat_rate) : '';
+    extraNetPreview();
     UI.hideAlert('extra-error');
     UI.openModal('modal-extra');
   }
@@ -3101,13 +3149,17 @@
     const category        = document.getElementById('extra-category').value.trim();
     const subcategory     = document.getElementById('extra-subcategory').value.trim() || null;
     const default_amount  = parseFloat(document.getElementById('extra-amount').value) || 0;
+    const priceRaw        = document.getElementById('extra-price-gross').value;
+    const unit_price_gross = priceRaw === '' ? null : parseFloat(priceRaw);
+    const vatRaw          = document.getElementById('extra-vat').value;
+    const vat_rate        = vatRaw === '' ? null : parseFloat(vatRaw);
     const charge_timing   = document.getElementById('extra-timing').value;
 
     UI.hideAlert('extra-error');
     if (!raw_value || !category) { UI.showAlert('extra-error', 'Raw value and category are required.'); return; }
 
     UI.setLoading('btn-save-extra', true, 'Save');
-    const fields = { display_name: display_name || raw_value, category, subcategory, default_amount, charge_timing };
+    const fields = { display_name: display_name || raw_value, category, subcategory, default_amount, charge_timing, unit_price_gross, vat_rate };
     const { error } = editId
       ? await ExtrasCatalog.update(editId, fields)
       : await ExtrasCatalog.create(currentCompany.id, { raw_value, ...fields });

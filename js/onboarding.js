@@ -189,6 +189,24 @@ const Onboarding = (() => {
       label: 'Coherencia hotel ↔ habitaciones',
       detail: cohDetail });
 
+    // extras pricing readiness (only when the effective amount source is the master)
+    const pmsL = (currentCompany.pms || '').toLowerCase();
+    const extrasMode = params['extras_amount_source'] || (pmsL === 'littlehotelier' ? 'gold' : 'master');
+    if (extrasMode === 'master') {
+      let unpriced = null;
+      try {
+        const { count } = await sb.from('extras_catalog')
+          .select('id', { count: 'exact', head: true })
+          .eq('company_id', cid).eq('status', 'active').is('unit_price_gross', null);
+        unpriced = count;
+      } catch (e) { /* column may not exist yet */ }
+      items.push({ fase: 'f3', goto: 'extras', status: unpriced === null ? null : unpriced === 0,
+        label: 'Precios unitarios de extras (modo tarifario)',
+        detail: unpriced === null ? 'No verificable (¿columna unit_price_gross creada?)'
+          : unpriced === 0 ? 'Todos los extras activos tienen precio'
+          : `${unpriced} extra(s) activos sin precio → Extras → Edit (la Producción Estimada los ignora)` });
+    }
+
     items.push({ fase: 'f3', goto: 'settings', status: !!params['occupancy_mode'],
       label: 'Occupancy mode configurado',
       detail: params['occupancy_mode'] ? `<code>${esc(params['occupancy_mode'])}</code>` : 'Pendiente en Settings' });
