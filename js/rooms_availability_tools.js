@@ -184,14 +184,20 @@ const RcalTools = (() => {
     let done = 0, failed = null;
     for (let i = 0; i < rows.length; i += 500) {
       el('rt-progress').textContent = `writing ${Math.min(i + 500, rows.length).toLocaleString()}/${rows.length.toLocaleString()}…`;
-      const { error } = await sb.from('room_capacity_calendar')
+      let { error } = await sb.from('room_capacity_calendar')
         .upsert(rows.slice(i, i + 500), { onConflict: 'company_id,property_uuid,room_id,date' });
+      if (error) {
+        // transient failures (pooler hiccups on long fills): wait and retry once
+        await new Promise(r => setTimeout(r, 1200));
+        ({ error } = await sb.from('room_capacity_calendar')
+          .upsert(rows.slice(i, i + 500), { onConflict: 'company_id,property_uuid,room_id,date' }));
+      }
       if (error) { failed = error; break; }
       done = Math.min(i + 500, rows.length);
     }
     btn.disabled = false;
     el('rt-progress').textContent = '';
-    if (failed) { Toast.error(`Wrote ${done} rows, then failed: ${failed.message}`); }
+    if (failed) { alert(`⚠ FILL INCOMPLETE — wrote ${done.toLocaleString()} of ${rows.length.toLocaleString()} rows, then failed: ${failed.message}\n\nRe-run the same Fill (it is idempotent) to complete the range.`); }
     else { Toast.success(`${rows.length.toLocaleString()} room-days filled.`); }
     if (typeof rcalLoad === 'function') rcalLoad();
   }
