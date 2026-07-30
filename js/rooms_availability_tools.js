@@ -207,6 +207,7 @@ const RcalTools = (() => {
         .select('room_id,date,status')
         .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
         .gte('date', from).lte('date', to)
+        .order('date', { ascending: true }).order('room_id', { ascending: true })
         .range(fromIdx, fromIdx + PAGE - 1);
       if (error) throw error;
       (data || []).forEach(r => {
@@ -214,10 +215,19 @@ const RcalTools = (() => {
         r.beds_available = r.status === 'open' ? bedsMap[r.room_id] : 0;
         all.push(r);
       });
+      // (dedupe happens after the loop)
       if (!data || data.length < PAGE) break;
       fromIdx += PAGE;
     }
-    return all;
+    // Defensive dedupe by room+date (protects against any duplicated rows)
+    const seen = new Set(); const out = [];
+    for (const r of all) {
+      const k = r.room_id + '|' + r.date;
+      if (seen.has(k)) continue;
+      seen.add(k); out.push(r);
+    }
+    if (out.length !== all.length) console.warn(`rcal fetch: ${all.length - out.length} duplicate room-day rows ignored`);
+    return out;
   }
 
   async function checkCoherence() {
@@ -235,8 +245,11 @@ const RcalTools = (() => {
         fetchAllRoomDays(propertyId, from, to),
       ]);
       if (hotelRes.error) throw hotelRes.error;
-      const hotel = {};
-      (hotelRes.data || []).forEach(h => { hotel[h.date] = h; });
+      const hotel = {}; const hotelDup = new Set();
+      (hotelRes.data || []).forEach(h => {
+        if (hotel[h.date]) hotelDup.add(h.date);
+        hotel[h.date] = h;
+      });
       const agg = {};
       roomDays.forEach(r => {
         const a = (agg[r.date] = agg[r.date] || { rooms: 0, beds: 0 });
@@ -264,8 +277,11 @@ const RcalTools = (() => {
         if (sig) issues.push({ d, sig });
       }
 
+      const dupWarn = hotelDup.size
+        ? `<div class="rt-issue">⚠ The hotel calendar has ${hotelDup.size} date(s) with MORE THAN ONE row for this property — duplicated rows must be cleaned in the availability_calendar table (the comparison below may be against either copy).</div>`
+        : '';
       if (!issues.length) {
-        out.innerHTML = `<div class="rt-ok">✓ Coherent: hotel calendar and rooms calendar agree on every day in the range.</div>`;
+        out.innerHTML = dupWarn + `<div class="rt-ok">✓ Coherent: hotel calendar and rooms calendar agree on every day in the range.</div>`;
         return;
       }
       // group consecutive dates with same signature
@@ -275,7 +291,7 @@ const RcalTools = (() => {
         if (g && g.sig === sig && new Date(d) - new Date(g.to) === 86400000) g.to = d;
         else groups.push({ from: d, to: d, sig });
       });
-      out.innerHTML = `<div style="margin-top:0.4rem;font-weight:600">${issues.length} day(s) with discrepancies, in ${groups.length} range(s):</div>` +
+      out.innerHTML = dupWarn + `<div style="margin-top:0.4rem;font-weight:600">${issues.length} day(s) with discrepancies, in ${groups.length} range(s):</div>` +
         groups.slice(0, 40).map(g =>
           `<div class="rt-issue">${g.from}${g.to !== g.from ? ' → ' + g.to : ''}: ${esc(g.sig)}</div>`).join('') +
         (groups.length > 40 ? `<div style="color:var(--text-muted);margin-top:0.3rem">…and ${groups.length - 40} more ranges</div>` : '');
