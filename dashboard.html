@@ -1572,8 +1572,6 @@
     <div class="field">
       <label>Constant or Variable?</label>
       <div class="toggle-wrap">
-        <button class="toggle-btn active" id="rattr-var-no"  onclick="rattrVarChanged(false)">Constant (per room)</button>
-        <button class="toggle-btn"        id="rattr-var-yes" onclick="rattrVarChanged(true)">Variable (per day)</button>
       </div>
       <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.3rem" id="rattr-var-hint">
         This attribute is a fixed property of the room.
@@ -1601,14 +1599,7 @@
         <button class="toggle-btn" id="rcal-status-closed" onclick="rcalSetStatus('closed')">Closed</button>
       </div>
     </div>
-    <div class="field" id="rcal-beds-wrap">
-      <label>Beds available</label>
-      <input type="number" id="rcal-cell-beds" min="0" max="999" style="width:100px">
-    </div>
-    <div class="field">
-      <label>Attributes</label>
-      <div id="rcal-cell-attrs" style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.3rem"></div>
-    </div>
+
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-rcal-cell')">Cancel</button>
       <button class="btn btn-primary" id="btn-rcal-cell-save">Apply</button>
@@ -1628,10 +1619,6 @@
         <option value="open">Open all</option>
         <option value="closed">Close all</option>
       </select>
-    </div>
-    <div class="field">
-      <label>Beds available (all days)</label>
-      <input type="number" id="rcal-row-beds" min="0" max="999" placeholder="Leave blank to keep existing" style="width:160px">
     </div>
     <div class="field">
       <label>Attributes (all days)</label>
@@ -3278,6 +3265,8 @@
 
   async function rcalLoad() {
     RcalTools.ensure();
+    const rraField = document.getElementById('rcal-row-attrs');
+    if (rraField && rraField.closest('.field')) rraField.closest('.field').style.display = 'none';
     const propertyId = document.getElementById('rcal-property').value;
     if (!propertyId) return;
 
@@ -3305,7 +3294,7 @@
       let from = 0;
       while (true) {
         const { data, error } = await sb.from('room_capacity_calendar')
-          .select('room_id,date,beds_available,status,attributes')
+          .select('room_id,date,status')
           .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
           .gte('date', fromDate).lte('date', toDate)
           .range(from, from + PAGE - 1);
@@ -3366,8 +3355,7 @@
 
   // System show modes always present
   const RCAL_SYSTEM_MODES = [
-    { id: 'status', label: 'Status',        color: '#22c55e' },
-    { id: 'beds',   label: 'Beds',          color: '#3D65A8' }
+    { id: 'status', label: 'Status',        color: '#22c55e' }
   ];
 
   function rcalRenderShowButtons() {
@@ -3386,21 +3374,8 @@
       container.appendChild(btn);
     });
 
-    // Variable attributes — auto-generated
-    const varAttrs = (rcalAttrs || []).filter(function(a) { return a.is_variable && a.status === 'active'; });
-    varAttrs.forEach(function(a) {
-      const btn = document.createElement('button');
-      btn.className = 'rcal-show-btn' + (rcalShowMode === a.attribute_code ? ' active' : '');
-      btn.id = 'rcal-show-' + a.attribute_code;
-      // Pick a colour based on type
-      const color = a.attribute_type === 'boolean' ? '#ec4899'
-                  : a.attribute_type === 'integer' ? '#f59e0b'
-                  : '#8b5cf6';
-      btn.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;' +
-        'background:' + color + ';margin-right:4px"></span>' + a.attribute_name;
-      btn.addEventListener('click', function() { rcalSetShow(a.attribute_code); });
-      container.appendChild(btn);
-    });
+    // Variable per-day attributes retired (see simplification, BD6):
+    // the calendar is room x day x status only.
   }
 
   function rcalSetShow(mode) {
@@ -3560,7 +3535,8 @@
       visibleRooms.forEach(function(r) {
         col.dates.forEach(function(date) {
           const day = rcalGetDay(r.id, date);
-          if (day && day.status === 'open') tot += (day.beds_available || 0);
+          // beds come from the rooms MASTER: open day = the room's beds
+          if (day && day.status === 'open') tot += (r.beds_per_room || 0);
         });
       });
       // For week/month: average per day to avoid inflated totals
@@ -4199,28 +4175,14 @@
     function rcalSetStatus(s) {
     document.getElementById('rcal-status-open').classList.toggle('active', s === 'open');
     document.getElementById('rcal-status-closed').classList.toggle('active', s === 'closed');
-    document.getElementById('rcal-beds-wrap').style.opacity = s === 'closed' ? '0.4' : '1';
   }
 
   document.getElementById('btn-rcal-cell-save').addEventListener('click', function() {
     const roomId = document.getElementById('rcal-cell-room-id').value;
     const dates  = JSON.parse(document.getElementById('rcal-cell-date').value);
-    const beds   = parseInt(document.getElementById('rcal-cell-beds').value) || 0;
     const status = document.getElementById('rcal-status-open').classList.contains('active') ? 'open' : 'closed';
-    const attrs = [];
-    document.querySelectorAll('#rcal-cell-attrs [data-code]').forEach(function(el) {
-      const code = el.dataset.code;
-      const type = el.dataset.type;
-      if (type === 'boolean' && el.checked) {
-        attrs.push({ code: code, value: true });
-      } else if (type === 'select' && el.value) {
-        attrs.push({ code: code, value: el.value });
-      } else if (type === 'text' && el.value.trim()) {
-        attrs.push({ code: code, value: el.value.trim() });
-      }
-    });
     dates.forEach(function(date) {
-      rcalSetDay(roomId, date, { beds_available: beds, status: status, attributes: attrs });
+      rcalSetDay(roomId, date, { status: status });
     });
     UI.closeModal('modal-rcal-cell');
     rcalRenderGrid();
@@ -4276,7 +4238,6 @@
     document.getElementById('rcal-row-room-id').value = roomId;
     document.getElementById('rcal-row-title').textContent = 'Edit — ' + roomName;
     document.getElementById('rcal-row-status').value = '';
-    document.getElementById('rcal-row-beds').value   = '';
     const container = document.getElementById('rcal-row-attrs');
     container.innerHTML = rcalAttrs.map(function(a) {
       return '<label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;' +
@@ -4289,9 +4250,6 @@
   document.getElementById('btn-rcal-row-save').addEventListener('click', function() {
     const roomId  = document.getElementById('rcal-row-room-id').value;
     const status  = document.getElementById('rcal-row-status').value || null;
-    const bedsRaw = document.getElementById('rcal-row-beds').value;
-    const beds    = bedsRaw !== '' ? parseInt(bedsRaw) : null;
-    const checked = Array.from(document.querySelectorAll('#rcal-row-attrs input:checked')).map(function(i) { return i.value; });
     // Apply to ALL dates currently loaded
     const cols = rcalBuildCols();
     const allDates = [];
@@ -4299,11 +4257,7 @@
     // Deduplicate
     const uniqueDates = allDates.filter(function(d, i) { return allDates.indexOf(d) === i; });
     uniqueDates.forEach(function(date) {
-      const upd = {};
-      if (status !== null) upd.status = status;
-      if (beds   !== null) upd.beds_available = beds;
-      if (checked.length > 0) upd.attributes = checked;
-      rcalSetDay(roomId, date, upd);
+      if (status !== null) rcalSetDay(roomId, date, { status: status });
     });
     UI.closeModal('modal-rcal-row');
     rcalRenderGrid();
@@ -5038,9 +4992,11 @@
   }
 
   function rattrVarChanged(isVar) {
-    _rattrIsVariable = isVar;
-    document.getElementById('rattr-var-no').classList.toggle('active', !isVar);
-    document.getElementById('rattr-var-yes').classList.toggle('active', isVar);
+    _rattrIsVariable = false; // variable per-day attributes retired (BD6)
+    const noEl = document.getElementById('rattr-var-no'), yesEl = document.getElementById('rattr-var-yes');
+    if (!noEl || !yesEl) return;
+    noEl.classList.toggle('active', !isVar);
+    yesEl.classList.toggle('active', isVar);
     document.getElementById('rattr-var-hint').textContent = isVar
       ? 'This attribute can change day to day (appears in Room Calendar).'
       : 'This attribute is a fixed property of the room (appears in Rooms tab).';

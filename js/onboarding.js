@@ -159,14 +159,17 @@ const Onboarding = (() => {
       const t = new Date();
       const mFrom = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-01`;
       const mTo = new Date(t.getFullYear(), t.getMonth() + 1, 0).toISOString().slice(0, 10);
-      const [h, r] = await Promise.all([
+      const [h, r, mrooms] = await Promise.all([
         sb.from('availability_calendar').select('date,status,number_of_rooms,number_of_beds').eq('company_id', cid).gte('date', mFrom).lte('date', mTo),
-        sb.from('room_capacity_calendar').select('date,beds_available,status').eq('company_id', cid).gte('date', mFrom).lte('date', mTo).limit(5000),
+        sb.from('room_capacity_calendar').select('date,room_id,status').eq('company_id', cid).gte('date', mFrom).lte('date', mTo).limit(5000),
+        sb.from('rooms').select('id,beds_per_room').eq('company_id', cid).eq('status', 'active').is('alias_of', null),
       ]);
       if (!h.error && !r.error) {
+        const bedsMap = {};
+        ((mrooms && mrooms.data) || []).forEach(x => { bedsMap[x.id] = x.beds_per_room || 0; });
         const agg = {};
         (r.data || []).forEach(x => { const a = (agg[x.date] = agg[x.date] || { rooms: 0, beds: 0 });
-          if (x.status === 'open') { a.rooms += 1; a.beds += (x.beds_available || 0); } });
+          if (x.status === 'open' && bedsMap[x.room_id] !== undefined) { a.rooms += 1; a.beds += bedsMap[x.room_id]; } });
         let bad = 0, checked = 0;
         (h.data || []).forEach(x => {
           if (x.status !== 'open') return;

@@ -63,11 +63,7 @@ const RcalTools = (() => {
           <button class="toggle-btn active" id="rt-status-open" onclick="RcalTools.setStatus('open')">Open</button>
           <button class="toggle-btn" id="rt-status-closed" onclick="RcalTools.setStatus('closed')">Closed</button>
         </div>
-        <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.8rem">
-          <input type="checkbox" id="rt-beds-default" checked onchange="RcalTools.toggleBedsInput()">
-          each room's default beds
-        </label>
-        <input type="number" class="rt-input" id="rt-beds" min="0" max="999" style="width:80px;display:none" placeholder="beds">
+        <span style="font-size:0.78rem;color:var(--text-muted)">(beds always come from each room's master)</span>
         <button class="btn btn-primary btn-sm" id="rt-apply" onclick="RcalTools.apply()">Fill →</button>
         <span id="rt-progress" style="font-size:0.78rem;color:var(--text-muted)"></span>
       </div>
@@ -133,10 +129,6 @@ const RcalTools = (() => {
     el('rt-status-closed').classList.toggle('active', s === 'closed');
   }
 
-  function toggleBedsInput() {
-    el('rt-beds').style.display = el('rt-beds-default').checked ? 'none' : '';
-  }
-
   function quickRange(kind) {
     const now = new Date();
     const y = now.getFullYear();
@@ -162,23 +154,18 @@ const RcalTools = (() => {
     if (!propertyId || !rooms.length || !from || !to || from > to) {
       Toast.error('Pick rooms and a valid date range first.'); return;
     }
-    const useDefault = el('rt-beds-default').checked;
-    const fixedBeds = parseInt(el('rt-beds').value);
-    if (!useDefault && (isNaN(fixedBeds) || fixedBeds < 0)) { Toast.error('Set the beds number.'); return; }
-
     const dates = datesBetween(from, to);
     const total = rooms.length * dates.length;
-    if (!confirm(`Fill ${rooms.length} room(s) × ${dates.length} day(s) = ${total.toLocaleString()} rows\n` +
-      `status=${fillStatus}, beds=${useDefault ? 'each room default' : fixedBeds}?\n\nExisting days in the range are overwritten.`)) return;
+    if (!confirm(`Fill ${rooms.length} room(s) × ${dates.length} day(s) = ${total.toLocaleString()} rows as ${fillStatus.toUpperCase()}?\n` +
+      `(beds are always each room's master value)\n\nExisting days in the range are overwritten.`)) return;
 
     const now = new Date().toISOString();
     const btn = el('rt-apply'); btn.disabled = true;
     const rows = [];
     for (const r of rooms) {
-      const beds = fillStatus === 'closed' ? 0 : (useDefault ? (r.beds_per_room || 1) : fixedBeds);
       for (const d of dates) {
         rows.push({ company_id: currentCompany.id, property_uuid: propertyId, property_id: propertyId,
-          room_id: r.id, date: d, beds_available: beds, status: fillStatus, updated_at: now });
+          room_id: r.id, date: d, status: fillStatus, updated_at: now });
       }
     }
     let done = 0, failed = null;
@@ -204,25 +191,29 @@ const RcalTools = (() => {
 
   // ── coherence check ────────────────────────────────────────────────────
   async function fetchAllRoomDays(propertyId, from, to) {
-    // Self-defense: rows belonging to ALIAS rooms (alias_of set) are
-    // excluded from every aggregation — even if legacy fills wrote them.
-    let aliasIds = new Set();
-    try {
-      const { data: aliasRooms } = await sb.from('rooms')
-        .select('id').eq('company_id', currentCompany.id)
-        .not('alias_of', 'is', null);
-      (aliasRooms || []).forEach(r => aliasIds.add(r.id));
-    } catch (e) { /* pre-migration: no column, nothing to exclude */ }
+    // Beds live ONLY in the rooms master now: an open day contributes the
+    // room's beds_per_room; the calendar itself is room x day x status.
+    // Alias and soft-deleted rooms never contribute (not in the map).
+    const { data: masterRooms } = await sb.from('rooms')
+      .select('id,beds_per_room')
+      .eq('company_id', currentCompany.id)
+      .eq('status', 'active').is('alias_of', null);
+    const bedsMap = {};
+    (masterRooms || []).forEach(r => { bedsMap[r.id] = r.beds_per_room || 0; });
 
     const PAGE = 1000; let fromIdx = 0; let all = [];
     for (;;) {
       const { data, error } = await sb.from('room_capacity_calendar')
-        .select('room_id,date,beds_available,status')
+        .select('room_id,date,status')
         .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
         .gte('date', from).lte('date', to)
         .range(fromIdx, fromIdx + PAGE - 1);
       if (error) throw error;
-      all = all.concat((data || []).filter(r => !aliasIds.has(r.room_id)));
+      (data || []).forEach(r => {
+        if (bedsMap[r.room_id] === undefined) return;
+        r.beds_available = r.status === 'open' ? bedsMap[r.room_id] : 0;
+        all.push(r);
+      });
       if (!data || data.length < PAGE) break;
       fromIdx += PAGE;
     }
@@ -404,5 +395,5 @@ const RcalTools = (() => {
     } finally { btn.disabled = false; }
   }
 
-  return { ensure, refreshRooms, scopeAll, toggleCat, setStatus, toggleBedsInput, quickRange, apply, checkCoherence, fillHotelFromRooms, ensureAvailPanel, afQuick, afApply };
+  return { ensure, refreshRooms, scopeAll, toggleCat, setStatus, quickRange, apply, checkCoherence, fillHotelFromRooms, ensureAvailPanel, afQuick, afApply };
 })();
