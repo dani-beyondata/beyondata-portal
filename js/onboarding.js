@@ -189,9 +189,15 @@ const Onboarding = (() => {
       label: 'Coherencia hotel ↔ habitaciones',
       detail: cohDetail });
 
-    // extras pricing readiness (only when the effective amount source is the master)
-    const pmsL = (currentCompany.pms || '').toLowerCase();
-    const extrasMode = params['extras_amount_source'] || (pmsL === 'littlehotelier' ? 'gold' : 'master');
+    // extras amount source: explicit, mandatory setting (never inferred)
+    const extrasMode = params['extras_amount_source'] || null;
+    items.push({ fase: 'f3', goto: 'settings', status: !!extrasMode,
+      label: 'Extras amount source seleccionado',
+      detail: extrasMode
+        ? `Configurado: ${extrasMode.toUpperCase()} (${extrasMode === 'gold' ? '€ reales del export' : 'unidades × tarifario del master'})`
+        : 'Sin configurar → Settings (la Producción Extras queda en blanco hasta elegirlo)' });
+
+    // extras pricing readiness (only meaningful once the source is master)
     if (extrasMode === 'master') {
       let unpriced = null;
       try {

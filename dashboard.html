@@ -2449,13 +2449,13 @@
       </div>
       <div class="param-row">
         <div class="param-info">
-          <h4>Extras amount source</h4>
-          <p>Where the € of extras comes from in reports: real amounts carried by the PMS export (Gold) or estimated as units × unit price from the Extras master (Master).${params.extras_amount_source ? '' : ` Not set yet — defaulting by PMS to <b>${(pms === 'littlehotelier' ? 'gold' : 'master').toUpperCase()}</b>; click to make it explicit.`}</p>
+          <h4>Extras amount source <span style="color:#dc2626">*</span></h4>
+          <p>Where the € of extras comes from in reports: real amounts carried by the PMS export (Gold) or estimated as units × unit price from the Extras master (Master). Required — reports leave Extras Production BLANK until it is set.${params.extras_amount_source ? '' : ' <b style="color:#b45309">⚠ Not configured.</b>'}</p>
         </div>
         <div class="toggle-wrap">
-          <button class="toggle-btn ${(params.extras_amount_source || (pms === 'littlehotelier' ? 'gold' : 'master')) === 'gold' ? 'active' : ''}"
+          <button class="toggle-btn ${params.extras_amount_source === 'gold' ? 'active' : ''}"
             ${isAdmin ? `onclick="setParam('extras_amount_source','gold')"` : 'disabled'}>Gold (real €)</button>
-          <button class="toggle-btn ${(params.extras_amount_source || (pms === 'littlehotelier' ? 'gold' : 'master')) === 'master' ? 'active' : ''}"
+          <button class="toggle-btn ${params.extras_amount_source === 'master' ? 'active' : ''}"
             ${isAdmin ? `onclick="setParam('extras_amount_source','master')"` : 'disabled'}>Master (tarifario)</button>
         </div>
       </div>
