@@ -177,7 +177,7 @@ const MastersSetup = (() => {
           beds_per_room: physical ? 0 : (extraFields?.beds_per_room || 1),
           property_uuid: extraFields?.property_uuid || null,
           property_id: extraFields?.property_id || null,
-          status: physical ? 'inactive' : 'active',
+          status: physical ? 'alias' : 'active',
         };
         if (physical && window._roomsHasAliasCol !== false) roomRow.alias_of = physical.id;
         let { error } = await sb.from('rooms').insert(roomRow);

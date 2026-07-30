@@ -5112,6 +5112,8 @@
       'It will become its OWN room (name reset to "' + room.raw_value + '", kept inactive):\n' +
       '1) Edit it to set its real name, category and beds\n2) Enable it when ready.\n\n' +
       'Its historical sales will count under its own name from then on.')) return;
+    // parked as 'inactive' on purpose: a just-detached room does not exist
+    // operationally until it is configured and enabled (brief transition)
     const upd = { display_name: room.raw_value, status: 'inactive' };
     if (window._roomsHasAliasCol !== false) upd.alias_of = null;
     const { error } = await Rooms.update(id, upd);
@@ -5239,7 +5241,7 @@
 
     // Save core room fields (alias conversion forces the coherent shape)
     const roomFields = asAlias
-      ? { display_name, category_id: clashPhys.category_id || category_id, beds_per_room: 0, status: 'inactive',
+      ? { display_name, category_id: clashPhys.category_id || category_id, beds_per_room: 0, status: 'alias',
           ...(window._roomsHasAliasCol !== false ? { alias_of: clashPhys.id } : {}) }
       : { display_name, category_id, beds_per_room,
           ...(window._roomsHasAliasCol !== false ? { alias_of: null } : {}) };
@@ -5297,7 +5299,7 @@
     UI.setLoading('btn-save-room', true, 'Save');
     const { error } = await Rooms.create(currentCompany.id, propertyId, { raw_value, display_name, category_id, beds_per_room });
     if (!error && asAlias) {
-      const aliasUpd = { status: 'inactive' };
+      const aliasUpd = { status: 'alias' };
       if (window._roomsHasAliasCol !== false) aliasUpd.alias_of = clashRow.id;
       await sb.from('rooms').update(aliasUpd)
         .eq('company_id', currentCompany.id).eq('property_id', propertyId).eq('raw_value', raw_value);
