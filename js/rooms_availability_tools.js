@@ -352,7 +352,30 @@ const RcalTools = (() => {
       if (error) { failed = error; break; }
     }
     if (failed) { Toast.error('Failed: ' + failed.message); return; }
-    Toast.success(`Hotel calendar filled for ${days.length} day(s) from the rooms data.`);
+
+    // WRITE VERIFICATION: never trust a silent success — re-read 3 sample
+    // dates and compare with what we claim to have written.
+    const samples = [rows[0], rows[Math.floor(rows.length / 2)], rows[rows.length - 1]];
+    const { data: readBack, error: rbErr } = await sb.from('availability_calendar')
+      .select('date,status,number_of_rooms,number_of_beds')
+      .eq('company_id', currentCompany.id).eq('property_uuid', propertyId)
+      .in('date', samples.map(x => x.date));
+    if (rbErr) { alert('⚠ Fill reported OK but verification read failed: ' + rbErr.message); return; }
+    const byDate = {}; (readBack || []).forEach(x => { byDate[x.date] = x; });
+    const bad = samples.filter(x => {
+      const got = byDate[x.date];
+      return !got || got.number_of_beds !== x.number_of_beds ||
+             got.number_of_rooms !== x.number_of_rooms || got.status !== x.status;
+    });
+    if (bad.length) {
+      const d = bad[0]; const got = byDate[d.date];
+      alert('⚠ GHOST WRITE DETECTED: the upsert reported success but the table does NOT hold the new values.\n\n' +
+        `Sample ${d.date}: wrote rooms=${d.number_of_rooms}, beds=${d.number_of_beds}, status=${d.status}\n` +
+        `table has: ${got ? `rooms=${got.number_of_rooms}, beds=${got.number_of_beds}, status=${got.status}` : 'NO ROW'}\n\n` +
+        'Likely an RLS policy or constraint issue on availability_calendar — copy this message to Claude.');
+      return;
+    }
+    Toast.success(`Hotel calendar filled for ${days.length} day(s) from the rooms data (verified).`);
     return days.length;
   }
 
