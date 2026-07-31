@@ -765,11 +765,15 @@ const MastersSetup = (() => {
               <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
             </div>`;
         } else {
+          // Smart prefill: drop a trailing parenthesized token (CIF, codes)
+          // — "Travelsens, S.L (B57727901)" -> "Travelsens, S.L". Editable.
+          const prefill = String(value).replace(/\s*\([^()]*\)\s*$/, '').trim();
           actionHtml = `
             <div style="display:flex;gap:0.4rem;align-items:center">
-              <input type="text" placeholder="Display name to show in reports"
+              <input type="text" placeholder="Display name"
                      data-role="display-name-input" data-value="${escapeAttr(value)}"
-                     style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;width:180px">
+                     value="${escapeAttr(prefill)}"
+                     style="font-size:0.85rem;padding:0.3rem 0.5rem;border:1px solid var(--border,#ccc);border-radius:4px;flex:1;min-width:220px;max-width:340px">
               <button class="btn btn-primary btn-sm" data-action="add" data-value="${escapeAttr(value)}">+ Add</button>
             </div>`;
         }
