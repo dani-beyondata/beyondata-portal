@@ -25,6 +25,7 @@ const MastersSetup = (() => {
     rooms: ['room_code_raw', 'room_code', 'room_number'],
     extras_catalog: ['raw_value', 'product', 'extra', 'product_name'],
     channels: ['reservation_source', 'channel', 'source'],
+    corporations: ['corporation', 'company', 'corporate', 'business'],
     otas: ['ota', 'travel_agency', 'travel agency'],
   };
 
@@ -243,6 +244,29 @@ const MastersSetup = (() => {
           rate_type:       extraFields?.rate_type       || 'gross',
           avg_cost_pct: 0,
           status: 'active',
+        });
+        if (error) throw error;
+      },
+    },
+    // corporations: matches the corporation column (Mews "Company") from
+    // reservations_clean.csv. Simple raw -> display mapping like otas.
+    corporations: {
+      table: 'corporations',
+      matchColumn: 'raw_value',
+      actionType: 'text',
+      async fetchExisting(companyId) {
+        const { data, error } = await sb
+          .from('corporations')
+          .select('id, raw_value, display_name, status')
+          .eq('company_id', companyId);
+        if (error) throw error;
+        return data || [];
+      },
+      async addValue(companyId, rawValue, displayName) {
+        const { error } = await sb.from('corporations').insert({
+          company_id: companyId,
+          raw_value: rawValue,
+          display_name: displayName || rawValue,
         });
         if (error) throw error;
       },
@@ -1142,6 +1166,7 @@ const MastersSetup = (() => {
       { value: 'client_country_mapping', label: 'Client Country Mapping' },
       { value: 'channels',               label: 'Channels' },
       { value: 'otas',                   label: 'OTAs' },
+      { value: 'corporations',           label: 'Corporate' },
     ],
     nights: [
       { value: 'room_categories', label: 'Room Categories' },

@@ -1139,6 +1139,7 @@
         <button class="subtab active" onclick="showSubtab('channels','types')" id="subtab-channels-types">Types & Subtypes</button>
         <button class="subtab" onclick="showSubtab('channels','list')" id="subtab-channels-list">Channels</button>
         <button class="subtab" onclick="showSubtab('channels','otas')" id="subtab-channels-otas">OTAs</button>
+        <button class="subtab" onclick="showSubtab('channels','corporate')" id="subtab-channels-corporate">Corporate</button>
       </div>
 
       <!-- Types & Subtypes subpage -->
@@ -1171,6 +1172,20 @@
               <th>Raw value</th><th>Display name</th><th>Type</th><th>Subtype</th><th>Avg Cost %</th><th>Rate type</th><th>Status</th><th></th>
             </tr></thead>
             <tbody id="channels-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Corporate subpage -->
+      <div class="subpage" id="subpage-channels-corporate">
+        <div class="action-bar">
+          <h3 id="corporations-count"></h3>
+          <button class="btn btn-primary" id="btn-add-corporation">+ Add corporate</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Raw value</th><th>Display name</th><th>Status</th><th></th></tr></thead>
+            <tbody id="corporations-tbody"></tbody>
           </table>
         </div>
       </div>
@@ -1691,6 +1706,20 @@
   </div>
 </div>
 
+<!-- Modal: Add/Edit Corporation -->
+<div class="modal-overlay" id="modal-corporation">
+  <div class="modal">
+    <h3 id="corporation-modal-title">Add corporate</h3>
+    <div class="alert error" id="corporation-error"></div>
+    <div class="field"><label>Raw value (from Company column)</label><input type="text" id="corporation-id-input" placeholder="e.g. ACME Logistics S.L."></div>
+    <div class="field"><label>Display name (for reports)</label><input type="text" id="corporation-name-input" placeholder="e.g. ACME"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-corporation')">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-corporation">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Add/Edit OTA -->
 <div class="modal-overlay" id="modal-ota">
   <div class="modal">
@@ -1716,6 +1745,7 @@
 <script src="js/channels.js"></script>
 <script src="js/channel_subtypes.js"></script>
 <script src="js/otas.js"></script>
+<script src="js/corporations.js"></script>
 <script src="js/users.js"></script>
 <script src="js/params.js"></script>
 <script src="js/segments.js"></script>
@@ -2653,6 +2683,77 @@
     loadChannels();
   });
 
+  // ── CORPORATIONS (business accounts) ──────────────────────────────
+  async function loadCorporations() {
+    UI.tableLoading('corporations-tbody', 4);
+    const { data, error } = await Corporations.getByCompany(currentCompany.id);
+    if (error || !data?.length) {
+      UI.tableEmpty('corporations-tbody', 4, 'No corporate accounts yet.');
+      document.getElementById('corporations-count').textContent = '0 corporate accounts';
+      return;
+    }
+    window._corporationsData = data;
+    document.getElementById('corporations-count').textContent = `${data.length} corporate account${data.length === 1 ? '' : 's'}`;
+    document.getElementById('corporations-tbody').innerHTML = data.map(o => `
+      <tr>
+        <td>${UI.mono(o.raw_value || '—')}</td>
+        <td>${o.display_name || '—'}</td>
+        <td>${UI.badge(o.status || 'active', (o.status || 'active') === 'active' ? 'active' : 'inactive')}</td>
+        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="editCorporation('${o.id}')">Edit</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleCorporation('${o.id}','${o.status || 'active'}')">
+          ${(o.status || 'active') === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
+      </tr>
+    `).join('');
+  }
+
+  function editCorporation(id) {
+    const o = (window._corporationsData || []).find(x => x.id === id);
+    if (!o) return;
+    window._editingCorporationId = id;
+    document.getElementById('corporation-modal-title').textContent = 'Edit corporate';
+    document.getElementById('corporation-id-input').value = o.raw_value || '';
+    document.getElementById('corporation-id-input').readOnly = true;
+    document.getElementById('corporation-id-input').style.opacity = '0.6';
+    document.getElementById('corporation-name-input').value = o.display_name || '';
+    UI.hideAlert('corporation-error');
+    UI.openModal('modal-corporation');
+  }
+
+  async function toggleCorporation(id, status) {
+    await Corporations.toggleStatus(id, status);
+    loadCorporations();
+  }
+
+  document.getElementById('btn-add-corporation').addEventListener('click', () => {
+    window._editingCorporationId = null;
+    document.getElementById('corporation-modal-title').textContent = 'Add corporate';
+    document.getElementById('corporation-id-input').value = '';
+    document.getElementById('corporation-id-input').readOnly = false;
+    document.getElementById('corporation-id-input').style.opacity = '1';
+    document.getElementById('corporation-name-input').value = '';
+    UI.hideAlert('corporation-error');
+    UI.openModal('modal-corporation');
+  });
+
+  document.getElementById('btn-save-corporation').addEventListener('click', async () => {
+    const display_name = document.getElementById('corporation-name-input').value.trim();
+    UI.hideAlert('corporation-error');
+    if (!display_name) { UI.showAlert('corporation-error', 'Display name is required.'); return; }
+    const fields = { display_name };
+    if (!window._editingCorporationId) {
+      fields.raw_value = document.getElementById('corporation-id-input').value.trim();
+      if (!fields.raw_value) { UI.showAlert('corporation-error', 'Raw value is required.'); return; }
+    }
+    UI.setLoading('btn-save-corporation', true, 'Save');
+    const { error } = window._editingCorporationId
+      ? await Corporations.update(window._editingCorporationId, fields)
+      : await Corporations.create(currentCompany.id, fields);
+    UI.setLoading('btn-save-corporation', false, 'Save');
+    if (error) { UI.showAlert('corporation-error', error.message); return; }
+    UI.closeModal('modal-corporation');
+    loadCorporations();
+  });
+
   // ── OTAS ──────────────────────────────────────────────────────────
   async function loadOtas() {
     UI.tableLoading('otas-tbody', 4);
@@ -2934,6 +3035,7 @@
       if (tab === 'types') loadChannelSubtypes();
       if (tab === 'list') loadChannels();
       if (tab === 'otas') loadOtas();
+      if (tab === 'corporate') loadCorporations();
     }
     if (section === 'markets') {
       if (tab === 'client-mapping') loadClientCountryMapping();
