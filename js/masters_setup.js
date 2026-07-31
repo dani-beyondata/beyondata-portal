@@ -824,10 +824,10 @@ const MastersSetup = (() => {
 
       return `
         <tr>
-          <td>${escapeHtml(value)}</td>
-          <td>${count}</td>
-          <td>${statusHtml}</td>
-          <td>${actionHtml}</td>
+          <td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeAttr(value)}">${escapeHtml(value)}</td>
+          <td style="white-space:nowrap">${count}</td>
+          <td style="white-space:nowrap">${statusHtml}</td>
+          <td style="min-width:320px">${actionHtml}</td>
         </tr>`;
     }).join('');
 
@@ -978,11 +978,12 @@ const MastersSetup = (() => {
               await config.addValue(currentCompany.id, item.value, item.second, item.extraFields || null);
             }
             done++;
-          } catch (e) { failed++; }
+          } catch (e) { failed++; if (!window._msFirstBulkError) window._msFirstBulkError = e.message || String(e); }
         }
         const skipped = rows.length - ready.length - aliasSkipped.length;
+        const firstErr = window._msFirstBulkError; window._msFirstBulkError = null;
         UI.showAlert('ms-file-error',
-          `Bulk add finished: ${done} added${failed ? `, ${failed} failed` : ''}${skipped > 0 ? `, ${skipped} skipped (incomplete)` : ''}` +
+          `Bulk add finished: ${done} added${failed ? `, ${failed} failed — first error: "${firstErr}"` : ''}${skipped > 0 ? `, ${skipped} skipped (incomplete)` : ''}` +
           (aliasSkipped.length ? `, ${aliasSkipped.length} excluded as possible ALIASES (${aliasSkipped.join(', ')}) — add those individually with + Add.` : '') + '.');
         await renderResults(masterKey, column);
         updateMemoryCounts();
