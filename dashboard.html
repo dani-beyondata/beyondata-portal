@@ -2699,8 +2699,8 @@
         <td>${UI.mono(o.raw_value || '—')}</td>
         <td>${o.display_name || '—'}</td>
         <td>${UI.badge(o.status || 'active', (o.status || 'active') === 'active' ? 'active' : 'inactive')}</td>
-        <td>${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="editCorporation('${o.id}')">Edit</button>
-          <button class="btn btn-secondary btn-sm" onclick="toggleCorporation('${o.id}','${o.status || 'active'}')">
+        <td style="white-space:nowrap;text-align:right">${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="editCorporation('${o.id}')">Edit</button>
+          <button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="toggleCorporation('${o.id}','${o.status || 'active'}')">
           ${(o.status || 'active') === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}</td>
       </tr>
     `).join('');
