@@ -1139,7 +1139,7 @@
         <button class="subtab active" onclick="showSubtab('channels','types')" id="subtab-channels-types">Types & Subtypes</button>
         <button class="subtab" onclick="showSubtab('channels','list')" id="subtab-channels-list">Channels</button>
         <button class="subtab" onclick="showSubtab('channels','otas')" id="subtab-channels-otas">OTAs</button>
-        <button class="subtab" onclick="showSubtab('channels','corporate')" id="subtab-channels-corporate">Corporate</button>
+        <button class="subtab" onclick="showSubtab('channels','corporate')" id="subtab-channels-corporate">Corporations</button>
       </div>
 
       <!-- Types & Subtypes subpage -->
@@ -1180,7 +1180,7 @@
       <div class="subpage" id="subpage-channels-corporate">
         <div class="action-bar">
           <h3 id="corporations-count"></h3>
-          <button class="btn btn-primary" id="btn-add-corporation">+ Add corporate</button>
+          <button class="btn btn-primary" id="btn-add-corporation">+ Add corporation</button>
         </div>
         <div class="table-wrap">
           <table>
@@ -1709,7 +1709,7 @@
 <!-- Modal: Add/Edit Corporation -->
 <div class="modal-overlay" id="modal-corporation">
   <div class="modal">
-    <h3 id="corporation-modal-title">Add corporate</h3>
+    <h3 id="corporation-modal-title">Add corporation</h3>
     <div class="alert error" id="corporation-error"></div>
     <div class="field"><label>Raw value (from Company column)</label><input type="text" id="corporation-id-input" placeholder="e.g. ACME Logistics S.L."></div>
     <div class="field"><label>Display name (for reports)</label><input type="text" id="corporation-name-input" placeholder="e.g. ACME"></div>
@@ -2688,12 +2688,12 @@
     UI.tableLoading('corporations-tbody', 4);
     const { data, error } = await Corporations.getByCompany(currentCompany.id);
     if (error || !data?.length) {
-      UI.tableEmpty('corporations-tbody', 4, 'No corporate accounts yet.');
-      document.getElementById('corporations-count').textContent = '0 corporate accounts';
+      UI.tableEmpty('corporations-tbody', 4, 'No corporations yet.');
+      document.getElementById('corporations-count').textContent = '0 corporations';
       return;
     }
     window._corporationsData = data;
-    document.getElementById('corporations-count').textContent = `${data.length} corporate account${data.length === 1 ? '' : 's'}`;
+    document.getElementById('corporations-count').textContent = `${data.length} corporation${data.length === 1 ? '' : 's'}`;
     document.getElementById('corporations-tbody').innerHTML = data.map(o => `
       <tr>
         <td>${UI.mono(o.raw_value || '—')}</td>
@@ -2710,7 +2710,7 @@
     const o = (window._corporationsData || []).find(x => x.id === id);
     if (!o) return;
     window._editingCorporationId = id;
-    document.getElementById('corporation-modal-title').textContent = 'Edit corporate';
+    document.getElementById('corporation-modal-title').textContent = 'Edit corporation';
     document.getElementById('corporation-id-input').value = o.raw_value || '';
     document.getElementById('corporation-id-input').readOnly = true;
     document.getElementById('corporation-id-input').style.opacity = '0.6';
@@ -2726,7 +2726,7 @@
 
   document.getElementById('btn-add-corporation').addEventListener('click', () => {
     window._editingCorporationId = null;
-    document.getElementById('corporation-modal-title').textContent = 'Add corporate';
+    document.getElementById('corporation-modal-title').textContent = 'Add corporation';
     document.getElementById('corporation-id-input').value = '';
     document.getElementById('corporation-id-input').readOnly = false;
     document.getElementById('corporation-id-input').style.opacity = '1';

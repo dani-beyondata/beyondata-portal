@@ -1171,7 +1171,7 @@ const MastersSetup = (() => {
       { value: 'client_country_mapping', label: 'Client Country Mapping' },
       { value: 'channels',               label: 'Channels' },
       { value: 'otas',                   label: 'OTAs' },
-      { value: 'corporations',           label: 'Corporate' },
+      { value: 'corporations',           label: 'Corporations' },
     ],
     nights: [
       { value: 'room_categories', label: 'Room Categories' },
