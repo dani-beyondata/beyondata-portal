@@ -67,9 +67,14 @@ const DataUpload = (() => {
   function updatePathHint() {
     const { pcode, entity } = sel();
     const dz = document.getElementById('du-dropzone');
-    if (pcode === '*') {
+    const wildcard = pcode === '*' || entity === '*';
+    if (wildcard) {
+      const pPart = pcode === '*' ? '·property·' : pcode;
+      const ePart = entity === '*' ? '·entity·' : entity;
+      const need = [pcode === '*' ? 'a property' : null, entity === '*' ? 'an entity' : null]
+        .filter(Boolean).join(' and ');
       document.getElementById('du-path-hint').textContent =
-        `${RAW_BUCKET}/${currentClientCode()}/${currentPms()}/·property·/${entity}/file/ — pick a property to upload`;
+        `${RAW_BUCKET}/${currentClientCode()}/${currentPms()}/${pPart}/${ePart}/file/ — pick ${need} to upload`;
       if (dz) { dz.style.opacity = '0.45'; dz.style.pointerEvents = 'none'; }
     } else {
       document.getElementById('du-path-hint').textContent = `${RAW_BUCKET}/${prefix()}/`;
@@ -127,10 +132,13 @@ const DataUpload = (() => {
     const el = document.getElementById('du-entity');
     const prev = el.value;
     const ents = uploadEntities();
-    el.innerHTML = ents.map(e =>
-      `<option value="${escAttr(e)}">${escapeHtml(e.charAt(0).toUpperCase() + e.slice(1))}</option>`
-    ).join('');
-    if (ents.includes(prev)) el.value = prev;
+    // "All" is the default VIEW (the raw browser is panoramic anyway);
+    // uploading requires picking a concrete entity, same as property.
+    el.innerHTML = `<option value="*">All entities (${ents.length})</option>` +
+      ents.map(e =>
+        `<option value="${escAttr(e)}">${escapeHtml(e.charAt(0).toUpperCase() + e.slice(1))}</option>`
+      ).join('');
+    if (prev && (prev === '*' || ents.includes(prev))) el.value = prev;
   }
 
   function renderRunEntities() {
@@ -236,8 +244,8 @@ const DataUpload = (() => {
         for (const f of (data || [])) {
           if (!f.name || f.name.startsWith('.') || !/\.(xlsx|xls|csv)$/i.test(f.name)) continue;
           all.push({ ...f, _entity: ent, _pcode: pc });
-          // overwrite-warning semantics: selected entity, concrete property
-          if (pcode !== '*' && ent === selectedEntity) existingNames.add(f.name.toLowerCase());
+          // overwrite-warning semantics: concrete property AND concrete entity
+          if (pcode !== '*' && selectedEntity !== '*' && ent === selectedEntity) existingNames.add(f.name.toLowerCase());
         }
       }
     }
