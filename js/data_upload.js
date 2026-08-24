@@ -65,7 +65,16 @@ const DataUpload = (() => {
   }
 
   function updatePathHint() {
-    document.getElementById('du-path-hint').textContent = `${RAW_BUCKET}/${prefix()}/`;
+    const { pcode, entity } = sel();
+    const dz = document.getElementById('du-dropzone');
+    if (pcode === '*') {
+      document.getElementById('du-path-hint').textContent =
+        `${RAW_BUCKET}/${currentClientCode()}/${currentPms()}/·property·/${entity}/file/ — pick a property to upload`;
+      if (dz) { dz.style.opacity = '0.45'; dz.style.pointerEvents = 'none'; }
+    } else {
+      document.getElementById('du-path-hint').textContent = `${RAW_BUCKET}/${prefix()}/`;
+      if (dz) { dz.style.opacity = '1'; dz.style.pointerEvents = 'auto'; }
+    }
     const srcEl = document.getElementById('du-source-display');
     if (srcEl) srcEl.textContent = pmsLabel();
   }
@@ -142,6 +151,8 @@ const DataUpload = (() => {
   }
 
   // ── properties / listings ──────────────────────────────────────────────
+  let allProps = [];   // company property census (drives the "All" view + chips)
+
   async function loadProperties() {
     const selEl = document.getElementById('du-property');
     const { data, error } = await sb.from('properties')
@@ -149,14 +160,31 @@ const DataUpload = (() => {
       .eq('company_id', currentCompany.id)
       .order('property_id');
     if (error || !data?.length) {
+      allProps = [];
       selEl.innerHTML = '<option value="">No properties found</option>';
       return;
     }
-    selEl.innerHTML = data.map(p =>
-      `<option value="${p.property_id}">${p.property_id}${p.property_name ? ' — ' + p.property_name : ''}</option>`
-    ).join('');
+    allProps = data;
+    // "All" is the default VIEW; uploading still requires picking one
+    // concrete property (the filename prefix and raw path need it).
+    selEl.innerHTML =
+      `<option value="*">All properties (${data.length})</option>` +
+      data.map(p =>
+        `<option value="${p.property_id}">${p.property_id}${p.property_name ? ' — ' + p.property_name : ''}</option>`
+      ).join('');
     updatePathHint();
     listFiles(); listGold();
+  }
+
+  // Stable chip color per property (distinct palette from entity chips)
+  function propColor(pcode) {
+    const pal = ['#0e7490', '#9333ea', '#ca8a04', '#dc2626', '#16a34a', '#2563eb', '#c2410c', '#4f46e5'];
+    const i = Math.max(0, allProps.findIndex(p => p.property_id === pcode));
+    return pal[i % pal.length];
+  }
+  function propTag(pcode) {
+    const c = propColor(pcode);
+    return `<span style="display:inline-block;font-size:0.7rem;font-weight:600;padding:0.12rem 0.55rem;border-radius:999px;background:${c}18;color:${c}">${escapeHtml(pcode)}</span>`;
   }
 
   // Fixed brand-ish colors for known entities; unknown future entities
@@ -176,8 +204,8 @@ const DataUpload = (() => {
     return `<span style="display:inline-block;font-size:0.7rem;font-weight:600;padding:0.12rem 0.55rem;border-radius:999px;background:${c}18;color:${c}">${escapeHtml(e)}</span>`;
   }
 
-  function prefixFor(entity) {
-    const { pcode } = sel();
+  function prefixFor(entity, pcodeOverride) {
+    const pcode = pcodeOverride ?? sel().pcode;
     return `${currentClientCode()}/${currentPms()}/${pcode}/${entity}/file`;
   }
 
@@ -188,44 +216,49 @@ const DataUpload = (() => {
     const countEl = document.getElementById('du-browser-count');
     existingNames = new Set();
     if (!pcode) {
-      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted)">Select a property…</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted)">Select a property…</td></tr>';
       countEl.textContent = '';
       return;
     }
 
-    // One listing per direct-upload entity: the browser always shows the
-    // whole property's raw picture, not just the selected entity's folder.
+    // One listing per direct-upload entity — and per property when the
+    // "All" view is active. Every row remembers its property for the chip
+    // and for building its own delete path.
     const entities = uploadEntities();
+    const pcodes = pcode === '*' ? allProps.map(p => p.property_id) : [pcode];
     const all = [];
     let firstError = null;
-    for (const ent of entities) {
-      const { data, error } = await sb.storage.from(RAW_BUCKET)
-        .list(prefixFor(ent), { limit: 200, sortBy: { column: 'name', order: 'asc' } });
-      if (error) { firstError = firstError || error; continue; }
-      for (const f of (data || [])) {
-        if (!f.name || f.name.startsWith('.') || !/\.(xlsx|xls|csv)$/i.test(f.name)) continue;
-        all.push({ ...f, _entity: ent });
-        // overwrite-warning semantics stay scoped to the SELECTED entity
-        if (ent === selectedEntity) existingNames.add(f.name.toLowerCase());
+    for (const pc of pcodes) {
+      for (const ent of entities) {
+        const { data, error } = await sb.storage.from(RAW_BUCKET)
+          .list(prefixFor(ent, pc), { limit: 200, sortBy: { column: 'name', order: 'asc' } });
+        if (error) { firstError = firstError || error; continue; }
+        for (const f of (data || [])) {
+          if (!f.name || f.name.startsWith('.') || !/\.(xlsx|xls|csv)$/i.test(f.name)) continue;
+          all.push({ ...f, _entity: ent, _pcode: pc });
+          // overwrite-warning semantics: selected entity, concrete property
+          if (pcode !== '*' && ent === selectedEntity) existingNames.add(f.name.toLowerCase());
+        }
       }
     }
     if (firstError && !all.length) {
-      tbody.innerHTML = `<tr><td colspan="6" style="color:#dc2626">${escapeHtml(firstError.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="color:#dc2626">${escapeHtml(firstError.message)}</td></tr>`;
       countEl.textContent = '';
       return;
     }
     countEl.textContent = all.length ? `${all.length} file${all.length > 1 ? 's' : ''}` : 'empty';
 
     if (!all.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted)">No files yet for this property.</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="7" style="color:var(--text-muted)">${pcode === '*' ? 'No files yet for any property.' : 'No files yet for this property.'}</td></tr>`;
       return;
     }
-    all.sort((a, b) => a._entity.localeCompare(b._entity) || a.name.localeCompare(b.name));
+    all.sort((a, b) => a._pcode.localeCompare(b._pcode) || a._entity.localeCompare(b._entity) || a.name.localeCompare(b.name));
     tbody.innerHTML = all.map(f => {
       const size = fmtSize(f.metadata?.size);
       const when = f.updated_at ? new Date(f.updated_at).toLocaleString() : '—';
-      const full = `${prefixFor(f._entity)}/${f.name}`;
+      const full = `${prefixFor(f._entity, f._pcode)}/${f.name}`;
       return `<tr>
+        <td>${propTag(f._pcode)}</td>
         <td>${entityTag(f._entity)}</td>
         <td style="font-family:monospace;font-size:0.8rem">${escapeHtml(f.name)}</td>
         <td style="font-size:0.8rem">${periodOf(f.name)}</td>
@@ -452,15 +485,11 @@ const DataUpload = (() => {
   const GOLD_FILES = ['reservations_clean.csv', 'nights_clean.csv', 'extras_clean.csv', 'extras_master.csv'];
 
   async function listGold() {
-    const { pcode } = sel();
     const tbody = document.getElementById('du-gold-tbody');
     const countEl = document.getElementById('du-gold-count');
-    if (!pcode) {
-      tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-muted)">Select a property…</td></tr>';
-      countEl.textContent = '';
-      return;
-    }
-    const goldPrefix = `${currentClientCode()}/${pcode}`;
+    // Gold is COMPANY-level since the multi-property consolidation: one
+    // file per entity for the whole company, rows carry property_id.
+    const goldPrefix = currentClientCode();
     const { data, error } = await sb.storage.from(GOLD_BUCKET)
       .list(goldPrefix, { limit: 100 });
     if (error) {
