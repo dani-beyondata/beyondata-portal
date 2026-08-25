@@ -441,15 +441,27 @@ const MastersSetup = (() => {
   // picking a different option before clicking Add.
   function guessCountryCode(rawValue, countryOptions) {
     const needle = rawValue.toLowerCase().trim();
+
+    // ISO-code match FIRST: raw values are very often the code itself
+    // ("ES", "FR"). Without this, 2-letter raws fall into the substring
+    // fallback and match any name containing those letters
+    // (ES -> Bangladesh, AR -> Antarctica...).
+    const byCode = countryOptions.find(c =>
+      (c.country_code || '').toLowerCase().trim() === needle);
+    if (byCode) return byCode.country_code;
+
     const exact = countryOptions.find(c => c.country_name.toLowerCase().trim() === needle);
     if (exact) return exact.country_code;
 
-    const contains = countryOptions.find(c => {
-      const name = c.country_name.toLowerCase().trim();
-      return needle.includes(name) || name.includes(needle);
-    });
-    if (contains) return contains.country_code;
-
+    // Substring fallback only for values long enough to be meaningful —
+    // 2-3 letter raws that reached here are unknown codes, not names.
+    if (needle.length >= 4) {
+      const contains = countryOptions.find(c => {
+        const name = c.country_name.toLowerCase().trim();
+        return needle.includes(name) || name.includes(needle);
+      });
+      if (contains) return contains.country_code;
+    }
     return null;
   }
 
