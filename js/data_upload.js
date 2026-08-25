@@ -64,9 +64,27 @@ const DataUpload = (() => {
     return m ? `${m[1]} → ${m[2]}` : '—';
   }
 
+  function syncDestStrip() {
+    const pSel = document.getElementById('du-dz-property');
+    const eSel = document.getElementById('du-dz-entity');
+    const ok = document.getElementById('du-dest-ok');
+    if (!pSel || !eSel) return;
+    const { pcode, entity } = sel();
+    pSel.innerHTML = `<option value="*">— choose property —</option>` +
+      allProps.map(pr => `<option value="${escAttr(pr.property_id)}">${escapeHtml(pr.property_id)}</option>`).join('');
+    pSel.value = pcode || '*';
+    const ents = uploadEntities();
+    eSel.innerHTML = `<option value="*">— choose entity —</option>` +
+      ents.map(e => `<option value="${escAttr(e)}">${escapeHtml(e.charAt(0).toUpperCase() + e.slice(1))}</option>`).join('');
+    eSel.value = ents.includes(entity) ? entity : '*';
+    if (ok) ok.textContent = (pSel.value !== '*' && eSel.value !== '*')
+      ? '→ drop below' : 'pick both to enable the drop zone';
+  }
+
   function updatePathHint() {
     const { pcode, entity } = sel();
     const dz = document.getElementById('du-dropzone');
+    syncDestStrip();
     const wildcard = pcode === '*' || entity === '*';
     if (wildcard) {
       const pPart = pcode === '*' ? '·property·' : pcode;
@@ -145,11 +163,36 @@ const DataUpload = (() => {
     const wrap = document.getElementById('du-run-entities');
     if (!wrap) return;
     const ents = allEntities();
+    // Sync with the context entity: selecting "reservations" also checks the
+    // entities that READ reservations raws (reads_from) — running them keeps
+    // their golds coherent with the files just uploaded. "All" checks all.
+    const ctxEnt = document.getElementById('du-entity')?.value || '*';
+    const isOn = (e) => {
+      if (ctxEnt === '*') return true;
+      if (e === ctxEnt) return true;
+      const j = jobs.find(x => x.entity === e);
+      return !!(j && j.reads_from_entity === ctxEnt);
+    };
     wrap.innerHTML = ents.map(e => `
       <label class="du-run-entity">
-        <input type="checkbox" value="${escAttr(e)}" checked>
+        <input type="checkbox" value="${escAttr(e)}" ${isOn(e) ? 'checked' : ''}>
         <span>${escapeHtml(e)}</span>
       </label>`).join('');
+    wrap.onchange = renderRunContract;
+    renderRunContract();
+  }
+
+  function renderRunContract() {
+    const el = document.getElementById('du-run-contract');
+    if (!el) return;
+    const sel = selectedRunEntities();
+    if (!sel.length) {
+      el.innerHTML = 'Nothing selected — tick at least one entity to run.';
+      return;
+    }
+    const nProps = allProps.length;
+    const propsTxt = nProps > 1 ? `all ${nProps} properties` : 'the property';
+    el.innerHTML = `Will process: <strong>${sel.map(escapeHtml).join(' · ')}</strong> — ${propsTxt} → one consolidated gold per entity.`;
   }
 
   function selectedRunEntities() {
@@ -173,6 +216,7 @@ const DataUpload = (() => {
       return;
     }
     allProps = data;
+    renderRunContract();   // property count is now known
     // "All" is the default VIEW; uploading still requires picking one
     // concrete property (the filename prefix and raw path need it).
     selEl.innerHTML =
@@ -648,8 +692,15 @@ const DataUpload = (() => {
       pendingRenames = []; renderRenamePanel();
       listFiles(); listGold();
     };
-    document.getElementById('du-property').onchange = relist;
-    document.getElementById('du-entity').onchange   = relist;
+    document.getElementById('du-property').onchange = () => { relist(); renderRunEntities(); };
+    document.getElementById('du-entity').onchange   = () => { relist(); renderRunEntities(); };
+
+    // Destination strip = remote control of the context selects (single source
+    // of truth stays du-property/du-entity; the strip just sets them).
+    const dzP = document.getElementById('du-dz-property');
+    const dzE = document.getElementById('du-dz-entity');
+    if (dzP) dzP.onchange = () => { document.getElementById('du-property').value = dzP.value; relist(); renderRunEntities(); };
+    if (dzE) dzE.onchange = () => { document.getElementById('du-entity').value = dzE.value; relist(); renderRunEntities(); };
 
     const dz = document.getElementById('du-dropzone');
     const input = document.getElementById('du-file');

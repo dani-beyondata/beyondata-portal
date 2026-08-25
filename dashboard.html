@@ -755,8 +755,12 @@
         <p>Upload source data files for this client. Files are stored securely and processed into analytics-ready tables.</p>
       </div>
 
-      <!-- Horizontal filter bar -->
+      <!-- Context bar: governs the whole page (browser, upload target, run scope) -->
       <div class="du-filters">
+        <div class="du-filter" style="justify-content:center">
+          <label>Viewing</label>
+          <div style="font-size:0.82rem;color:var(--text-muted);max-width:190px">Filters the browsers below and pre-selects what to upload &amp; run</div>
+        </div>
         <div class="du-filter">
           <label>PMS</label>
           <code id="du-source-display" title="Defined by the company's PMS — files are always stored under the right pipeline path">—</code>
@@ -775,65 +779,93 @@
         </div>
       </div>
 
-      <!-- Drop zone -->
-      <div id="du-dropzone" class="du-dropzone">
-        <input type="file" id="du-file" accept=".xlsx,.xls,.csv" style="display:none" multiple>
-        <div class="du-dropzone-inner">
-          <div class="du-dropzone-icon">⬆</div>
-          <div><strong>Drop files here</strong> or <span class="du-browse-link">browse</span></div>
-          <div class="du-dropzone-hint">Excel or CSV · any filename — if it doesn't follow the naming convention, the rename assistant will help you fix it</div>
+      <!-- ① UPLOAD -->
+      <div class="du-step">
+        <div class="du-step-head">
+          <span class="du-step-num">1</span>
+          <div>
+            <h3>Upload raw files <span class="du-step-tag">bronze</span></h3>
+            <div class="du-step-hint">Source exports from the PMS land here, organized per property &amp; entity. Uploading needs a concrete destination.</div>
+          </div>
+        </div>
+
+        <div class="du-dest-strip" id="du-dest-strip">
+          <span class="du-dest-label">Upload destination:</span>
+          <select id="du-dz-property"></select>
+          <select id="du-dz-entity"></select>
+          <span class="du-dest-ok" id="du-dest-ok"></span>
+        </div>
+
+        <div id="du-dropzone" class="du-dropzone">
+          <input type="file" id="du-file" accept=".xlsx,.xls,.csv" style="display:none" multiple>
+          <div class="du-dropzone-inner">
+            <div class="du-dropzone-icon">⬆</div>
+            <div><strong>Drop files here</strong> or <span class="du-browse-link">browse</span></div>
+            <div class="du-dropzone-hint">Excel or CSV · any filename — if it doesn't follow the naming convention, the rename assistant will help you fix it</div>
+          </div>
+        </div>
+
+        <div id="du-staged" class="du-staged" style="display:none"></div>
+        <div id="du-rename-panel" class="du-rename-panel" style="display:none"></div>
+        <div class="alert error" id="du-error"></div>
+        <div class="alert success" id="du-success"></div>
+
+        <div class="du-browser-head">
+          <h3 id="du-browser-title">Raw files uploaded</h3>
+          <span id="du-browser-count" class="du-count-badge"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Property</th><th>Entity</th><th>File</th><th>Period</th><th>Size</th><th>Uploaded</th><th></th></tr></thead>
+            <tbody id="du-files-tbody"><tr><td colspan="7" style="color:var(--text-muted)">Select a property to view files…</td></tr></tbody>
+          </table>
         </div>
       </div>
 
-      <div id="du-staged" class="du-staged" style="display:none"></div>
-
-      <div id="du-rename-panel" class="du-rename-panel" style="display:none"></div>
-
-      <div class="alert error" id="du-error"></div>
-      <div class="alert success" id="du-success"></div>
-
-      <!-- Run ETL -->
-      <div class="du-run-panel">
-        <div>
-          <strong>Process uploaded files</strong>
-          <div class="du-run-hint">Runs the ETL in the cloud: reads the raw files, produces the analytics-ready gold data. Takes ~1–2 minutes.</div>
-          <div id="du-run-entities" class="du-run-entities"></div>
+      <!-- ② PROCESS -->
+      <div class="du-step">
+        <div class="du-step-head">
+          <span class="du-step-num">2</span>
+          <div>
+            <h3>Process into gold</h3>
+            <div class="du-step-hint">Runs the ETL in the cloud: reads the raw files of every property, produces ONE consolidated gold per entity. Takes ~1–2 minutes.</div>
+          </div>
         </div>
-        <button class="btn btn-primary" id="du-run-etl-btn">▶ Run ETL</button>
-      </div>
-
-      <!-- Live run progress -->
-      <div id="du-run-progress" class="du-run-progress" style="display:none">
-        <div class="du-run-spinner"></div>
-        <div>
-          <div id="du-run-progress-title" style="font-weight:600">Running ETL…</div>
-          <div id="du-run-progress-detail" class="du-run-hint"></div>
+        <div class="du-run-panel">
+          <div style="flex:1">
+            <div id="du-run-entities" class="du-run-entities"></div>
+            <div id="du-run-contract" class="du-run-contract"></div>
+          </div>
+          <button class="btn btn-primary" id="du-run-etl-btn">▶ Run ETL</button>
         </div>
-      </div>
-      <div class="alert" id="du-run-status" style="display:none"></div>
-
-      <!-- RAW file browser -->
-      <div class="du-browser-head">
-        <h3 id="du-browser-title">Raw files uploaded</h3>
-        <span id="du-browser-count" class="du-count-badge"></span>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Property</th><th>Entity</th><th>File</th><th>Period</th><th>Size</th><th>Uploaded</th><th></th></tr></thead>
-          <tbody id="du-files-tbody"><tr><td colspan="7" style="color:var(--text-muted)">Select a property to view files…</td></tr></tbody>
-        </table>
+        <div id="du-run-progress" class="du-run-progress" style="display:none">
+          <div class="du-run-spinner"></div>
+          <div>
+            <div id="du-run-progress-title" style="font-weight:600">Running ETL…</div>
+            <div id="du-run-progress-detail" class="du-run-hint"></div>
+          </div>
+        </div>
+        <div class="alert" id="du-run-status" style="display:none"></div>
       </div>
 
-      <!-- GOLD outputs -->
-      <div class="du-browser-head" style="margin-top:2rem">
-        <h3>Gold outputs (analytics-ready)</h3>
-        <span id="du-gold-count" class="du-count-badge"></span>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>File</th><th class="num">Rows</th><th class="num">Size</th><th>Last generated</th></tr></thead>
-          <tbody id="du-gold-tbody"><tr><td colspan="4" style="color:var(--text-muted)">Select a property to view gold outputs…</td></tr></tbody>
-        </table>
+      <!-- ③ GOLD -->
+      <div class="du-step">
+        <div class="du-step-head">
+          <span class="du-step-num">3</span>
+          <div>
+            <h3>Gold outputs <span class="du-step-tag">analytics-ready</span></h3>
+            <div class="du-step-hint">Company-level consolidated files — what Power BI reads. Rows carry each property's id.</div>
+          </div>
+        </div>
+        <div class="du-browser-head" style="margin-top:0.25rem">
+          <span id="du-gold-count" class="du-count-badge"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>File</th><th class="num">Rows</th><th class="num">Size</th><th>Last generated</th></tr></thead>
+            <tbody id="du-gold-tbody"><tr><td colspan="4" style="color:var(--text-muted)">Select a property to view gold outputs…</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -843,6 +875,18 @@
       .du-filter label { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); font-weight:600; }
       .du-filter select { padding:0.4rem 0.6rem; border:1px solid var(--border,#ccc); border-radius:6px; font-size:0.9rem; background:white; }
       .du-path-preview { flex:1; min-width:220px; }
+      .du-step { border:1px solid var(--border,#dbe2ec); border-radius:14px; padding:1.15rem 1.25rem; margin-bottom:1.4rem; background:white; }
+      .du-step-head { display:flex; gap:0.8rem; align-items:flex-start; margin-bottom:0.9rem; }
+      .du-step-head h3 { margin:0 0 0.15rem 0; font-size:1.02rem; }
+      .du-step-num { flex:0 0 auto; width:26px; height:26px; border-radius:50%; background:var(--brand,#2563eb); color:white; font-weight:700; font-size:0.85rem; display:flex; align-items:center; justify-content:center; margin-top:0.1rem; }
+      .du-step-tag { font-size:0.68rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); background:var(--brand-light,#eef3fb); padding:0.15rem 0.5rem; border-radius:999px; vertical-align:middle; }
+      .du-step-hint { font-size:0.82rem; color:var(--text-muted); }
+      .du-dest-strip { display:flex; align-items:center; gap:0.6rem; padding:0.55rem 0.8rem; border:1px solid var(--border,#dbe2ec); border-bottom:none; border-radius:12px 12px 0 0; background:var(--brand-light,#eef3fb); }
+      .du-dest-strip select { padding:0.3rem 0.5rem; border:1px solid var(--border,#ccc); border-radius:6px; font-size:0.85rem; background:white; }
+      .du-dest-label { font-size:0.78rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); }
+      .du-dest-ok { font-size:0.82rem; color:var(--text-muted); }
+      .du-dest-strip + .du-dropzone { border-radius:0 0 12px 12px; }
+      .du-run-contract { margin-top:0.6rem; font-size:0.84rem; color:var(--text,#243044); background:var(--brand-light,#eef3fb); border-radius:8px; padding:0.5rem 0.7rem; }
       .du-path-preview code { font-size:0.75rem; color:var(--brand,#3D65A8); background:white; padding:0.4rem 0.6rem; border-radius:6px; border:1px solid var(--border,#ccc); overflow-x:auto; white-space:nowrap; display:block; }
       .pbi-param { display:flex; gap:0.6rem; align-items:center; margin-top:0.25rem; font-size:0.83rem; }
       .pbi-param > span { color:var(--text-muted); width:90px; flex-shrink:0; }
