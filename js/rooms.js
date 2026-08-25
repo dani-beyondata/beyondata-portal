@@ -29,8 +29,14 @@ const Rooms = (() => {
   }
 
   async function create(companyId, propertyId, fields) {
+    // propertyId here is the property UUID (filter option values). The
+    // property_id COLUMN carries the code ('CD_001') — resolve it, or
+    // room_key (property_id|room_code) mismatches the facts.
+    const { data: prop } = await sb.from('properties')
+      .select('property_id').eq('id', propertyId).single();
     const { data, error } = await sb.from('rooms')
-      .insert({ ...fields, company_id: companyId, property_uuid: propertyId, property_id: propertyId, status: 'active' })
+      .insert({ ...fields, company_id: companyId, property_uuid: propertyId,
+                property_id: prop?.property_id || null, status: 'active' })
       .select().single();
     return { data, error };
   }

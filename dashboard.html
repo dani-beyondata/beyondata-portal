@@ -1557,6 +1557,10 @@
 <div class="modal-overlay" id="modal-room">
   <div class="modal">
     <h3>Add room</h3>
+    <div class="field" style="background:var(--brand-light,#eef3fb);border-radius:8px;padding:0.45rem 0.7rem;margin-bottom:0.6rem">
+      <label style="margin-bottom:0.1rem">Property</label>
+      <span id="room-modal-property" style="font-weight:600">—</span>
+    </div>
     <div class="alert error" id="room-error"></div>
     <div class="field"><label>Raw value (Mews space number)</label><input type="text" id="room-code" placeholder="e.g. B-204-D"></div>
     <div class="field"><label>Display name (for reports)</label><input type="text" id="room-name" placeholder="e.g. B-204-D"></div>
@@ -5378,6 +5382,9 @@
       allRoomCategories.filter(c => c.status === 'active').map(c =>
         `<option value="${c.id}">${c.display_name || c.raw_value}</option>`
       ).join('');
+    const pf = document.getElementById('rooms-property-filter');
+    document.getElementById('room-modal-property').textContent =
+      pf?.selectedOptions?.[0]?.textContent || '—';
     UI.hideAlert('room-error');
     UI.openModal('modal-room');
   });
@@ -5404,7 +5411,7 @@
       const aliasUpd = { status: 'alias' };
       if (window._roomsHasAliasCol !== false) aliasUpd.alias_of = clashRow.id;
       await sb.from('rooms').update(aliasUpd)
-        .eq('company_id', currentCompany.id).eq('property_id', propertyId).eq('raw_value', raw_value);
+        .eq('company_id', currentCompany.id).eq('property_uuid', propertyId).eq('raw_value', raw_value);
     }
     UI.setLoading('btn-save-room', false, 'Save');
     if (error) { UI.showAlert('room-error', error.message); return; }
