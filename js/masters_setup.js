@@ -330,16 +330,22 @@ const MastersSetup = (() => {
   }
 
   async function loadFromGold() {
-    const pcode = await firstPropertyId();
-    if (!pcode) { UI.showAlert('ms-file-error', 'No property found for this company.'); return; }
     const code = clientCode();
+    // Gold lives at COMPANY level since the multi-property consolidation
+    // (gold/{client}/{file}). Clients not yet re-run keep their files at the
+    // legacy per-property path — fall back gracefully during the transition.
+    const legacyPcode = await firstPropertyId();
     let loadedAny = false;
     const diag = [];
 
     for (const [fileType, fname] of Object.entries(GOLD_FILES)) {
-      const path = `${code}/${pcode}/${fname}`;
       try {
-        const { data, error } = await sb.storage.from(GOLD_BUCKET).download(path);
+        let { data, error } = await sb.storage.from(GOLD_BUCKET)
+          .download(`${code}/${fname}`);
+        if ((error || !data) && legacyPcode) {
+          ({ data, error } = await sb.storage.from(GOLD_BUCKET)
+            .download(`${code}/${legacyPcode}/${fname}`));
+        }
         if (error) { diag.push(`${fname}: ${error.message}`); continue; }
         if (!data) { diag.push(`${fname}: no data`); continue; }
         const text = await data.text();
@@ -359,7 +365,7 @@ const MastersSetup = (() => {
     renderMemoryBar();
     if (!loadedAny) {
       UI.showAlert('ms-file-error',
-        `Could not load gold files from path "${code}/${pcode}/". Details: ${diag.join(' · ') || 'none found'}`);
+        `Could not load gold files from "${code}/" (nor legacy "${code}/${legacyPcode || '…'}/"). Details: ${diag.join(' · ') || 'none found'}`);
     } else {
       UI.hideAlert('ms-file-error');
     }
