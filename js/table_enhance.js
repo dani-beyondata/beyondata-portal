@@ -144,14 +144,18 @@
       applyFilters(); // re-applies column filters then global
     };
 
-    // Re-apply sort/filter after the section re-renders the tbody
+    // Re-apply sort/filter after the section re-renders the tbody.
+    // CRITICAL: applySort() re-appends rows, which IS a childList mutation —
+    // observing our own reorder would retrigger the callback forever (page
+    // freeze). Disconnect before touching the DOM, reconnect after.
     const obs = new MutationObserver(() => {
-      // mark empty-state rows so we don't sort/filter them
+      obs.disconnect();
       Array.from(tbody.rows).forEach(r => {
         r.__isEmptyRow = !!r.querySelector('.empty-state') || r.cells.length < cols.length;
       });
       if (sortCol >= 0) applySort();
       applyFilters();
+      obs.observe(tbody, { childList: true });
     });
     obs.observe(tbody, { childList: true });
 
