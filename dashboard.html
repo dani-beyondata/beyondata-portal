@@ -607,7 +607,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Category name</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Category name</th><th>Products</th><th>Status</th><th></th></tr></thead>
             <tbody id="extras-categories-tbody"></tbody>
           </table>
         </div>
@@ -3192,17 +3192,33 @@
       document.getElementById('extras-categories-count').textContent = '0 categories';
       return;
     }
+    // How many catalog products use each category (category is stored as text
+    // on the product, so count client-side; also lets us show 0 for orphans).
+    const usage = {};
+    {
+      const { data: prods } = await sb.from('extras_catalog')
+        .select('category').eq('company_id', currentCompany.id);
+      (prods || []).forEach(p => {
+        const k = (p.category || '').trim();
+        if (k) usage[k] = (usage[k] || 0) + 1;
+      });
+    }
     document.getElementById('extras-categories-count').textContent = `${data.length} categories`;
-    document.getElementById('extras-categories-tbody').innerHTML = data.map(c => `
+    document.getElementById('extras-categories-tbody').innerHTML = data.map(c => {
+      const n = usage[(c.category_name || '').trim()] || 0;
+      return `
       <tr>
         <td>${escapeHtml(c.category_name)}</td>
+        <td>${n ? `<span style="font-weight:600">${n}</span>`
+               : '<span style="color:var(--text-muted)">0</span>'}</td>
         <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
         <td>
           <button class="btn btn-secondary btn-sm" onclick="editExtrasCategory('${c.id}','${c.category_name.replace(/'/g,"\\'")}')">Edit</button>
           <button class="btn btn-secondary btn-sm" onclick="toggleExtrasCategory('${c.id}','${c.status}')">
             ${c.status === 'active' ? 'Deactivate' : 'Activate'}</button>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   }
 
   async function toggleExtrasCategory(id, status) {
