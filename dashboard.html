@@ -1967,11 +1967,14 @@
   });
 
   // ── MY DASHBOARD (Power BI embed) ─────────────────────────────────
-  // Per-company embed URLs. Key by company slug. Paste the Power BI
-  // "Publish to web" iframe src (the https://app.powerbi.com/view?r=... URL).
+  // Per-company embed URLs. Key by company slug. The injector is URL-agnostic:
+  //  - secure embed ("Insertar → sitio web o portal"): app.powerbi.com/reportEmbed?reportId=...&autoAuth=true&ctid=...
+  //    → viewer must sign in with an authorized Microsoft account (tenant + report access).
+  //  - publish to web (public): app.powerbi.com/view?r=...  → no sign-in, anyone with the page.
+  // Future: move to companies.pbi_embed_url column when hardcoding stops scaling.
   const PBI_EMBEDS = {
-    // 'cd': 'https://app.powerbi.com/view?r=XXXX',   // Company Demo
-    // 'tch': 'https://app.powerbi.com/view?r=YYYY',  // The Central House
+    'cd': 'https://app.powerbi.com/reportEmbed?reportId=f1a1a769-f7b3-44aa-839f-159f482fe0f8&autoAuth=true&ctid=afd10560-c05e-4ac9-8965-d56483fb5689',  // CD Hotels (cd_sales)
+    // 'tch': '…',
   };
 
   function loadMyDashboard() {
