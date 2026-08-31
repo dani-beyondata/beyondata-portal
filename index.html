@@ -136,6 +136,13 @@ a{color:inherit;text-decoration:none}
 
 /* ── Section shell ── */
 .section{padding:6rem 0}
+.demo-teaser{display:grid;grid-template-columns:1fr 1.25fr;gap:2.6rem;align-items:center}
+.demo-teaser h2{font-size:clamp(1.5rem,3vw,2.1rem);color:var(--navy);margin-top:0.5rem}
+.demo-teaser p{margin-top:0.6rem;color:var(--ink-soft);max-width:460px}
+.dt-shot{display:block;transition:transform .2s ease}
+.dt-shot:hover{transform:translateY(-5px)}
+.dt-shot img{display:block;width:100%;height:auto;border-radius:var(--r-lg);border:1px solid var(--line);box-shadow:var(--shadow)}
+@media (max-width:860px){ .demo-teaser{grid-template-columns:1fr} }
 .section-head{max-width:640px;margin-bottom:3.2rem}
 .section-head.center{margin-left:auto;margin-right:auto;text-align:center}
 .section-head h2{font-size:clamp(2rem,3.8vw,2.9rem);margin-top:0.8rem;color:var(--ink)}
@@ -591,6 +598,23 @@ a{color:inherit;text-decoration:none}
         <h3>Análisis de los grandes, sin su complejidad</h3>
         <p>Tienes datos valiosos aunque seas pequeño. Te damos los mismos cuadros de mando de revenue y rentabilidad que usan las cadenas, a tu medida.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- LA DEMO (teaser) -->
+<section class="section" id="lademo" style="padding-top:4.5rem;padding-bottom:4.5rem">
+  <div class="wrap">
+    <div class="demo-teaser reveal">
+      <div class="dt-text">
+        <span class="eyebrow">Míralo en acción</span>
+        <h2>Un grupo, dos negocios, una foto.</h2>
+        <p>Recorre la demo con datos de ejemplo: KPIs con objetivo, booking pace, mercados emisores, canales y P&amp;L — con un hotel y un hostel midiendo cada uno con su regla.</p>
+        <a href="demo.html" class="btn btn-navy" style="margin-top:1.1rem">Ver la demo</a>
+      </div>
+      <a href="demo.html" class="dt-shot" aria-label="Abrir la demo">
+        <img src="assets/demo/beyondata_hero_poster.jpg" alt="Panel de BeyonData con KPIs de hotel y hostel" loading="lazy">
+      </a>
     </div>
   </div>
 </section>

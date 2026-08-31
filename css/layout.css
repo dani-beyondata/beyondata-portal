@@ -19,9 +19,10 @@
 .topbar-right { display: flex; align-items: center; gap: 0.75rem; }
 
 .brand-name {
+  font-family: 'DM Sans', sans-serif;
   font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-weight: 800;
+  letter-spacing: 0.03em;
   display: flex;
   align-items: baseline;
 }
@@ -237,25 +238,22 @@ body.sb-collapsed .nav-item .nav-badge { position: absolute; top: 4px; right: 6p
 
 .login-brand .brand-name {
   font-size: 1.75rem;
-  color: var(--brand);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.03em;
   justify-content: center;
 }
-.login-brand .brand-name span {
-  color: var(--text-muted);
-  font-weight: 400;
-}
 .login-brand .logo-beyon {
-  color: var(--brand);
+  color: #1a1d24 !important;
+  -webkit-text-fill-color: #1a1d24;
 }
 .login-brand .logo-d {
-  background: linear-gradient(135deg, var(--brand) 50%, #3D65A8 50%);
+  background: linear-gradient(135deg, #1a1d24 50%, #60a5fa 50%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 .login-brand .logo-ata {
-  color: var(--brand-dark);
+  color: #60a5fa !important;
+  -webkit-text-fill-color: #60a5fa;
 }
 
 .login-brand .brand-sub {
