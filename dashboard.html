@@ -155,129 +155,75 @@
     <div class="section" id="section-my_plan">
       <div class="section-header">
         <h2>Mi Plan</h2>
-        <p>Consulta tu plan actual y solicita cambios en los módulos que quieres activar.</p>
+        <p>Activa lo que necesites. El resumen calcula tu cuota al momento y te dice qué datos nos enviarás.</p>
       </div>
 
-      <!-- current status banner -->
       <div id="plan-status-banner" class="plan-status-banner" style="display:none"></div>
 
-      <!-- rooms -->
-      <div class="plan-rooms-row">
-        <label for="plan-rooms">Habitaciones de tu hotel</label>
-        <div class="plan-rooms-control">
-          <button type="button" class="prc-btn" id="plan-rooms-minus" aria-label="Menos">−</button>
-          <input type="number" id="plan-rooms" class="prc-input" value="40" min="1" max="9999">
-          <span class="prc-suffix">hab.</span>
-          <button type="button" class="prc-btn" id="plan-rooms-plus" aria-label="Más">+</button>
-        </div>
-        <div class="plan-rooms-note">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          <span>Número orientativo: lo ajustaremos a las habitaciones reales de tu hotel al conectar los datos.</span>
-        </div>
-      </div>
+      <div class="plan-layout">
+        <div class="plan-main">
 
-      <!-- two columns: modules left, documents right -->
-      <div class="plan-split">
-        <div class="plan-split-col">
-          <div class="plan-col-head">
-            <h3>Módulos</h3>
-            <p>Activa lo que necesites.</p>
+          <div class="plan-step">
+            <span class="plan-step-k">1 · Tu hotel</span>
+            <label for="plan-rooms" class="plan-step-lbl">Habitaciones</label>
+            <div class="plan-rooms-control">
+              <button type="button" class="prc-btn" id="plan-rooms-minus" aria-label="Menos">−</button>
+              <input type="number" id="plan-rooms" class="prc-input" value="40" min="1" max="9999">
+              <span class="prc-suffix">hab.</span>
+              <button type="button" class="prc-btn" id="plan-rooms-plus" aria-label="Más">+</button>
+            </div>
+            <span class="plan-step-note">Orientativo · lo ajustamos al conectar tus datos</span>
           </div>
-          <div class="plan-modules" id="plan-modules">
-            <div class="plan-mod base" data-module="ventas" data-price="2">
-              <div class="plan-mod-info">
-                <div class="plan-mod-title">Ventas &amp; Revenue <span class="plan-mod-tag">Base</span></div>
-                <div class="plan-mod-desc">Ocupación, ADR, RevPAR, producción y pickup por fecha, canal y segmento. El núcleo de tu análisis.</div>
-              </div>
-              <div class="plan-mod-right">
-                <span class="plan-mod-price">desde 2€ <small>/hab./mes</small></span>
-                <label class="pswitch locked"><input type="checkbox" checked disabled><span class="ptrack"></span></label>
-              </div>
+
+          <div class="plan-step-k" style="margin:1.1rem 0 0.55rem">2 · Módulos</div>
+          <div class="plan-grid" id="plan-modules">
+            <div class="plan-mod plan-card base" data-module="ventas" data-price="2" data-title="Ventas &amp; Revenue">
+              <div class="plan-card-head"><span class="plan-mod-title">Ventas &amp; Revenue</span><span class="plan-mod-tag">Incluido</span><label class="pswitch locked" style="display:none"><input type="checkbox" checked disabled><span class="ptrack"></span></label></div>
+              <div class="plan-mod-desc">Ocupación, ADR, RevPAR, producción y pickup por fecha, canal y segmento. El núcleo de tu análisis.</div>
+              <div class="plan-card-foot"><span class="plan-card-data">📦 Datos: <b>producción</b> · API o reporte</span><span class="plan-mod-price" data-price-el></span></div>
             </div>
-            <div class="plan-mod" data-module="pl" data-price="1">
-              <div class="plan-mod-info">
-                <div class="plan-mod-title">P&amp;L / Contabilidad</div>
-                <div class="plan-mod-desc">Del libro diario al GOP: ingresos, costes y márgenes por departamento, mes a mes.</div>
-              </div>
-              <div class="plan-mod-right">
-                <span class="plan-mod-price">desde +1€ <small>/hab./mes</small></span>
-                <label class="pswitch"><input type="checkbox" class="plan-toggle"><span class="ptrack"></span></label>
-              </div>
+            <div class="plan-mod plan-card" data-module="extras" data-price="1" data-title="Análisis de Extras">
+              <div class="plan-card-head"><span class="plan-mod-title">Análisis de Extras</span><label class="pswitch"><input type="checkbox" class="plan-toggle"><span class="ptrack"></span></label></div>
+              <div class="plan-mod-desc">Desayunos, parking, spa, tours… qué extras se venden, cuánto aportan y a qué reserva van ligados.</div>
+              <div class="plan-card-foot"><span class="plan-card-data">📦 Datos: <b>extras</b> · API o reporte</span><span class="plan-mod-price" data-price-el></span></div>
             </div>
-            <div class="plan-mod" data-module="forecast" data-price="1">
-              <div class="plan-mod-info">
-                <div class="plan-mod-title">Forecast &amp; Presupuesto</div>
-                <div class="plan-mod-desc">Presupuesto y objetivos frente al dato real, día a día, con sus desviaciones.</div>
-              </div>
-              <div class="plan-mod-right">
-                <span class="plan-mod-price">desde +1€ <small>/hab./mes</small></span>
-                <label class="pswitch"><input type="checkbox" class="plan-toggle"><span class="ptrack"></span></label>
-              </div>
+            <div class="plan-mod plan-card" data-module="pl" data-price="1" data-title="P&amp;L / Contabilidad">
+              <div class="plan-card-head"><span class="plan-mod-title">P&amp;L / Contabilidad</span><label class="pswitch"><input type="checkbox" class="plan-toggle"><span class="ptrack"></span></label></div>
+              <div class="plan-mod-desc">Del libro diario al GOP: ingresos, costes y márgenes por departamento, mes a mes.</div>
+              <div class="plan-card-foot"><span class="plan-card-data">📦 Datos: <b>libro diario</b> · Excel</span><span class="plan-mod-price" data-price-el></span></div>
             </div>
-            <div class="plan-mod" data-module="extras" data-price="1">
-              <div class="plan-mod-info">
-                <div class="plan-mod-title">Análisis de Extras</div>
-                <div class="plan-mod-desc">Desayunos, parking, spa, tours… qué extras se venden, cuánto aportan y a qué reserva van ligados.</div>
-              </div>
-              <div class="plan-mod-right">
-                <span class="plan-mod-price">desde +1€ <small>/hab./mes</small></span>
-                <label class="pswitch"><input type="checkbox" class="plan-toggle"><span class="ptrack"></span></label>
-              </div>
+            <div class="plan-mod plan-card" data-module="forecast" data-price="1" data-title="Forecast &amp; Presupuesto">
+              <div class="plan-card-head"><span class="plan-mod-title">Forecast &amp; Presupuesto</span><label class="pswitch"><input type="checkbox" class="plan-toggle"><span class="ptrack"></span></label></div>
+              <div class="plan-mod-desc">Presupuesto y objetivos frente al dato real, día a día, con sus desviaciones.</div>
+              <div class="plan-card-foot"><span class="plan-card-data">📦 Datos: <b>presupuesto</b> · Excel</span><span class="plan-mod-price" data-price-el></span></div>
             </div>
-            <div class="plan-mod" data-module="markets" data-price="1">
-              <div class="plan-mod-info">
-                <div class="plan-mod-title">Segmentación de Mercados</div>
-                <div class="plan-mod-desc">Producción por país, mercado emisor y canal de venta, para orientar tu comercialización.</div>
-              </div>
-              <div class="plan-mod-right">
-                <span class="plan-mod-price">desde +1€ <small>/hab./mes</small></span>
-                <label class="pswitch"><input type="checkbox" class="plan-toggle"><span class="ptrack"></span></label>
-              </div>
+            <div class="plan-mod plan-card" data-module="markets" data-price="1" data-title="Segmentación de Mercados">
+              <div class="plan-card-head"><span class="plan-mod-title">Segmentación de Mercados</span><label class="pswitch"><input type="checkbox" class="plan-toggle"><span class="ptrack"></span></label></div>
+              <div class="plan-mod-desc">Producción por país, mercado emisor y canal de venta, para orientar tu comercialización.</div>
+              <div class="plan-card-foot"><span class="plan-card-data">📦 Datos: <b>producción</b> · ya incluidos</span><span class="plan-mod-price" data-price-el></span></div>
+            </div>
+            <div class="plan-mod plan-card consult" data-module="consultoria" data-price="0" data-title="🎯 Consultoría a medida" data-flat="300">
+              <div class="plan-card-head"><span class="plan-mod-title">🎯 Consultoría a medida</span><label class="pswitch"><input type="checkbox" class="plan-toggle"><span class="ptrack"></span></label></div>
+              <div class="plan-mod-desc">Sesiones con nuestro equipo para convertir datos en decisiones.</div>
+              <div class="plan-card-foot"><span class="plan-card-data">Servicio · sin datos adicionales</span><span class="plan-mod-price" data-price-el></span></div>
             </div>
           </div>
         </div>
 
-        <div class="plan-split-col">
-          <div class="plan-col-head">
-            <h3>Qué necesitamos de ti</h3>
-            <p>La información con la que trabajaremos, en el formato que prefieras.</p>
+        <aside class="plan-side">
+          <div class="plan-summary">
+            <div class="plan-step-k">Tu plan · <span id="plan-side-rooms">40</span> hab.</div>
+            <div id="plan-lines" class="plan-lines"></div>
+            <div class="plan-total-row"><span>Cuota mensual</span><span class="plan-total" id="plan-monthly">desde 80€ <small>/mes</small></span></div>
+            <div class="plan-sub" id="plan-breakdown">1 módulo · 40 hab.</div>
+            <div class="plan-setup-row"><span>Puesta en marcha</span><span>desde 500€ <small>único</small></span></div>
+            <div class="plan-step-k" style="margin-top:0.9rem">Nos enviarás</div>
+            <div id="plan-docs" class="plan-docs-list"></div>
+            <button class="btn" id="plan-submit" style="background:var(--brand);color:#fff;width:100%;margin-top:0.9rem">Solicitar cambios</button>
+            <p class="plan-disclaimer">Precios orientativos “desde”. Revisamos tu petición y activamos los módulos en tu report.</p>
           </div>
-          <div class="plan-docs" id="plan-docs"><!-- injected by JS --></div>
-        </div>
+        </aside>
       </div>
-
-      <!-- consultoria (full width, no document) -->
-      <div class="plan-modules" id="plan-modules-consult">
-        <div class="plan-mod consult" data-module="consultoria" data-price="0" data-flat="300">
-          <div class="plan-mod-info">
-            <div class="plan-mod-title">Consultoría a medida</div>
-            <div class="plan-mod-desc">Sesiones con nuestro equipo para convertir datos en decisiones. Un servicio, sin documento asociado.</div>
-          </div>
-          <div class="plan-mod-right">
-            <span class="plan-mod-price">desde 300€ <small>/mes</small></span>
-            <label class="pswitch"><input type="checkbox" class="plan-toggle"><span class="ptrack"></span></label>
-          </div>
-        </div>
-      </div>
-
-      <!-- summary + action -->
-      <div class="plan-summary-bar">
-        <div class="plan-sum-figs">
-          <div class="plan-sum-fig">
-            <div class="psf-label">Puesta en marcha</div>
-            <div class="psf-value">desde 500€ <small>único</small></div>
-          </div>
-          <div class="plan-sum-fig">
-            <div class="psf-label">Cuota mensual estimada</div>
-            <div class="psf-value" id="plan-monthly">desde 80€ <small>/mes</small></div>
-            <div class="psf-sub" id="plan-breakdown">Ventas · 40 hab.</div>
-          </div>
-        </div>
-        <div class="plan-actions">
-          <button class="btn" id="plan-submit" style="background:var(--brand);color:#fff">Solicitar cambios</button>
-        </div>
-      </div>
-      <p class="plan-disclaimer">Al solicitar cambios, revisaremos tu petición y activaremos los módulos en tu report. Los precios son orientativos “desde”.</p>
     </div>
 
     <!-- PROPERTIES -->
@@ -1079,6 +1025,55 @@
       .pdm-btn:hover{border-color:var(--brand);color:var(--brand)}
       .pdm-btn.selected{background:var(--brand-light);border-color:var(--brand);color:var(--brand-dark);font-weight:600}
       .plan-doc-method-fixed{display:inline-flex;align-items:center;gap:0.3rem;font-size:0.75rem;color:var(--text-muted);background:var(--bg);border-radius:6px;padding:0.28rem 0.55rem;flex-shrink:0}
+      /* ── Mi Plan v2: configurador + resumen sticky ── */
+      .plan-layout{display:flex;gap:1.3rem;align-items:flex-start}
+      .plan-main{flex:1 1 auto;min-width:0}
+      .plan-side{flex:0 0 290px;position:sticky;top:calc(var(--topbar-h) + 1.25rem)}
+      .plan-step-k{font-family:'DM Mono',monospace;font-size:0.62rem;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)}
+      .plan-step{display:flex;align-items:center;gap:0.9rem;flex-wrap:wrap;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:0.65rem 1rem}
+      .plan-step-lbl{font-weight:600}
+      .plan-step-note{font-size:0.8rem;color:var(--text-muted)}
+      .plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem}
+      .plan-grid .plan-mod{display:flex;flex-direction:column;align-items:stretch;gap:0.4rem;padding:0.85rem 1rem;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-lg);box-shadow:none;transition:border-color .2s,box-shadow .2s,opacity .2s}
+      .plan-grid .plan-mod:not(.active):not(.base){opacity:0.82}
+      .plan-grid .plan-mod.active{border-color:var(--brand);box-shadow:0 4px 16px rgba(61,101,168,0.10)}
+      .plan-grid .plan-mod.base{border-color:var(--brand);background:var(--white)}
+      .plan-grid .plan-mod.consult{background:#fbfaf6;border:1.5px dashed #c9c4b4;color:var(--text)}
+      .plan-grid .plan-mod.consult.active{border-style:solid;border-color:var(--brand)}
+      .plan-grid .plan-mod.consult .plan-mod-desc,.plan-grid .plan-mod.consult .plan-mod-price{color:var(--text-muted)}
+      .plan-grid .plan-mod.consult .plan-mod-price{color:var(--text)}
+      .plan-grid .plan-mod.consult .pswitch input:checked + .ptrack{background:var(--brand)}
+      .plan-grid .plan-mod.consult .pswitch input:checked + .ptrack::before{background:#fff}
+      .plan-card-head{display:flex;justify-content:space-between;align-items:center;gap:0.6rem}
+      .plan-grid .plan-mod-title{font-size:0.95rem;margin:0}
+      .plan-grid .plan-mod-tag{background:var(--brand-light);color:var(--brand-dark)}
+      .plan-grid .plan-mod-desc{font-size:0.8rem;line-height:1.45}
+      .plan-card-foot{display:flex;justify-content:space-between;align-items:center;gap:0.6rem;margin-top:0.15rem;font-size:0.8rem}
+      .plan-card-data{color:var(--text-muted)}
+      .plan-card-data b{color:var(--text);font-weight:600}
+      .plan-grid .plan-mod-price{font-weight:600;font-size:0.85rem}
+      .plan-grid .plan-mod-price small{font-weight:400}
+      .plan-grid .pswitch{width:40px;height:23px}
+      .plan-grid .pswitch .ptrack::before{width:17px;height:17px}
+      .plan-grid .pswitch input:checked + .ptrack::before{transform:translateX(17px)}
+      .plan-summary{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.1rem;box-shadow:0 4px 16px rgba(61,101,168,0.08)}
+      .plan-lines{margin:0.5rem 0 0.35rem}
+      .plan-line{display:flex;justify-content:space-between;font-size:0.84rem;padding:0.2rem 0}
+      .plan-line span:last-child{font-variant-numeric:tabular-nums}
+      .plan-total-row{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--border);padding-top:0.6rem;margin-top:0.35rem}
+      .plan-total-row > span:first-child{color:var(--text-muted);font-size:0.85rem}
+      .plan-total{font-size:1.35rem;font-weight:600}
+      .plan-total small{font-size:0.75rem;color:var(--text-muted);font-weight:400}
+      .plan-sub{font-size:0.75rem;color:var(--text-muted)}
+      .plan-setup-row{display:flex;justify-content:space-between;font-size:0.84rem;margin-top:0.35rem;border-bottom:1px solid var(--border);padding-bottom:0.7rem}
+      .plan-setup-row small{color:var(--text-muted)}
+      .plan-docs-list{display:flex;flex-direction:column;gap:0.35rem;margin-top:0.4rem}
+      .plan-doc-row{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;font-size:0.82rem}
+      .plan-doc-row .pdm-btn{padding:0.15rem 0.45rem;font-size:0.7rem}
+      .plan-doc-row.inactive{display:none}
+      .plan-doc-chips{display:flex;gap:0.25rem}
+      #section-my_plan .plan-disclaimer{margin-top:0.6rem;font-size:0.74rem;line-height:1.45}
+      @media (max-width:1100px){ .plan-layout{flex-direction:column} .plan-side{position:static;flex:none;width:100%} .plan-grid{grid-template-columns:1fr} }
       @media (max-width:640px){
         .plan-modules{grid-template-columns:1fr}
         .plan-mod{flex-direction:column;align-items:flex-start}
@@ -2227,94 +2222,54 @@
   function renderPlanDocs() {
     const wrap = document.getElementById('plan-docs');
     if (!wrap) return;
-
-    // which modules are currently ON
     const activeModules = {};
     document.querySelectorAll('#section-my_plan .plan-mod').forEach(mod => {
       const input = mod.querySelector('input');
       activeModules[mod.dataset.module] = !!(input && input.checked);
     });
-
     wrap.innerHTML = Object.entries(MODULE_DOCS).map(([docKey, doc]) => {
       const isActive = doc.forModules.some(m => activeModules[m]);
       if (!_planMethods[docKey]) _planMethods[docKey] = doc.methods[0];
-      const curMethod = _planMethods[docKey];
-      const methodsHtml = doc.methods.length > 1
-        ? `<div class="plan-doc-methods" data-doc="${docKey}">` +
-            doc.methods.map(m => {
-              const sel = curMethod === m ? ' selected' : '';
-              return `<button type="button" class="pdm-btn${sel}" data-doc="${docKey}" data-method="${m}">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${METHOD_ICONS[m]}</svg>
-                ${METHOD_LABELS[m]}</button>`;
-            }).join('') +
-          `</div>`
-        : `<div class="plan-doc-method-fixed"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${METHOD_ICONS[doc.methods[0]]}</svg> Formato ${METHOD_LABELS[doc.methods[0]]}</div>`;
-
-      return `
-        <div class="plan-doc ${isActive ? '' : 'inactive'}" data-doc="${docKey}" data-modules="${doc.forModules.join(' ')}" title="${doc.desc}">
-          <div class="plan-doc-visual">${METHOD_VISUALS[curMethod]}</div>
-          <div class="plan-doc-body">
-            <div class="plan-doc-title">${doc.title}</div>
-            <div class="plan-doc-for">Se usa para: ${doc.forLabel}</div>
-          </div>
-          ${methodsHtml}
-        </div>`;
+      const cur = _planMethods[docKey];
+      const chips = doc.methods.length > 1
+        ? '<span class="plan-doc-chips">' + doc.methods.map(m =>
+            `<button type="button" class="pdm-btn${cur === m ? ' selected' : ''}" data-doc="${docKey}" data-method="${m}" title="${doc.desc}">${METHOD_LABELS[m]}</button>`).join('') + '</span>'
+        : `<span class="plan-doc-chips"><span class="plan-doc-method-fixed">${METHOD_LABELS[doc.methods[0]]}</span></span>`;
+      return `<div class="plan-doc-row${isActive ? '' : ' inactive'}" data-doc="${docKey}"><span>✅ ${doc.title}</span>${chips}</div>`;
     }).join('');
-
-    // wire method selectors (re-render so the illustration follows the choice)
     wrap.querySelectorAll('.pdm-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        _planMethods[btn.dataset.doc] = btn.dataset.method;
-        renderPlanDocs();
-      });
-    });
-
-    // hover: module <-> doc highlight (wire once; docs re-render, modules persist)
-    document.querySelectorAll('#section-my_plan .plan-mod').forEach(mod => {
-      if (mod.dataset.hoverWired) return;
-      mod.dataset.hoverWired = '1';
-      const key = mod.dataset.module;
-      mod.addEventListener('mouseenter', () => {
-        wrap.querySelectorAll('.plan-doc').forEach(d => {
-          if ((d.dataset.modules || '').split(' ').includes(key)) d.classList.add('highlight');
-        });
-      });
-      mod.addEventListener('mouseleave', () => {
-        wrap.querySelectorAll('.plan-doc.highlight').forEach(d => d.classList.remove('highlight'));
-      });
-    });
-    // reverse hover: doc -> module
-    wrap.querySelectorAll('.plan-doc').forEach(d => {
-      const mods = (d.dataset.modules || '').split(' ');
-      d.addEventListener('mouseenter', () => {
-        mods.forEach(m => {
-          const el = document.querySelector(`#section-my_plan .plan-mod[data-module="${m}"]`);
-          if (el) el.style.borderColor = 'var(--brand)';
-        });
-      });
-      d.addEventListener('mouseleave', () => {
-        mods.forEach(m => {
-          const el = document.querySelector(`#section-my_plan .plan-mod[data-module="${m}"]`);
-          if (el && !el.classList.contains('base')) el.style.borderColor = '';
-        });
-      });
+      btn.addEventListener('click', () => { _planMethods[btn.dataset.doc] = btn.dataset.method; renderPlanDocs(); });
     });
   }
 
   function recalcPlan() {
     const rooms = Math.max(1, parseInt(document.getElementById('plan-rooms').value) || 1);
-    let perRoom = 0, flat = 0, count = 0;
+    const fmt = n => n.toLocaleString('es-ES');
+    let perRoom = 0, flat = 0, count = 0, lines = '';
     document.querySelectorAll('#section-my_plan .plan-mod').forEach(mod => {
       const input = mod.querySelector('input');
-      if (input && input.checked) {
+      const on = !!(input && input.checked);
+      const isBase = mod.classList.contains('base');
+      const price = parseFloat(mod.dataset.price || 0);
+      const modFlat = mod.dataset.flat ? parseFloat(mod.dataset.flat) : 0;
+      const amount = modFlat ? modFlat : price * rooms;
+      const priceEl = mod.querySelector('[data-price-el]');
+      if (priceEl) {
+        priceEl.innerHTML = modFlat
+          ? `desde ${fmt(modFlat)} €<small>/mes</small>`
+          : `${isBase ? '' : '+'}${fmt(amount)} €<small>/mes</small> <small>(${isBase ? '' : '+'}${fmt(price)} €/hab)</small>`;
+      }
+      if (on) {
         count++;
-        if (mod.dataset.flat) flat += parseFloat(mod.dataset.flat);
-        else perRoom += parseFloat(mod.dataset.price || 0);
+        if (modFlat) flat += modFlat; else perRoom += price;
+        lines += `<div class="plan-line"><span>${mod.dataset.title || mod.dataset.module}</span><span>${modFlat ? 'desde ' : ''}${fmt(amount)} €</span></div>`;
       }
     });
     const monthly = perRoom * rooms + flat;
-    document.getElementById('plan-monthly').innerHTML = 'desde ' + monthly.toLocaleString('es-ES') + '€ <small>/mes</small>';
-    document.getElementById('plan-breakdown').textContent = count + (count===1?' módulo':' módulos') + ' · ' + rooms + ' hab.';
+    document.getElementById('plan-lines').innerHTML = lines;
+    document.getElementById('plan-side-rooms').textContent = rooms;
+    document.getElementById('plan-monthly').innerHTML = 'desde ' + fmt(monthly) + ' € <small>/mes</small>';
+    document.getElementById('plan-breakdown').textContent = count + (count === 1 ? ' módulo' : ' módulos') + ' · ' + rooms + ' hab.';
   }
 
   function initMyPlanControls() {
