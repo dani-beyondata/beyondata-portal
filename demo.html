@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<script>document.documentElement.className+=" js";</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La demo — BeyonData · Inteligencia de negocio para hoteles y hostels</title>
+<meta name="description" content="Mira BeyonData en acción: KPIs con objetivo, booking pace, mercados emisores, canales y P&L. Un grupo, dos negocios, una foto.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#1e3a5f; --navy-deep:#152b47; --brand:#3D65A8; --sky:#60a5fa;
+  --bone:#F6F4F1; --bone-2:#efece7; --ink:#1a1d24; --ink-soft:#4a4f5a; --muted:#8a8f98;
+  --gold:#E0A64E; --gold-deep:#c98f36; --white:#ffffff; --line:rgba(30,58,95,0.12);
+  --r:14px; --r-lg:22px;
+  --shadow:0 18px 50px rgba(21,43,71,0.14); --shadow-sm:0 6px 20px rgba(21,43,71,0.08);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',system-ui,sans-serif;color:var(--ink);background:var(--bone);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2,h3{font-family:'Fraunces',Georgia,serif;font-weight:600;line-height:1.08;letter-spacing:-0.015em}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1180px;margin:0 auto;padding:0 1.5rem}
+.eyebrow{font-family:'DM Mono',monospace;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.18em;color:var(--brand);font-weight:500}
+.btn{display:inline-flex;align-items:center;gap:0.5rem;font-family:'DM Sans',sans-serif;font-weight:600;font-size:0.95rem;padding:0.8rem 1.5rem;border-radius:100px;cursor:pointer;border:none;transition:transform .18s ease,box-shadow .18s ease,background .18s ease;white-space:nowrap}
+.btn-gold{background:var(--gold);color:var(--navy-deep);box-shadow:0 8px 22px rgba(224,166,78,0.35)}
+.btn-gold:hover{transform:translateY(-2px);background:var(--gold-deep);color:#fff}
+.btn-ghost{background:transparent;color:var(--navy);border:1.5px solid var(--line)}
+.btn-ghost:hover{border-color:var(--brand);color:var(--brand)}
+
+/* Nav (clon de index) */
+.nav{position:fixed;top:0;left:0;right:0;z-index:100;transition:all .3s ease;padding:1.1rem 0;background:rgba(246,244,241,0.85);backdrop-filter:blur(14px);box-shadow:0 1px 0 var(--line)}
+.nav .wrap{display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'Fraunces',serif;font-weight:700;font-size:1.35rem;letter-spacing:0.01em}
+.brand .b1{color:var(--navy)} .brand .b2{color:var(--gold)} .brand .b3{color:var(--brand)}
+.nav-links{display:flex;align-items:center;gap:2rem}
+.nav-links a.navlink{font-size:0.92rem;font-weight:500;color:var(--ink-soft);transition:color .15s}
+.nav-links a.navlink:hover{color:var(--brand)}
+@media (max-width:900px){ .nav-links .navlink{display:none} }
+
+/* Hero */
+.hero{padding:8.5rem 0 3rem}
+.hero .eyebrow{display:block;margin-bottom:0.9rem}
+.hero h1{font-size:clamp(2rem,4.6vw,3.3rem);color:var(--navy);max-width:820px}
+.hero p.sub{margin-top:1rem;font-size:1.12rem;color:var(--ink-soft);max-width:640px}
+.videocard{margin-top:2.2rem;background:var(--white);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:0.9rem;position:relative}
+.videocard video{display:block;width:100%;height:auto;border-radius:calc(var(--r-lg) - 8px)}
+.videocard .wm{position:absolute;right:1.4rem;bottom:1.3rem;font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);background:rgba(255,255,255,0.8);padding:2px 8px;border-radius:8px}
+.hero .caption{margin-top:0.8rem;font-size:0.88rem;color:var(--muted);text-align:center}
+
+/* Bands */
+.band{padding:3.4rem 0}
+.band.alt{background:var(--white);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.band-head{max-width:720px;margin-bottom:1.6rem}
+.band-head h2{font-size:clamp(1.5rem,3vw,2.1rem);color:var(--navy);margin-top:0.5rem}
+.band-head p{margin-top:0.6rem;color:var(--ink-soft)}
+.shot{background:var(--white);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:1rem;position:relative}
+.band.alt .shot{background:var(--bone)}
+.shot img{display:block;width:100%;height:auto;border-radius:calc(var(--r-lg) - 8px)}
+.shot .wm{position:absolute;right:1.2rem;bottom:1.05rem;font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);background:rgba(255,255,255,0.85);padding:2px 7px;border-radius:8px}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;align-items:start}
+.duo-32{display:grid;grid-template-columns:3fr 2fr;gap:1.4rem;align-items:start}
+.shot.narrow{max-width:520px}
+.shot.center{margin:0 auto}
+@media (max-width:860px){ .duo,.duo-32{grid-template-columns:1fr} .shot.narrow{max-width:100%} }
+
+.chips{display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:1.1rem}
+.chip{font-size:0.82rem;font-weight:600;color:var(--navy);background:var(--bone-2);border:1px solid var(--line);padding:0.32rem 0.85rem;border-radius:100px}
+.band.alt .chip{background:var(--bone)}
+
+/* Posicionamiento */
+.pos{padding:4rem 0;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-deep) 100%);color:#fff}
+.pos .eyebrow{color:var(--gold)}
+.pos h2{color:#fff;font-size:clamp(1.6rem,3.2vw,2.3rem);max-width:760px;margin-top:0.5rem}
+.pos p.lead{margin-top:0.8rem;color:rgba(255,255,255,0.82);max-width:680px}
+.pos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem;margin-top:2rem}
+.pos-card{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);border-radius:var(--r);padding:1.3rem 1.4rem}
+.pos-card h3{font-size:1.08rem;color:#fff}
+.pos-card p{margin-top:0.5rem;font-size:0.92rem;color:rgba(255,255,255,0.75)}
+.pos-card .big{font-family:'Fraunces',serif;font-size:1.9rem;color:var(--gold);line-height:1}
+@media (max-width:860px){ .pos-grid{grid-template-columns:1fr} }
+
+/* Pasos + CTA */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem;margin-top:2rem}
+.step{background:var(--white);border:1px solid var(--line);border-radius:var(--r);padding:1.4rem;box-shadow:var(--shadow-sm)}
+.step .n{font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--brand);font-weight:500}
+.step h3{margin-top:0.4rem;font-size:1.05rem;color:var(--navy)}
+.step p{margin-top:0.4rem;font-size:0.92rem;color:var(--ink-soft)}
+@media (max-width:860px){ .steps{grid-template-columns:1fr} }
+.cta-final{margin-top:2.6rem;text-align:center}
+.cta-final .btns{display:flex;gap:0.9rem;justify-content:center;flex-wrap:wrap;margin-top:1.2rem}
+
+/* Reveal */
+.js .reveal{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s ease}
+.js .reveal.in{opacity:1;transform:none}
+/* Footer (clon) */
+.footer{background:var(--navy-deep);color:rgba(255,255,255,0.75);padding:3rem 0 1.6rem;margin-top:4rem}
+.footer .brand .b1{color:#fff}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:2rem}
+.footer-about{margin-top:0.8rem;font-size:0.9rem;max-width:320px}
+.footer-col h4{color:#fff;font-family:'DM Sans',sans-serif;font-size:0.9rem;margin-bottom:0.7rem}
+.footer-col a{display:block;font-size:0.88rem;padding:0.2rem 0;color:rgba(255,255,255,0.65)}
+.footer-col a:hover{color:#fff}
+.footer-bottom{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;border-top:1px solid rgba(255,255,255,0.14);margin-top:2.2rem;padding-top:1.3rem;font-size:0.82rem}
+@media (max-width:860px){ .footer-grid{grid-template-columns:1fr 1fr} }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <div class="wrap">
+    <a href="index.html" class="brand"><span class="b1">BEYON</span><span class="b2">D</span><span class="b3">ATA</span></a>
+    <div class="nav-links">
+      <a href="index.html#servicios" class="navlink">Servicios</a>
+      <a href="index.html#como" class="navlink">Cómo funciona</a>
+      <a href="index.html#planes" class="navlink">Planes</a>
+      <a href="index.html#contacto" class="btn btn-gold">Solicitar demo</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ HERO: VÍDEO ═══ -->
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow">La demo · datos de ejemplo</span>
+    <h1>Un grupo, dos negocios, una foto.</h1>
+    <p class="sub">Un hotel de habitaciones y un hostel de camas, en el mismo panel. Cambia de vista y cada KPI se recalcula con su objetivo, su año anterior y su semáforo. Así se ve BeyonData por dentro.</p>
+    <div class="videocard reveal">
+      <video autoplay muted loop playsinline poster="assets/demo/beyondata_hero_poster.jpg">
+        <source src="assets/demo/beyondata_hero.mp4" type="video/mp4">
+      </video>
+      <span class="wm">beyondata.es</span>
+    </div>
+    <p class="caption">Vista de grupo → Cala Dorada Hotel → Casa Diagonal Hostel. Datos simulados.</p>
+  </div>
+</header>
+
+<!-- ═══ KPI CARDS ═══ -->
+<section class="band">
+  <div class="wrap">
+    <div class="band-head reveal">
+      <span class="eyebrow">Cuadro de mando</span>
+      <h2>Tu año y tu mes, de un vistazo</h2>
+      <p>Cada tarjeta responde tres preguntas a la vez: cuánto llevas, cómo vas contra el año pasado y cuánto te falta para tu objetivo. El color hace el resto: verde en plan, ámbar vigilar, rojo actuar.</p>
+    </div>
+    <div class="shot reveal"><img src="assets/demo/kpi_cards.webp" alt="KPIs anuales y mensuales con comparativa y objetivo" loading="lazy"><span class="wm">beyondata.es</span></div>
+    <div class="chips reveal"><span class="chip">Ocupación</span><span class="chip">ADR · RevPar</span><span class="chip">Producción y extras</span><span class="chip">Objetivo y cumplimiento</span></div>
+  </div>
+</section>
+
+<!-- ═══ PACE ═══ -->
+<section class="band alt">
+  <div class="wrap">
+    <div class="band-head reveal">
+      <span class="eyebrow">On the books</span>
+      <h2>¿Cómo va el pickup frente al año pasado?</h2>
+      <p>La curva de reservas en libros, día a día, contra la misma fecha del año anterior — con la diferencia en barras y el cierre del periodo en grande. Sabes si vas por delante o por detrás <em>antes</em> de que el mes llegue.</p>
+    </div>
+    <div class="shot reveal"><img src="assets/demo/booking_pace.webp" alt="Booking pace: ocupación en libros este año contra el año pasado" loading="lazy"><span class="wm">beyondata.es</span></div>
+  </div>
+</section>
+
+<!-- ═══ HEATMAP LEAD ═══ -->
+<section class="band">
+  <div class="wrap">
+    <div class="band-head reveal">
+      <span class="eyebrow">Anticipación</span>
+      <h2>¿A cuántos meses vista se te llena cada mes?</h2>
+      <p>Cada columna es un mes de estancia; cada fila, cuántos meses faltaban. El degradado enseña tu patrón de venta real: qué meses se llenan con antelación, cuáles en el último momento — y dónde tiene sentido mover precio.</p>
+    </div>
+    <div class="shot reveal"><img src="assets/demo/heatmap_lead.webp" alt="Mapa de calor de ocupación en libros por meses de antelación" loading="lazy"><span class="wm">beyondata.es</span></div>
+  </div>
+</section>
+
+<!-- ═══ MERCADO EMISOR ═══ -->
+<section class="band alt">
+  <div class="wrap">
+    <div class="band-head reveal">
+      <span class="eyebrow">Mercados</span>
+      <h2>¿De dónde viene tu dinero?</h2>
+      <p>Reservas y producción por país emisor, en mapa y en detalle. Para decidir dónde anunciarte, qué idiomas cuidar y qué mercados están creciendo debajo del radar.</p>
+    </div>
+    <div class="shot reveal"><img src="assets/demo/mercado_emisor.webp" alt="Distribución de reservas y producción por país emisor" loading="lazy"><span class="wm">beyondata.es</span></div>
+  </div>
+</section>
+
+<!-- ═══ CANALES + ACUMULADA ═══ -->
+<section class="band">
+  <div class="wrap">
+    <div class="band-head reveal">
+      <span class="eyebrow">Canales y ritmo</span>
+      <h2>¿Qué canal te lo trae — y a qué ritmo acumulas?</h2>
+      <p>El mix de OTAs y cuentas corporate con su producción y ADR por canal, junto al acumulado del año contra el anterior, mes a mes. La comisión se negocia mejor con estos números delante.</p>
+    </div>
+    <div class="duo-32">
+      <div class="shot reveal"><img src="assets/demo/prod_acumulada.webp" alt="Producción acumulada del año contra el año anterior" loading="lazy"><span class="wm">beyondata.es</span></div>
+      <div class="shot reveal"><img src="assets/demo/donuts_canal.webp" alt="Distribución de reservas por OTA y por cuenta corporate" loading="lazy"><span class="wm">beyondata.es</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SUMMARY ═══ -->
+<section class="band alt">
+  <div class="wrap">
+    <div class="band-head reveal">
+      <span class="eyebrow">Resumen mensual</span>
+      <h2>El resumen que un director lee en un minuto</h2>
+      <p>Todas las métricas del negocio, mes a mes y con su total: ocupación, unidades, precios medios, producción, extras y reservas. La misma tabla funciona para un hotel de habitaciones y para un hostel de camas.</p>
+    </div>
+    <div class="shot narrow center reveal"><img src="assets/demo/summary_ytd.webp" alt="Tabla resumen mensual de todas las métricas" loading="lazy"><span class="wm">beyondata.es</span></div>
+  </div>
+</section>
+
+<!-- ═══ P&L ═══ -->
+<section class="band">
+  <div class="wrap">
+    <div class="band-head reveal">
+      <span class="eyebrow">Módulo P&L / Contabilidad</span>
+      <h2>Del libro diario al GOP, sin Excel intermedio</h2>
+      <p>Tu contabilidad convertida en una cuenta de resultados hotelera: ingresos y gastos por departamento, GOP, EBITDA — y los ratios de coste y rentabilidad contra su objetivo. El puente entre revenue y dirección financiera.</p>
+    </div>
+    <div class="duo">
+      <div class="shot reveal"><img src="assets/demo/pl_libro.webp" alt="Cuenta de resultados hotelera desde el libro diario" loading="lazy"><span class="wm">beyondata.es</span></div>
+      <div class="shot reveal"><img src="assets/demo/pl_ratios.webp" alt="Ratios de coste y rentabilidad contra objetivo" loading="lazy"><span class="wm">beyondata.es</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ POSICIONAMIENTO HOTELES + HOSTELS ═══ -->
+<section class="pos">
+  <div class="wrap">
+    <span class="eyebrow">Hoteles · Hostels · Grupos mixtos</span>
+    <h2>Habitaciones, camas o las dos cosas: medimos como tú vendes</h2>
+    <p class="lead">Un hotel vende habitaciones. Un hostel vende camas. La mayoría de las herramientas solo saben contar de una manera — BeyonData cambia la regla de medir según el inventario de cada property, y consolida el grupo sin trampas.</p>
+    <div class="pos-grid">
+      <div class="pos-card reveal"><div class="big">2</div><h3>Modos de ocupación</h3><p>Por habitación para el hotel, por cama para el hostel. Numerador, denominador y objetivos cambian juntos: nunca comparas peras con manzanas.</p></div>
+      <div class="pos-card reveal"><div class="big">8ª</div><h3>La cama que no se llena</h3><p>Ocupación por número de cama dentro de cada dormitorio: descubre hasta qué cama se llena de verdad — y si ese dorm de 8 debería ser de 6.</p></div>
+      <div class="pos-card reveal"><div class="big">1</div><h3>Foto de grupo</h3><p>Hoteles y hostels en el mismo panel, cada uno medido con su regla, consolidados en una sola vista de dirección.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PASOS + CTA ═══ -->
+<section class="band">
+  <div class="wrap">
+    <div class="band-head reveal">
+      <span class="eyebrow">Cómo funciona</span>
+      <h2>De tus datos a tu panel, en tres pasos</h2>
+    </div>
+    <div class="steps">
+      <div class="step reveal"><span class="n">01</span><h3>Conectamos tus datos</h3><p>API de tu PMS, un reporte periódico o un Excel: trabajamos con lo que ya tienes, en el formato que prefieras.</p></div>
+      <div class="step reveal"><span class="n">02</span><h3>Preparamos tu modelo</h3><p>Limpiamos, cruzamos y validamos: habitaciones, camas, canales, extras y objetivos, con las reglas de tu negocio.</p></div>
+      <div class="step reveal"><span class="n">03</span><h3>Decides con tu panel</h3><p>Tu dashboard en tu portal, actualizado y con tus objetivos dentro. Como el de esta página, pero con tus números.</p></div>
+    </div>
+    <div class="cta-final reveal">
+      <h2 style="color:var(--navy);font-size:clamp(1.4rem,2.6vw,1.9rem)">¿Lo quieres ver con tus datos?</h2>
+      <div class="btns">
+        <a href="index.html#contacto" class="btn btn-gold">Solicitar una demo</a>
+        <a href="index.html#planes" class="btn btn-ghost">Ver planes y precios</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <a href="index.html" class="brand"><span class="b1">BEYON</span><span class="b2">D</span><span class="b3">ATA</span></a>
+        <p class="footer-about">Inteligencia de negocio para hoteles. Convertimos tus datos de ventas, contabilidad y previsión en decisiones claras.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Producto</h4>
+        <a href="index.html#servicios">Servicios</a>
+        <a href="index.html#como">Cómo funciona</a>
+        <a href="demo.html">La demo</a>
+        <a href="dashboard.html">Portal de clientes</a>
+      </div>
+      <div class="footer-col">
+        <h4>Empresa</h4>
+        <a href="index.html#nosotros">Sobre nosotros</a>
+        <a href="index.html#faq">Preguntas frecuentes</a>
+        <a href="index.html#contacto">Contacto</a>
+      </div>
+      <div class="footer-col">
+        <h4>Acceso</h4>
+        <a href="login.html">Iniciar sesión</a>
+        <a href="index.html#contacto">Solicitar demo</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 BeyonData. Todos los derechos reservados.</span>
+      <span>Hecho para hoteles que deciden con datos.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
