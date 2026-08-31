@@ -963,8 +963,6 @@
       /* two columns: modules left, documents right */
       .plan-split{display:grid;grid-template-columns:1.08fr 1fr;gap:1.4rem;align-items:start;margin-bottom:1rem}
       .plan-split-col{min-width:0}
-      #plan-modules{display:flex;flex-direction:column;gap:0.55rem;margin-bottom:0}
-      #plan-modules .plan-mod{padding:0.65rem 0.95rem}
       #section-my_plan .plan-mod-title{font-size:0.95rem;margin-bottom:0.1rem}
       #section-my_plan .plan-mod-desc{font-size:0.78rem;line-height:1.45}
       #section-my_plan .plan-mod-price{font-size:0.85rem;white-space:nowrap}
@@ -1033,7 +1031,7 @@
       .plan-step{display:flex;align-items:center;gap:0.9rem;flex-wrap:wrap;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:0.65rem 1rem}
       .plan-step-lbl{font-weight:600}
       .plan-step-note{font-size:0.8rem;color:var(--text-muted)}
-      .plan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:0.75rem;align-items:stretch}
+      .plan-grid,#plan-modules.plan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:0.75rem;align-items:stretch;margin-bottom:0}
       .plan-grid .plan-mod{display:flex;flex-direction:column;align-items:stretch;gap:0.4rem;padding:0.85rem 1rem;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-lg);box-shadow:none;transition:border-color .2s,box-shadow .2s,opacity .2s}
       .plan-grid .plan-mod:not(.active):not(.base){opacity:0.82}
       .plan-grid .plan-mod.active{border-color:var(--brand);box-shadow:0 4px 16px rgba(61,101,168,0.10)}
