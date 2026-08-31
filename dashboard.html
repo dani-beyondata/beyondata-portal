@@ -132,6 +132,13 @@
         <h2>Mi Dashboard</h2>
         <p>Tu cuadro de mando de Power BI, en tiempo real.</p>
       </div>
+      <div class="pbi-toolbar" id="pbi-toolbar" style="display:none">
+        <button type="button" class="btn btn-sm" id="pbi-zoom-out" title="Reducir">−</button>
+        <span class="pbi-zoom-label" id="pbi-zoom-label">100%</span>
+        <button type="button" class="btn btn-sm" id="pbi-zoom-in" title="Ampliar">+</button>
+        <button type="button" class="btn btn-sm" id="pbi-zoom-fit" title="Ajustar al ancho disponible">Ajustar</button>
+        <button type="button" class="btn btn-sm" id="pbi-fullscreen" title="Pantalla completa (Esc para salir)">⤢</button>
+      </div>
       <div id="pbi-container" class="pbi-container">
         <!-- Report iframe injected here by JS, or placeholder if not configured -->
         <div id="pbi-placeholder" class="pbi-placeholder">
@@ -979,6 +986,10 @@
       /* Power BI embed */
       .pbi-container{position:relative;width:100%;min-height:520px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:auto;box-shadow:0 1px 3px rgba(61,101,168,0.05);display:flex;justify-content:center;align-items:flex-start}
       .pbi-container.has-report{min-height:0}
+      .pbi-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:0.35rem;margin:-0.4rem 0 0.6rem}
+      .pbi-zoom-label{font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--text-muted);min-width:44px;text-align:center}
+      .pbi-container:fullscreen{background:#fff;align-items:center;border:0;border-radius:0}
+      .pbi-container:fullscreen iframe{width:100vw!important;height:100vh!important}
       .pbi-container iframe{border:0;display:block;flex:0 0 auto}
       .pbi-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--text-muted);padding:2rem}
       .pbi-placeholder-ico{width:70px;height:70px;border-radius:18px;background:var(--bg);color:var(--brand);display:flex;align-items:center;justify-content:center;margin-bottom:1.1rem}
@@ -1978,18 +1989,29 @@
   //  - publish to web (public): app.powerbi.com/view?r=...  → no sign-in, anyone with the page.
   // Future: move to companies.pbi_embed_url column when hardcoding stops scaling.
   const PBI_EMBEDS = {
-    'cd': 'https://app.powerbi.com/reportEmbed?reportId=f1a1a769-f7b3-44aa-839f-159f482fe0f8&autoAuth=true&ctid=afd10560-c05e-4ac9-8965-d56483fb5689',  // CD Hotels (cd_sales)
-    // 'tch': '…',
+    // value: url string, or { url, ratio } where ratio = page height / page width
+    // (Desktop → Format page → Canvas size). 16:9 = 0.5625. Tall pages ≈ 1.2–1.8.
+    'cd': { url: 'https://app.powerbi.com/reportEmbed?reportId=f1a1a769-f7b3-44aa-839f-159f482fe0f8&autoAuth=true&ctid=afd10560-c05e-4ac9-8965-d56483fb5689',
+            ratio: 1.5 },   // CD Hotels (cd_sales) — tune to the report page size
+    // 'tch': { url: '…', ratio: 0.5625 },
   };
+  function pbiConfig(slug) {
+    const v = PBI_EMBEDS[slug];
+    if (!v) return null;
+    return typeof v === 'string' ? { url: v, ratio: 541.25 / 1140 } : { ratio: 541.25 / 1140, ...v };
+  }
 
   function loadMyDashboard() {
     const container = document.getElementById('pbi-container');
     if (!container) return;
     const slug = (currentCompany && (currentCompany.slug || currentCompany.code || '')).toLowerCase();
-    const url = PBI_EMBEDS[slug];
+    const cfg = pbiConfig(slug);
+    const url = cfg && cfg.url;
+    const toolbar = document.getElementById('pbi-toolbar');
 
     // Not configured yet → show placeholder
     if (!url) {
+      if (toolbar) toolbar.style.display = 'none';
       container.innerHTML =
         '<div class="pbi-placeholder">' +
           '<div class="pbi-placeholder-ico"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></div>' +
@@ -2018,7 +2040,10 @@
     });
     iframe.src = url;
     container.appendChild(iframe);
+    pbiRatio = cfg.ratio;
+    pbiZoom = 1;
     pbiSizeIframe(container, iframe, true);
+    if (toolbar) { toolbar.style.display = 'flex'; pbiWireToolbar(container); }
   }
 
   // Power BI "fits to page" inside its iframe, so if the iframe is sized in
@@ -2026,16 +2051,35 @@
   // We anchor the iframe to a fixed CSS-px width instead: browser zoom then
   // scales it like the rest of the page. Zoom is detected as a change in
   // devicePixelRatio; a real window resize (same DPR) re-fits to the container.
-  const PBI_RATIO = 541.25 / 1140;   // Power BI embed aspect (16:9 page + bar)
+  let pbiRatio = 541.25 / 1140;      // page height/width (per company, see PBI_EMBEDS)
+  let pbiZoom = 1;                   // our own zoom (frame size = zoom): PBI fits to frame
   let pbiBase = { w: null, dpr: window.devicePixelRatio };
   function pbiSizeIframe(container, iframe, refit) {
     const dpr = window.devicePixelRatio;
     if (refit || pbiBase.w === null || Math.abs(dpr - pbiBase.dpr) < 0.001) {
       pbiBase.w = Math.max(320, container.clientWidth - 2);   // real fit
     }
-    pbiBase.dpr = dpr;                                         // zoom: keep w
-    iframe.style.width = pbiBase.w + 'px';
-    iframe.style.height = Math.round(pbiBase.w * PBI_RATIO) + 'px';
+    pbiBase.dpr = dpr;                                         // browser zoom: keep w
+    const w = Math.round(pbiBase.w * pbiZoom);
+    iframe.style.width = w + 'px';
+    iframe.style.height = Math.round(w * pbiRatio) + 'px';
+    const lbl = document.getElementById('pbi-zoom-label');
+    if (lbl) lbl.textContent = Math.round(pbiZoom * 100) + '%';
+  }
+  let pbiToolbarWired = false;
+  function pbiWireToolbar(container) {
+    if (pbiToolbarWired) return;
+    pbiToolbarWired = true;
+    const f = () => container.querySelector('iframe');
+    const setZoom = z => { pbiZoom = Math.min(3, Math.max(0.4, z)); if (f()) pbiSizeIframe(container, f(), false); };
+    document.getElementById('pbi-zoom-in').addEventListener('click', () => setZoom(pbiZoom * 1.15));
+    document.getElementById('pbi-zoom-out').addEventListener('click', () => setZoom(pbiZoom / 1.15));
+    document.getElementById('pbi-zoom-fit').addEventListener('click', () => { pbiZoom = 1; if (f()) pbiSizeIframe(container, f(), true); });
+    document.getElementById('pbi-fullscreen').addEventListener('click', () => {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (container.requestFullscreen) container.requestFullscreen();
+    });
+    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && f()) pbiSizeIframe(container, f(), true); });
   }
   window.addEventListener('resize', () => {
     const c = document.getElementById('pbi-container');
