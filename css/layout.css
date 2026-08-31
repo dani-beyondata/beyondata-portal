@@ -87,13 +87,30 @@
   width: var(--sidebar-w);
   background: var(--white);
   border-right: 1px solid var(--border);
-  padding: 1.25rem 0.75rem;
+  padding: 0.6rem 0.75rem 1.25rem;
   position: fixed;
   top: var(--topbar-h);
   left: 0;
   bottom: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.2s ease;
 }
+
+/* Collapse toggle + collapsed state (one variable drives sidebar AND content) */
+.sb-toggle {
+  display: flex; align-items: center; justify-content: flex-end;
+  width: 100%; border: 0; background: none; cursor: pointer;
+  color: var(--text-muted); padding: 0.2rem 0.3rem 0.7rem; border-radius: 8px;
+}
+.sb-toggle:hover { color: var(--brand); }
+.sb-toggle svg { width: 16px; height: 16px; transition: transform 0.2s ease; }
+body.sb-collapsed { --sidebar-w: 64px; }
+body.sb-collapsed .sb-toggle { justify-content: center; }
+body.sb-collapsed .sb-toggle svg { transform: rotate(180deg); }
+body.sb-collapsed .nav-section-label { font-size: 0; height: 1px; background: var(--border); margin: 0.6rem 0.4rem 0.9rem; opacity: 1; padding: 0; }
+body.sb-collapsed .nav-item { font-size: 0; justify-content: center; padding: 0.55rem 0; gap: 0; }
+body.sb-collapsed .nav-item .nav-badge { position: absolute; top: 4px; right: 6px; font-size: 0.6rem; }
 
 .nav-section { margin-bottom: 1.35rem; }
 
@@ -170,6 +187,7 @@
   flex: 1;
   padding: 2rem;
   max-width: calc(100vw - var(--sidebar-w));
+  transition: margin-left 0.2s ease, max-width 0.2s ease;
 }
 
 /* Section visibility */

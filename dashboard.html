@@ -34,6 +34,9 @@
 
   <!-- Sidebar -->
   <div class="sidebar">
+    <button class="sb-toggle" id="sb-toggle" type="button" aria-label="Contraer menú" title="Contraer menú">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
     <div class="nav-section">
       <div class="nav-section-label">General</div>
       <div class="nav-item active" data-section="overview"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>Overview</div>
@@ -974,7 +977,9 @@
       .ov-cards .ov-card:nth-child(5){ animation-delay:.18s; }
       .ov-cards .ov-card:nth-child(6){ animation-delay:.22s; }
       /* Power BI embed */
-      .pbi-container{position:relative;width:100%;height:calc(100vh - var(--topbar-h) - 130px);min-height:520px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:0 1px 3px rgba(61,101,168,0.05)}      .pbi-container iframe{width:100%;height:100%;border:0;display:block}
+      .pbi-container{position:relative;width:100%;min-height:520px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:auto;box-shadow:0 1px 3px rgba(61,101,168,0.05);display:flex;justify-content:center;align-items:flex-start}
+      .pbi-container.has-report{min-height:0}
+      .pbi-container iframe{border:0;display:block;flex:0 0 auto}
       .pbi-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--text-muted);padding:2rem}
       .pbi-placeholder-ico{width:70px;height:70px;border-radius:18px;background:var(--bg);color:var(--brand);display:flex;align-items:center;justify-content:center;margin-bottom:1.1rem}
       .pbi-placeholder-title{font-size:1.05rem;font-weight:600;color:var(--text);margin-bottom:0.35rem}
@@ -2001,6 +2006,7 @@
     // Loading spinner + iframe
     container.innerHTML =
       '<div class="pbi-loading" id="pbi-loading"><div class="pbi-spinner"></div></div>';
+    container.classList.add('has-report');
     const iframe = document.createElement('iframe');
     iframe.dataset.src = url;
     iframe.setAttribute('title', 'Power BI report');
@@ -2012,7 +2018,49 @@
     });
     iframe.src = url;
     container.appendChild(iframe);
+    pbiSizeIframe(container, iframe, true);
   }
+
+  // Power BI "fits to page" inside its iframe, so if the iframe is sized in
+  // viewport-relative CSS px the report looks the SAME at any browser zoom.
+  // We anchor the iframe to a fixed CSS-px width instead: browser zoom then
+  // scales it like the rest of the page. Zoom is detected as a change in
+  // devicePixelRatio; a real window resize (same DPR) re-fits to the container.
+  const PBI_RATIO = 541.25 / 1140;   // Power BI embed aspect (16:9 page + bar)
+  let pbiBase = { w: null, dpr: window.devicePixelRatio };
+  function pbiSizeIframe(container, iframe, refit) {
+    const dpr = window.devicePixelRatio;
+    if (refit || pbiBase.w === null || Math.abs(dpr - pbiBase.dpr) < 0.001) {
+      pbiBase.w = Math.max(320, container.clientWidth - 2);   // real fit
+    }
+    pbiBase.dpr = dpr;                                         // zoom: keep w
+    iframe.style.width = pbiBase.w + 'px';
+    iframe.style.height = Math.round(pbiBase.w * PBI_RATIO) + 'px';
+  }
+  window.addEventListener('resize', () => {
+    const c = document.getElementById('pbi-container');
+    const f = c && c.querySelector('iframe');
+    if (f) pbiSizeIframe(c, f, false);
+  });
+
+  // ── SIDEBAR COLLAPSE ──────────────────────────────────────────────
+  (function () {
+    const KEY = 'bd_sidebar_collapsed';
+    const btn = document.getElementById('sb-toggle');
+    if (!btn) return;
+    function apply(collapsed) {
+      document.body.classList.toggle('sb-collapsed', collapsed);
+      btn.title = collapsed ? 'Expandir menú' : 'Contraer menú';
+      btn.setAttribute('aria-label', btn.title);
+      document.querySelectorAll('.nav-item').forEach(n => {
+        if (collapsed) n.title = n.textContent.trim(); else n.removeAttribute('title');
+      });
+      localStorage.setItem(KEY, collapsed ? '1' : '0');
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 220);  // after transition
+    }
+    apply(localStorage.getItem(KEY) === '1');
+    btn.addEventListener('click', () => apply(!document.body.classList.contains('sb-collapsed')));
+  })();
 
   // ── MI PLAN ───────────────────────────────────────────────────────
   const PLAN_MODULES = ['ventas','pl','forecast','extras','markets','consultoria'];
