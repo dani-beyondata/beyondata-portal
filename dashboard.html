@@ -1985,14 +1985,23 @@
   const PBI_EMBEDS = {
     // value: url string, or { url, ratio } where ratio = page height / page width
     // (Desktop → Format page → Canvas size). 16:9 = 0.5625. Tall pages ≈ 1.2–1.8.
-    'cd': { url: 'https://app.powerbi.com/reportEmbed?reportId=f1a1a769-f7b3-44aa-839f-159f482fe0f8&autoAuth=true&ctid=afd10560-c05e-4ac9-8965-d56483fb5689',
-            ratio: 1.5 },   // CD Hotels (cd_sales) — tune to the report page size
-    // 'tch': { url: '…', ratio: 0.5625 },
+    // fit: 'width'  → iframe height = width × ratio (16:9 style pages, one screen)
+    //      'height' → iframe fills the viewport height; report set to fit-to-width and scrolls inside
+    //                 (use for tall / uneven pages like cd_sales: 1.9 to 5.2 height/width)
+    // Preferred source is companies.pbi_embed_url / pbi_embed_ratio / pbi_embed_fit (Supabase); this map is the fallback.
+    'cd': { url: 'https://app.powerbi.com/reportEmbed?reportId=f1a1a769-f7b3-44aa-839f-159f482fe0f8&autoAuth=true&ctid=afd10560-c05e-4ac9-8965-d56483fb5689&pageView=fitToWidth',
+            fit: 'height' },
+    // 'tch': { url: '…', ratio: 0.5625, fit: 'width' },
   };
+  const PBI_DEFAULTS = { ratio: 541.25 / 1140, fit: 'width' };
   function pbiConfig(slug) {
+    const c = currentCompany || {};
+    if (c.pbi_embed_url) {
+      return { url: c.pbi_embed_url, ratio: Number(c.pbi_embed_ratio) || PBI_DEFAULTS.ratio, fit: c.pbi_embed_fit || PBI_DEFAULTS.fit };
+    }
     const v = PBI_EMBEDS[slug];
     if (!v) return null;
-    return typeof v === 'string' ? { url: v, ratio: 541.25 / 1140 } : { ratio: 541.25 / 1140, ...v };
+    return typeof v === 'string' ? { url: v, ...PBI_DEFAULTS } : { ...PBI_DEFAULTS, ...v };
   }
 
   function loadMyDashboard() {
@@ -2035,6 +2044,7 @@
     iframe.src = url;
     container.appendChild(iframe);
     pbiRatio = cfg.ratio;
+    pbiFit = cfg.fit;
     pbiZoom = 1;
     pbiSizeIframe(container, iframe, true);
     if (toolbar) { toolbar.style.display = 'flex'; pbiWireToolbar(container); }
@@ -2046,6 +2056,7 @@
   // scales it like the rest of the page. Zoom is detected as a change in
   // devicePixelRatio; a real window resize (same DPR) re-fits to the container.
   let pbiRatio = 541.25 / 1140;      // page height/width (per company, see PBI_EMBEDS)
+  let pbiFit = 'width';              // 'width' (ratio-based height) or 'height' (fill viewport, scroll inside)
   let pbiZoom = 1;                   // our own zoom (frame size = zoom): PBI fits to frame
   let pbiBase = { w: null, dpr: window.devicePixelRatio };
   function pbiSizeIframe(container, iframe, refit) {
@@ -2056,7 +2067,13 @@
     pbiBase.dpr = dpr;                                         // browser zoom: keep w
     const w = Math.round(pbiBase.w * pbiZoom);
     iframe.style.width = w + 'px';
-    iframe.style.height = Math.round(w * pbiRatio) + 'px';
+    if (pbiFit === 'height') {
+      const top = container.getBoundingClientRect().top + window.scrollY;
+      const avail = window.innerHeight - (top - window.scrollY) - 24;
+      iframe.style.height = Math.max(560, Math.round(avail)) + 'px';
+    } else {
+      iframe.style.height = Math.round(w * pbiRatio) + 'px';
+    }
     const lbl = document.getElementById('pbi-zoom-label');
     if (lbl) lbl.textContent = Math.round(pbiZoom * 100) + '%';
   }

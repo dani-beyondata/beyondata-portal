@@ -135,6 +135,19 @@ a{color:inherit;text-decoration:none}
 .strip-item svg{color:var(--brand)}
 
 /* ── Section shell ── */
+.aud-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
+.aud-pill{background:var(--white);border:1px solid var(--line);border-radius:var(--r);padding:1.1rem 1.2rem;box-shadow:var(--shadow-sm)}
+.aud-pill h3{font-size:1.02rem;color:var(--navy);margin-top:0.45rem}
+.aud-pill p{font-size:0.88rem;color:var(--ink-soft);margin-top:0.25rem}
+@media (max-width:860px){ .aud-strip{grid-template-columns:1fr 1fr} }
+@media (max-width:520px){ .aud-strip{grid-template-columns:1fr} }
+.team-mini{margin-top:2rem;padding-top:1.6rem;border-top:1px solid var(--line);display:grid;gap:0.9rem}
+.tm{display:flex;gap:0.85rem;align-items:flex-start}
+.tm img{width:52px;height:52px;border-radius:50%;object-fit:cover;flex:0 0 52px;border:2px solid var(--white);box-shadow:var(--shadow-sm)}
+.tm h4{font-family:'DM Sans',sans-serif;font-size:0.98rem;font-weight:600;color:var(--navy)}
+.tm-role{font-family:'DM Mono',monospace;font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--brand);margin:0.1rem 0 0.25rem}
+.tm p{font-size:0.86rem;color:var(--ink-soft);line-height:1.5}
+.tm-quote{font-family:'Fraunces',serif;font-style:italic;color:var(--muted);font-size:0.95rem;margin-top:0.2rem}
 .section{padding:6rem 0}
 .demo-teaser{display:grid;grid-template-columns:1fr 1.25fr;gap:2.6rem;align-items:center}
 .demo-teaser h2{font-size:clamp(1.5rem,3vw,2.1rem);color:var(--navy);margin-top:0.5rem}
@@ -498,36 +511,13 @@ a{color:inherit;text-decoration:none}
   </div>
 </section>
 
-<section class="section" id="por-que">
-  <div class="wrap reveal">
-    <div class="pain">
-      <div class="pain-grid">
-        <div>
-          <span class="eyebrow" style="color:var(--gold)">El problema</span>
-          <h2>Los datos están. La claridad, no.</h2>
-          <ul class="pain-list">
-            <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg> Ventas en el channel manager, gastos en el Excel del gestor, previsiones en otra hoja.</li>
-            <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg> Informes que llegan tarde y cuestan horas de copiar y pegar.</li>
-            <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg> Decisiones de revenue tomadas con la intuición, no con el número.</li>
-          </ul>
-        </div>
-        <div class="pain-after">
-          <span class="eyebrow">Con BeyonData</span>
-          <h3>Una sola verdad, actualizada sola.</h3>
-          <p>Conectamos todas tus fuentes una vez. A partir de ahí, tus cuadros de mando de ocupación, ADR, RevPAR, producción y márgenes se actualizan solos — listos para decidir, no para montar.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- FEATURES / SERVICES -->
-<section class="section" id="servicios">
+<section class="section" id="servicios"><a id="por-que"></a>
   <div class="wrap">
     <div class="section-head reveal">
       <span class="eyebrow">Qué analizamos</span>
       <h2>El negocio de tu hotel, de principio a fin.</h2>
-      <p>No solo ocupación. BeyonData cubre las tres palancas que mueven la rentabilidad — y las conecta entre sí.</p>
+      <p>Ventas en el channel manager, gastos en el Excel del gestor, previsiones en otra hoja. Conectamos tus fuentes una vez y tus cuadros de mando se actualizan solos — listos para decidir, no para montar. No solo ocupación: las tres palancas de la rentabilidad, conectadas entre sí.</p>
     </div>
     <div class="features reveal">
       <div class="feature">
@@ -597,72 +587,23 @@ a{color:inherit;text-decoration:none}
 </section>
 
 <!-- AUDIENCE -->
-<section class="section" id="clientes">
+<section class="section" id="clientes" style="padding-top:3.5rem;padding-bottom:3.5rem">
   <div class="wrap">
     <div class="section-head reveal">
       <span class="eyebrow">Para quién</span>
       <h2>Del grupo hotelero a la casa con encanto.</h2>
       <p>El mismo rigor, adaptado a tu tamaño. Ni te sobra plataforma ni te falta análisis.</p>
     </div>
-    <div class="audience reveal">
-      <div class="aud-card big">
-        <span class="aud-tag">Cadenas &amp; grupos</span>
-        <h3>Varios hoteles, una sola foto</h3>
-        <p>Consolida el rendimiento de toda tu cartera y baja al detalle de cada propiedad cuando lo necesites. Compara activos, canales y mercados sobre la misma base.</p>
-      </div>
-      <div class="aud-card small">
-        <span class="aud-tag">Hoteles boutique</span>
-        <h3>Análisis de los grandes, sin su complejidad</h3>
-        <p>Tienes datos valiosos aunque seas pequeño. Te damos los mismos cuadros de mando de revenue y rentabilidad que usan las cadenas, a tu medida.</p>
-      </div>
+    <div class="aud-strip reveal">
+      <div class="aud-pill"><span class="aud-tag">Cadenas &amp; grupos</span><h3>Toda la cartera en una foto</h3><p>Y el detalle de cada hotel cuando lo necesites.</p></div>
+      <div class="aud-pill"><span class="aud-tag">Independientes</span><h3>Revenue y rentabilidad al día</h3><p>Sin montar un equipo de datos.</p></div>
+      <div class="aud-pill"><span class="aud-tag">Boutique</span><h3>El análisis de los grandes</h3><p>A tu medida, sin su complejidad.</p></div>
+      <div class="aud-pill"><span class="aud-tag">Hostels y mixtos</span><h3>Habitaciones, camas o las dos</h3><p>Medimos como tú vendes.</p></div>
     </div>
   </div>
 </section>
 
 <!-- SOBRE NOSOTROS -->
-<section class="section" id="nosotros" style="background:var(--bone-2)">
-  <div class="wrap">
-    <div class="section-head center reveal">
-      <span class="eyebrow">Quiénes somos</span>
-      <h2>Hotelería y datos, en la misma mesa.</h2>
-      <p>BeyonData nace del cruce de dos mundos que rara vez se hablan: la operación real de un hotel y el análisis de datos serio. Por eso entendemos tu P&amp;L y tu channel manager por igual.</p>
-    </div>
-    <div class="team reveal">
-      <div class="member">
-        <img src="avatar_lara.png" alt="Lara Monset" class="member-photo">
-        <div class="member-body">
-          <h3>Lara Monset</h3>
-          <div class="member-role">Operación &amp; Finanzas Hoteleras</div>
-          <p>Ha abierto hoteles en Barcelona y dirigido operación y finanzas en casas emblemáticas, del Hotel Arts a Casa Bonay. Conoce por dentro cómo se toma cada decisión de revenue, coste y cierre contable — y qué números de verdad importan al final del mes.</p>
-          <div class="member-tags">
-            <span class="member-tag">Aperturas de hotel</span>
-            <span class="member-tag">Contabilidad &amp; P&amp;L</span>
-            <span class="member-tag">Revenue</span>
-            <span class="member-tag">Operación</span>
-          </div>
-        </div>
-      </div>
-      <div class="member">
-        <img src="avatar_daniel.png" alt="Daniel Ramírez" class="member-photo">
-        <div class="member-body">
-          <h3>Daniel Ramírez</h3>
-          <div class="member-role">Business Intelligence</div>
-          <p>Consultor de BI con toda una carrera en OTAs y en el sector financiero. Ha construido los modelos de datos y cuadros de mando que convierten miles de reservas y apuntes en respuestas claras. La parte técnica, resuelta, para que tú solo veas la claridad.</p>
-          <div class="member-tags">
-            <span class="member-tag">Modelado de datos</span>
-            <span class="member-tag">Power BI</span>
-            <span class="member-tag">OTAs</span>
-            <span class="member-tag">Pipelines &amp; API</span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="founders-note reveal">
-      <p>“Los hoteles no necesitan más datos. Necesitan entender los que ya tienen.”</p>
-    </div>
-  </div>
-</section>
-
 <!-- PLANES / CONFIGURADOR -->
 <section class="section" id="planes" style="background:var(--bone-2)">
   <div class="wrap">
@@ -804,15 +745,7 @@ a{color:inherit;text-decoration:none}
         <button class="faq-q">¿Cuánto se tarda en tener los primeros cuadros de mando?<span class="faq-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></button>
         <div class="faq-a"><p>Depende del estado de tus datos, pero el objetivo es que veas valor rápido. Una vez conectada la fuente y acordado qué quieres medir, montamos una primera versión funcional en cuestión de días, no de meses. A partir de ahí, iteramos contigo.</p></div>
       </div>
-      <div class="faq-item">
-        <button class="faq-q">¿Trabajáis con hoteles pequeños o solo con cadenas?<span class="faq-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></button>
-        <div class="faq-a"><p>Con ambos. Adaptamos el alcance a tu tamaño: una casa boutique tiene los mismos KPIs de rentabilidad que una cadena, solo que a otra escala. No te cobramos plataforma que no necesitas ni te dejamos sin el análisis que sí importa.</p></div>
-      </div>
-      <div class="faq-item">
-        <button class="faq-q">¿Qué analizáis exactamente?<span class="faq-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></button>
-        <div class="faq-a"><p>Las tres palancas del negocio y cómo se relacionan: ventas y revenue (ocupación, ADR, RevPAR, producción por canal y segmento), contabilidad (del libro diario al GOP y márgenes) y previsión (presupuesto y forecast frente al dato real). Y lo adaptamos a tu operativa concreta.</p></div>
-      </div>
-      <div class="faq-item">
+                  <div class="faq-item">
         <button class="faq-q">¿Mis datos están seguros?<span class="faq-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></button>
         <div class="faq-a"><p>Tus datos son tuyos. Cada cliente tiene su espacio aislado y el acceso al portal está protegido con autenticación. No compartimos ni revendemos información. En la propuesta te explicamos con detalle cómo se almacenan y se tratan.</p></div>
       </div>
@@ -821,25 +754,13 @@ a{color:inherit;text-decoration:none}
 </section>
 
 <!-- CTA BAND -->
-<section class="section">
-  <div class="wrap reveal">
-    <div class="cta-band">
-      <div class="cta-band-inner">
-        <h2>¿Listo para ver tu hotel con claridad?</h2>
-        <p>Te enseñamos, con tus propios datos, cómo se verían tus cuadros de mando. Sin compromiso.</p>
-        <a href="#contacto" class="btn btn-gold btn-lg">Solicitar una demo</a>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- CONTACT -->
 <section class="section" id="contacto">
   <div class="wrap contact-grid">
     <div class="contact-info reveal">
       <span class="eyebrow">Hablemos</span>
-      <h2>Cuéntanos sobre tu hotel</h2>
-      <p>Escríbenos y te respondemos con una propuesta pensada para tu operativa. Sin plantillas.</p>
+      <h2>¿Listo para ver tu hotel con claridad?</h2>
+      <p>Te enseñamos, con tus propios datos, cómo se verían tus cuadros de mando. Sin compromiso y sin plantillas: te respondemos con una propuesta pensada para tu operativa.</p>
       <div class="contact-item">
         <div class="contact-item-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 6L2 7"/></svg></div>
         <div><div class="ci-label">Email</div><div class="ci-value">hola@beyondata.es</div></div>
@@ -851,6 +772,12 @@ a{color:inherit;text-decoration:none}
       <div class="contact-item">
         <div class="contact-item-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
         <div><div class="ci-label">Sede</div><div class="ci-value">Barcelona, España</div></div>
+      </div>
+      <div class="team-mini" id="nosotros">
+        <span class="eyebrow">Quiénes somos</span>
+        <div class="tm"><img src="avatar_lara.png" alt="Lara Monset"><div><h4>Lara Monset</h4><div class="tm-role">Operación &amp; Finanzas Hoteleras</div><p>Ha abierto hoteles en Barcelona y dirigido operación y finanzas en casas emblemáticas, del Hotel Arts a Casa Bonay.</p></div></div>
+        <div class="tm"><img src="avatar_daniel.png" alt="Daniel Ramírez"><div><h4>Daniel Ramírez</h4><div class="tm-role">Business Intelligence</div><p>Consultor de BI con toda una carrera en OTAs y en el sector financiero.</p></div></div>
+        <p class="tm-quote">“Los hoteles no necesitan más datos. Necesitan entender los que ya tienen.”</p>
       </div>
     </div>
     <form class="contact-form reveal" id="contactForm" action="https://formspree.io/f/TU_ID_FORMSPREE" method="POST">
@@ -905,7 +832,6 @@ a{color:inherit;text-decoration:none}
       <div class="footer-col">
         <h4>Empresa</h4>
         <a href="#nosotros">Sobre nosotros</a>
-        <a href="#por-que">Por qué BeyonData</a>
         <a href="#faq">Preguntas frecuentes</a>
         <a href="#contacto">Contacto</a>
       </div>
