@@ -53,14 +53,22 @@ a{color:inherit;text-decoration:none}
 .hero .caption{margin-top:0.8rem;font-size:0.88rem;color:var(--muted);text-align:center}
 
 /* Bands */
-.band{padding:3.4rem 0}
+.band{padding:2.6rem 0}
 .band.alt{background:var(--white);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.band-head{max-width:720px;margin-bottom:1.6rem}
+.band-head{max-width:760px;margin-bottom:1.3rem}
 .band-head h2{font-size:clamp(1.5rem,3vw,2.1rem);color:var(--navy);margin-top:0.5rem}
 .band-head p{margin-top:0.6rem;color:var(--ink-soft)}
 .shot{background:var(--white);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:1rem;position:relative}
 .band.alt .shot{background:var(--bone)}
-.shot img{display:block;width:100%;height:auto;border-radius:calc(var(--r-lg) - 8px)}
+.shot img{display:block;width:100%;height:auto;border-radius:8px}
+.stack{display:grid;gap:1.2rem}
+.sub-head{display:flex;align-items:baseline;gap:0.7rem;margin:0.4rem 0 0.2rem}
+.sub-head h3{font-size:1.05rem;color:var(--navy)}
+.sub-head span{font-size:0.88rem;color:var(--muted)}
+.pl-row{display:grid;grid-template-columns:2fr 3fr;gap:1.2rem;align-items:start}
+.pl-row .shot img{max-height:460px;width:auto;margin:0 auto}
+@media (max-width:860px){ .pl-row{grid-template-columns:1fr} .pl-row .shot img{max-height:none;width:100%} }
+.shot.wide{max-width:1040px}
 .shot .wm{position:absolute;right:1.2rem;bottom:1.05rem;font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);background:rgba(255,255,255,0.85);padding:2px 7px;border-radius:8px}
 .duo{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;align-items:start}
 .duo-32{display:grid;grid-template-columns:3fr 2fr;gap:1.4rem;align-items:start}
@@ -73,7 +81,7 @@ a{color:inherit;text-decoration:none}
 .band.alt .chip{background:var(--bone)}
 
 /* Posicionamiento */
-.pos{padding:4rem 0;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-deep) 100%);color:#fff}
+.pos{padding:3.2rem 0;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-deep) 100%);color:#fff}
 .pos .eyebrow{color:var(--gold)}
 .pos h2{color:#fff;font-size:clamp(1.6rem,3.2vw,2.3rem);max-width:760px;margin-top:0.5rem}
 .pos p.lead{margin-top:0.8rem;color:rgba(255,255,255,0.82);max-width:680px}
@@ -140,93 +148,66 @@ a{color:inherit;text-decoration:none}
   </div>
 </header>
 
-<!-- ═══ KPI CARDS ═══ -->
+<!-- ═══ 1 · DE UN VISTAZO ═══ -->
 <section class="band">
   <div class="wrap">
     <div class="band-head reveal">
-      <span class="eyebrow">Cuadro de mando</span>
-      <h2>Tu año y tu mes, de un vistazo</h2>
-      <p>Cada tarjeta responde tres preguntas a la vez: cuánto llevas, cómo vas contra el año pasado y cuánto te falta para tu objetivo. El color hace el resto: verde en plan, ámbar vigilar, rojo actuar.</p>
+      <span class="eyebrow">01 · De un vistazo</span>
+      <h2>Tu año y tu mes, con objetivo y semáforo</h2>
+      <p>Cada tarjeta responde tres preguntas a la vez: cuánto llevas, cómo vas contra el año pasado y cuánto te falta para tu objetivo. Verde en plan, ámbar vigilar, rojo actuar.</p>
     </div>
     <div class="shot reveal"><img src="assets/demo/kpi_cards.webp" alt="KPIs anuales y mensuales con comparativa y objetivo" loading="lazy"><span class="wm">beyondata.es</span></div>
-    <div class="chips reveal"><span class="chip">Ocupación</span><span class="chip">ADR · RevPar</span><span class="chip">Producción y extras</span><span class="chip">Objetivo y cumplimiento</span></div>
   </div>
 </section>
 
-<!-- ═══ PACE ═══ -->
+<!-- ═══ 2 · PICKUP Y ANTICIPACIÓN ═══ -->
 <section class="band alt">
   <div class="wrap">
     <div class="band-head reveal">
-      <span class="eyebrow">On the books</span>
-      <h2>¿Cómo va el pickup frente al año pasado?</h2>
-      <p>La curva de reservas en libros, día a día, contra la misma fecha del año anterior — con la diferencia en barras y el cierre del periodo en grande. Sabes si vas por delante o por detrás <em>antes</em> de que el mes llegue.</p>
+      <span class="eyebrow">02 · Pickup y anticipación</span>
+      <h2>¿Cómo va el pickup — y con cuánta antelación vendes?</h2>
+      <p>La curva de reservas en libros contra la misma fecha del año anterior, con el cierre del periodo en grande. Y debajo, tu patrón de venta real: qué meses se llenan con antelación y cuáles en el último momento.</p>
     </div>
-    <div class="shot reveal"><img src="assets/demo/booking_pace.webp" alt="Booking pace: ocupación en libros este año contra el año pasado" loading="lazy"><span class="wm">beyondata.es</span></div>
+    <div class="stack">
+      <div class="shot reveal"><img src="assets/demo/booking_pace.webp" alt="Booking pace: ocupación en libros este año contra el año pasado" loading="lazy"><span class="wm">beyondata.es</span></div>
+      <div class="shot reveal"><img src="assets/demo/heatmap_lead.webp" alt="Mapa de calor de ocupación en libros por meses de antelación" loading="lazy"><span class="wm">beyondata.es</span></div>
+    </div>
   </div>
 </section>
 
-<!-- ═══ HEATMAP LEAD ═══ -->
+<!-- ═══ 3 · RITMO, CANALES Y MERCADOS ═══ -->
 <section class="band">
   <div class="wrap">
     <div class="band-head reveal">
-      <span class="eyebrow">Anticipación</span>
-      <h2>¿A cuántos meses vista se te llena cada mes?</h2>
-      <p>Cada columna es un mes de estancia; cada fila, cuántos meses faltaban. El degradado enseña tu patrón de venta real: qué meses se llenan con antelación, cuáles en el último momento — y dónde tiene sentido mover precio.</p>
+      <span class="eyebrow">03 · Ritmo, canales y mercados</span>
+      <h2>¿A qué ritmo acumulas, quién te lo trae y de dónde viene?</h2>
+      <p>El acumulado del año contra el anterior, el mix de OTAs y cuentas corporate, y el mapa de mercados emisores con su producción. Con estos números delante se negocia mejor una comisión y se decide dónde anunciarse.</p>
     </div>
-    <div class="shot reveal"><img src="assets/demo/heatmap_lead.webp" alt="Mapa de calor de ocupación en libros por meses de antelación" loading="lazy"><span class="wm">beyondata.es</span></div>
-  </div>
-</section>
-
-<!-- ═══ MERCADO EMISOR ═══ -->
-<section class="band alt">
-  <div class="wrap">
-    <div class="band-head reveal">
-      <span class="eyebrow">Mercados</span>
-      <h2>¿De dónde viene tu dinero?</h2>
-      <p>Reservas y producción por país emisor, en mapa y en detalle. Para decidir dónde anunciarte, qué idiomas cuidar y qué mercados están creciendo debajo del radar.</p>
-    </div>
-    <div class="shot reveal"><img src="assets/demo/mercado_emisor.webp" alt="Distribución de reservas y producción por país emisor" loading="lazy"><span class="wm">beyondata.es</span></div>
-  </div>
-</section>
-
-<!-- ═══ CANALES + ACUMULADA ═══ -->
-<section class="band">
-  <div class="wrap">
-    <div class="band-head reveal">
-      <span class="eyebrow">Canales y ritmo</span>
-      <h2>¿Qué canal te lo trae — y a qué ritmo acumulas?</h2>
-      <p>El mix de OTAs y cuentas corporate con su producción y ADR por canal, junto al acumulado del año contra el anterior, mes a mes. La comisión se negocia mejor con estos números delante.</p>
-    </div>
-    <div class="duo-32">
+    <div class="stack">
       <div class="shot reveal"><img src="assets/demo/prod_acumulada.webp" alt="Producción acumulada del año contra el año anterior" loading="lazy"><span class="wm">beyondata.es</span></div>
-      <div class="shot reveal"><img src="assets/demo/donuts_canal.webp" alt="Distribución de reservas por OTA y por cuenta corporate" loading="lazy"><span class="wm">beyondata.es</span></div>
+      <div class="duo">
+        <div class="shot reveal"><img src="assets/demo/donut_ota.webp" alt="Distribución de reservas por OTA" loading="lazy"><span class="wm">beyondata.es</span></div>
+        <div class="shot reveal"><img src="assets/demo/donut_corporate.webp" alt="Distribución de reservas por cuenta corporate" loading="lazy"><span class="wm">beyondata.es</span></div>
+      </div>
+      <div class="shot reveal"><img src="assets/demo/mercado_emisor.webp" alt="Distribución de reservas y producción por país emisor" loading="lazy"><span class="wm">beyondata.es</span></div>
     </div>
   </div>
 </section>
 
-<!-- ═══ SUMMARY ═══ -->
+<!-- ═══ 4 · RESUMEN Y P&L ═══ -->
 <section class="band alt">
   <div class="wrap">
     <div class="band-head reveal">
-      <span class="eyebrow">Resumen mensual</span>
-      <h2>El resumen que un director lee en un minuto</h2>
-      <p>Todas las métricas del negocio, mes a mes y con su total: ocupación, unidades, precios medios, producción, extras y reservas. La misma tabla funciona para un hotel de habitaciones y para un hostel de camas.</p>
+      <span class="eyebrow">04 · Resumen y cuenta de resultados</span>
+      <h2>El resumen que un director lee en un minuto — y su P&amp;L</h2>
+      <p>Todas las métricas mes a mes con su total, para un hotel de habitaciones o un hostel de camas. Y con el módulo de contabilidad, tu libro diario convertido en cuenta de resultados hotelera: GOP, EBITDA y ratios contra objetivo.</p>
     </div>
-    <div class="shot narrow center reveal"><img src="assets/demo/summary_ytd.webp" alt="Tabla resumen mensual de todas las métricas" loading="lazy"><span class="wm">beyondata.es</span></div>
-  </div>
-</section>
-
-<!-- ═══ P&L ═══ -->
-<section class="band">
-  <div class="wrap">
-    <div class="band-head reveal">
-      <span class="eyebrow">Módulo P&L / Contabilidad</span>
-      <h2>Del libro diario al GOP, sin Excel intermedio</h2>
-      <p>Tu contabilidad convertida en una cuenta de resultados hotelera: ingresos y gastos por departamento, GOP, EBITDA — y los ratios de coste y rentabilidad contra su objetivo. El puente entre revenue y dirección financiera.</p>
-    </div>
-    <div class="duo">
-      <div class="shot reveal"><img src="assets/demo/pl_libro.webp" alt="Cuenta de resultados hotelera desde el libro diario" loading="lazy"><span class="wm">beyondata.es</span></div>
-      <div class="shot reveal"><img src="assets/demo/pl_ratios.webp" alt="Ratios de coste y rentabilidad contra objetivo" loading="lazy"><span class="wm">beyondata.es</span></div>
+    <div class="stack">
+      <div class="shot wide center reveal"><img src="assets/demo/summary_ytd.webp" alt="Tabla resumen mensual de todas las métricas" loading="lazy"><span class="wm">beyondata.es</span></div>
+      <div class="pl-row">
+        <div class="shot reveal"><img src="assets/demo/pl_libro.webp" alt="Cuenta de resultados hotelera desde el libro diario" loading="lazy"><span class="wm">beyondata.es</span></div>
+        <div class="shot reveal"><img src="assets/demo/pl_ratios.webp" alt="Ratios de coste y rentabilidad contra objetivo" loading="lazy"><span class="wm">beyondata.es</span></div>
+      </div>
     </div>
   </div>
 </section>
