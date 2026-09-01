@@ -269,12 +269,18 @@ Deno.serve(async (req) => {
     const jwt = auth.replace(/^Bearer\s+/i, "");
     if (!jwt) return json({ error: "missing token" }, 401);
 
-    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const sb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { global: { headers: { Authorization: `Bearer ${jwt}` } } },
+    );
     const { data: { user }, error: uErr } = await sb.auth.getUser(jwt);
     if (uErr || !user) return json({ error: "invalid token" }, 401);
 
-    const { data: profile } = await sb.from("profiles").select("company_id, role").eq("id", user.id).single();
-    if (!profile) return json({ error: "no profile" }, 403);
+    const { data: profile, error: pErr } = await sb
+      .from("profiles").select("*, companies(*)").eq("id", user.id).maybeSingle();
+    if (pErr) return json({ error: "profile query failed: " + pErr.message }, 403);
+    if (!profile) return json({ error: `no profile row for user ${user.id}` }, 403);
 
     const body = await req.json().catch(() => ({}));
     const companyId = profile.role === "system_admin" && body.company_id ? body.company_id : profile.company_id;

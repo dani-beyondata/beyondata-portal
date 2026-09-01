@@ -128,9 +128,9 @@
 
     <!-- MY DASHBOARD (Power BI embed) -->
     <div class="section" id="section-my_dashboard">
-      <div class="section-header">
-        <h2>Mi Dashboard</h2>
-        <p>Tu cuadro de mando de Power BI, en tiempo real.</p>
+      <div class="section-header" style="margin-bottom:0.5rem;display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+        <h2 style="margin:0">Mi Dashboard</h2>
+        <a id="pbi-open-service" href="#" target="_blank" rel="noopener" style="display:none;font-size:0.85rem;font-weight:600;color:var(--brand);white-space:nowrap">Ver en Power BI ↗</a>
       </div>
       <div class="pbi-toolbar" id="pbi-toolbar" style="display:none">
         <button type="button" class="btn btn-sm" id="pbi-zoom-out" title="Reducir">−</button>
@@ -2046,6 +2046,7 @@
     // Not configured yet → show placeholder
     if (!url) {
       if (toolbar) toolbar.style.display = 'none';
+      var _ol = document.getElementById('pbi-open-service'); if (_ol) _ol.style.display = 'none';
       container.innerHTML =
         '<div class="pbi-placeholder">' +
           '<div class="pbi-placeholder-ico"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></div>' +
@@ -2079,6 +2080,16 @@
     pbiZoom = 1;
     pbiSizeIframe(container, iframe, true);
     if (toolbar) { toolbar.style.display = 'flex'; pbiWireToolbar(container); }
+    // enlace "Ver en Power BI": construye la URL del Service desde el reportId del embed
+    const openLink = document.getElementById('pbi-open-service');
+    if (openLink) {
+      const rid = (url.match(/reportId=([0-9a-f-]+)/i) || [])[1];
+      const ws  = currentCompany && currentCompany.pbi_workspace_id;
+      if (rid) {
+        openLink.href = ws ? `https://app.powerbi.com/groups/${ws}/reports/${rid}` : `https://app.powerbi.com/reports/${rid}`;
+        openLink.style.display = 'inline';
+      } else { openLink.style.display = 'none'; }
+    }
   }
 
   // Power BI "fits to page" inside its iframe, so if the iframe is sized in
