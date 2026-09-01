@@ -138,7 +138,10 @@
         <button type="button" class="btn btn-sm" id="pbi-zoom-in" title="Ampliar">+</button>
         <button type="button" class="btn btn-sm" id="pbi-zoom-fit" title="Ajustar al ancho disponible">Ajustar</button>
         <button type="button" class="btn btn-sm" id="pbi-fullscreen" title="Pantalla completa (Esc para salir)">⤢</button>
+        <span style="width:8px"></span>
+        <button type="button" class="btn btn-sm" id="pbi-export-xlsx" title="Descargar el informe de controlling en Excel (branding BeyonData)">📥 Excel</button>
       </div>
+      <div class="alert error" id="pbi-export-error" style="margin:0 0 0.6rem"></div>
       <div id="pbi-container" class="pbi-container">
         <!-- Report iframe injected here by JS, or placeholder if not configured -->
         <div id="pbi-placeholder" class="pbi-placeholder">
@@ -319,6 +322,10 @@
               <select id="embed-fit"><option value="width">Fit width (height by ratio)</option><option value="height">Fit height (scroll inside)</option></select>
             </div>
             <div class="field" style="flex:1 1 180px"><label>Ratio (height ÷ width)</label><input type="number" id="embed-ratio" step="0.01" min="0.2" max="8" placeholder="1.5"></div>
+          </div>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap">
+            <div class="field" style="flex:1 1 220px"><label>Workspace id (export a Excel)</label><input type="text" id="embed-workspace" placeholder="GUID del workspace"></div>
+            <div class="field" style="flex:1 1 220px"><label>Dataset id (export a Excel)</label><input type="text" id="embed-dataset" placeholder="GUID del modelo semántico"></div>
           </div>
           <div style="margin-top:0.5rem;display:flex;gap:0.6rem;align-items:center">
             <button class="btn btn-primary" id="btn-save-embed">Save embed</button>
@@ -2101,6 +2108,39 @@
     const lbl = document.getElementById('pbi-zoom-label');
     if (lbl) lbl.textContent = Math.round(pbiZoom * 100) + '%';
   }
+  async function exportControllingXlsx() {
+    const btn = document.getElementById('pbi-export-xlsx');
+    UI.hideAlert('pbi-export-error');
+    const session = await Auth.getSession();
+    if (!session) { UI.showAlert('pbi-export-error', 'Sesión caducada. Vuelve a iniciar sesión.'); return; }
+    const original = btn.textContent;
+    btn.disabled = true; btn.textContent = '⏳ Generando…';
+    try {
+      const propSel = document.getElementById('pbi-export-property');
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/export-controlling`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+        body: JSON.stringify({ company_id: currentCompany?.id, property: propSel ? (propSel.value || null) : null }),
+      });
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try { msg = (await res.json()).error || msg; } catch (_) {}
+        throw new Error(msg);
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get('Content-Disposition') || '';
+      const fname = (cd.match(/filename="([^"]+)"/) || [])[1] || 'BeyonData_Controlling.xlsx';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = fname; document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    } catch (e) {
+      UI.showAlert('pbi-export-error', 'No se pudo generar el Excel: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = original;
+    }
+  }
+  document.getElementById('pbi-export-xlsx').addEventListener('click', exportControllingXlsx);
+
   let pbiToolbarWired = false;
   function pbiWireToolbar(container) {
     if (pbiToolbarWired) return;
@@ -5812,6 +5852,8 @@
     document.getElementById('embed-url').value   = currentCompany.pbi_embed_url || '';
     document.getElementById('embed-fit').value   = currentCompany.pbi_embed_fit || 'width';
     document.getElementById('embed-ratio').value = currentCompany.pbi_embed_ratio != null ? currentCompany.pbi_embed_ratio : '';
+    document.getElementById('embed-workspace').value = currentCompany.pbi_workspace_id || '';
+    document.getElementById('embed-dataset').value   = currentCompany.pbi_dataset_id || '';
     UI.hideAlert('embed-error'); UI.hideAlert('embed-success');
     card.style.display = 'block';
   }
@@ -5824,7 +5866,11 @@
     if (url && !/^https:\/\/app\.powerbi\.com\/reportEmbed\?/.test(url)) { UI.showAlert('embed-error', 'The URL must start with https://app.powerbi.com/reportEmbed?'); return; }
     if (ratio !== null && !(ratio > 0.2 && ratio < 8)) { UI.showAlert('embed-error', 'Ratio must be between 0.2 and 8 (height ÷ width).'); return; }
     UI.setLoading('btn-save-embed', true, 'Save embed');
-    const { data, error } = await Companies.update(currentCompany.id, { pbi_embed_url: url || null, pbi_embed_fit: fit, pbi_embed_ratio: ratio });
+    const wsId = document.getElementById('embed-workspace').value.trim() || null;
+    const dsId = document.getElementById('embed-dataset').value.trim() || null;
+    const guid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if ((wsId && !guid.test(wsId)) || (dsId && !guid.test(dsId))) { UI.showAlert('embed-error', 'Workspace/Dataset id must be GUIDs.'); UI.setLoading('btn-save-embed', false, 'Save embed'); return; }
+    const { data, error } = await Companies.update(currentCompany.id, { pbi_embed_url: url || null, pbi_embed_fit: fit, pbi_embed_ratio: ratio, pbi_workspace_id: wsId, pbi_dataset_id: dsId });
     UI.setLoading('btn-save-embed', false, 'Save embed');
     if (error) { UI.showAlert('embed-error', error.message); return; }
     currentCompany = data;
