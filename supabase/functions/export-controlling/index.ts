@@ -91,19 +91,43 @@ Deno.serve(async (req) => {
     const ytdF = `TREATAS ( { "YTD" }, CtrlRows[Line] )`;
     const join = (...f: string[]) => f.filter(Boolean).join(", ");
 
-    // Tab 1 · months (+ totals)
-    const m = (await run(`'calendar'[monthNumber]`, propF)).map(r => tidy(r, monthLabel(r)));
-    const mt = (await run(``, propF)).map(r => tidy(r, null));
+    // lista de properties de esta company (para una pestaña por hotel)
+    const propRowsList = (await run(`'properties'[property_name]`)).map(r => propLabel(r));
+    const propNames = [...new Set(propRowsList)].sort();
+
+    // Tab 1 · vistas mensuales: grupo + una por property (a menos que el usuario pidiera una property concreta)
+    const wantViews = property ? [property] : propNames;
+    const monthViews = [];
+    // vista de grupo (o de la property pedida)
+    {
+      const gm = (await run(`'calendar'[monthNumber]`, propF)).map(r => tidy(r, monthLabel(r)));
+      const gmt = (await run(``, propF)).map(r => tidy(r, null));
+      const cols = [...new Set(gm.map(r => r.col))].sort((a, b) => MONTHS_ES.indexOf(a) - MONTHS_ES.indexOf(b));
+      monthViews.push({ tab: property ? property : "Grupo", label: property || company.name, cols, blocks: pivot([...gm, ...gmt], cols) });
+    }
+    // una pestaña por hotel (solo en la vista de grupo)
+    if (!property) {
+      for (const pn of wantViews) {
+        const pf = `TREATAS ( { ${daxStr(pn)} }, 'properties'[property_name] )`;
+        const hm = (await run(`'calendar'[monthNumber]`, pf)).map(r => tidy(r, monthLabel(r)));
+        const hmt = (await run(``, pf)).map(r => tidy(r, null));
+        const cols = [...new Set(hm.map(r => r.col))].sort((a, b) => MONTHS_ES.indexOf(a) - MONTHS_ES.indexOf(b));
+        monthViews.push({ tab: pn, label: pn, cols, blocks: pivot([...hm, ...hmt], cols) });
+      }
+    }
+    // para la hoja Datos (formato largo) usamos la vista de grupo
+    const m = monthViews[0].blocks.flatMap(bl => bl.lines.flatMap(L =>
+      Object.entries(L.values).map(([col, value]) => ({ section: bl.section, metric: bl.metric, line: L.label, col, value }))));
     // Tab 2 · properties (+ group)
     const p = (await run(`'properties'[property_name]`)).map(r => tidy(r, propLabel(r)));
-    const pt = (await run(``)).map(r => tidy(r, null));
+    const pt = (await run(``)).map(r => tidy(r, null));  // grupo
     // Tab 3 · property × month, YTD only (+ group row, per-property totals, grand total)
     const pm = (await run(`'properties'[property_name], 'calendar'[monthNumber]`, ytdF)).map(r => ({ ...tidy(r, monthLabel(r)), line: propLabel(r), lorder: 1 }));
     const pmG = (await run(`'calendar'[monthNumber]`, ytdF)).map(r => ({ ...tidy(r, monthLabel(r)), line: "Grupo", lorder: 0 }));
     const pmT = (await run(`'properties'[property_name]`, ytdF)).map(r => ({ ...tidy(r, null), line: propLabel(r), lorder: 1 }));
     const pmGT = (await run(``, ytdF)).map(r => ({ ...tidy(r, null), line: "Grupo", lorder: 0 }));
 
-    const months = [...new Set(m.map(r => r.col as string))].sort((a, b) => MONTHS_ES.indexOf(a) - MONTHS_ES.indexOf(b));
+    const months = monthViews[0].cols as string[];
     const props = [...new Set(p.map(r => r.col as string))].sort();
     // pestaña 3: una línea por property → lorder distinto por property para que pivot no las mezcle
     const propIdx = (name: string) => name === "Grupo" ? 0 : 1 + props.indexOf(name);
@@ -117,11 +141,11 @@ Deno.serve(async (req) => {
         period: `YTD ${now.getFullYear()} (1 ene – ${now.toLocaleDateString("es-ES", { day: "numeric", month: "short", timeZone: "Europe/Madrid" })})`,
         property: property, mode: "Según configuración del informe",
       },
-      months: { cols: months, blocks: pivot([...m, ...mt], months) },
+      monthViews,
       props: { cols: props, blocks: pivot([...p, ...pt], props) },
       propMonth: { cols: months, blocks: pivot(pm3, months).map((b: { lines: { kind: string }[] }) => ({ ...b, lines: b.lines.map(L => ({ ...L, kind: "value" })) })) },
       long: [
-        ...m.map(r => ({ section: r.section, metric: r.metric, line: r.line, property: property, month: r.col, value: r.value })),
+        ...m.map(r => ({ section: r.section, metric: r.metric, line: r.line, property: property || null, month: r.col, value: r.value })),
         ...p.map(r => ({ section: r.section, metric: r.metric, line: r.line, property: r.col, month: null, value: r.value })),
       ],
     };

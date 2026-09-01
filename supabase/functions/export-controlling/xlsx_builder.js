@@ -102,7 +102,8 @@ function styleHeader(ws, rowIdx, labels, firstColWidth) {
 
 /** Writes one controlling sheet. blocks from pivot(); cols = column labels; totalLabel e.g. "Total"/"Grupo" */
 function addBlocksSheet(wb, name, title, subtitle, cols, blocks, totalLabel) {
-  const ws = wb.addWorksheet(name, { views: [{ showGridLines: false, state: "frozen", xSplit: 1, ySplit: 4 }] });
+  const safe = name.replace(/[\\/?*\[\]:]/g, " ").slice(0, 31);   // Excel: 31 chars, sin \ / ? * [ ] :
+  const ws = wb.addWorksheet(safe, { views: [{ showGridLines: false, state: "frozen", xSplit: 1, ySplit: 4 }] });
   ws.getCell("A1").value = title;
   ws.getCell("A1").font = { name: "Segoe UI", size: 14, bold: true, color: { argb: C.navy } };
   ws.getCell("A2").value = subtitle;
@@ -165,7 +166,7 @@ function addLongSheet(wb, longRows) {
 /**
  * data = {
  *   meta: {company, generatedAt, period, property, mode},
- *   months: {cols:[...labels], blocks:[...]},        // pestaña 1
+ *   monthViews: [{tab, label, cols, blocks}],          // grupo + una por hotel
  *   props:  {cols:[...property names], blocks:[...]}, // pestaña 2
  *   propMonth: {cols:[...months], blocks:[{section, metric, fmt, lines:[{label: 'Grupo'|property, kind:'value', values, total}]}]}, // pestaña 3
  *   long: [{section, metric, line, property, month, value}]
@@ -175,7 +176,15 @@ export async function buildControllingWorkbook(ExcelJS, data) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "BeyonData"; wb.created = new Date();
   addCover(wb, data.meta);
-  addBlocksSheet(wb, "Meses", "Controlling · evolución mensual", `${data.meta.company} · ${data.meta.period} · YTD, año anterior, desviaciones y presupuesto`, data.months.cols, data.months.blocks, "Total");
+  // una pestaña por vista mensual: grupo primero, luego cada hotel (equivale a filtrar por property)
+  for (const v of data.monthViews) {
+    const isGroup = v.tab === "Grupo";
+    const title = isGroup ? "Controlling · evolución mensual" : `Controlling · ${v.label}`;
+    const sub = isGroup
+      ? `${data.meta.company} · ${data.meta.period} · YTD, año anterior, desviaciones y presupuesto`
+      : `${v.label} · ${data.meta.period}`;
+    addBlocksSheet(wb, v.tab, title, sub, v.cols, v.blocks, "Total");
+  }
   addBlocksSheet(wb, "Properties", "Controlling · comparativa por property", `${data.meta.company} · ${data.meta.period}`, data.props.cols, data.props.blocks, "Grupo");
   addBlocksSheet(wb, "Property x Mes", "Controlling · property × mes (YTD)", `${data.meta.company} · ${data.meta.period} · solo valores de este año`, data.propMonth.cols, data.propMonth.blocks, "Total");
   addLongSheet(wb, data.long);
