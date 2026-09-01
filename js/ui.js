@@ -2,9 +2,15 @@
 
 const UI = (() => {
 
-  function showAlert(elId, message, type = 'error') {
+  function showAlert(elId, message, type) {
     const el = document.getElementById(elId);
     if (!el) return;
+    // si no se especifica el tipo, dedúcelo del id (…-success / …-error / …-warning)
+    if (!type) {
+      type = /success/i.test(elId) ? 'success'
+           : /warn/i.test(elId)    ? 'warning'
+           : 'error';
+    }
     el.textContent = message;
     el.className = `alert ${type} show`;
   }
