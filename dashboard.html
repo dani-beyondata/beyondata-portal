@@ -303,6 +303,30 @@
         </div>
       </div>
 
+      <div class="table-wrap" id="company-embed-card" style="max-width:760px;margin-top:1.25rem;display:none">
+        <div class="table-header"><h3>Power BI embed</h3></div>
+        <div style="padding:1rem 1.25rem 1.25rem">
+          <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 0.75rem">
+            What "Mi Dashboard" shows for this company. Paste the URL from Power BI Service → File → Embed report → Website or portal.
+            <b>Fit width</b>: frame height = width × ratio (ratio = page height ÷ width; 16:9 = 0.5625, tall pages 1.2–1.8).
+            <b>Fit height</b>: frame fills the window and the report scrolls inside (only if the report is set to fit-to-width).
+          </p>
+          <div class="alert error" id="embed-error"></div>
+          <div class="alert success" id="embed-success"></div>
+          <div class="field"><label>Embed URL</label><input type="text" id="embed-url" placeholder="https://app.powerbi.com/reportEmbed?reportId=…&autoAuth=true&ctid=…"></div>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap">
+            <div class="field" style="flex:1 1 180px"><label>Fit</label>
+              <select id="embed-fit"><option value="width">Fit width (height by ratio)</option><option value="height">Fit height (scroll inside)</option></select>
+            </div>
+            <div class="field" style="flex:1 1 180px"><label>Ratio (height ÷ width)</label><input type="number" id="embed-ratio" step="0.01" min="0.2" max="8" placeholder="1.5"></div>
+          </div>
+          <div style="margin-top:0.5rem;display:flex;gap:0.6rem;align-items:center">
+            <button class="btn btn-primary" id="btn-save-embed">Save embed</button>
+            <span style="font-size:0.78rem;color:var(--text-muted)">Empty URL = use the built-in fallback map (if any) or show the placeholder.</span>
+          </div>
+        </div>
+      </div>
+
       <div class="table-wrap" id="company-pbi-card" style="max-width:760px;margin-top:1.25rem;display:none">
         <div class="table-header"><h3>Power BI connection</h3></div>
         <div style="padding:1rem 1.25rem 1.25rem" id="company-pbi-body"></div>
@@ -1989,8 +2013,8 @@
     //      'height' → iframe fills the viewport height; report set to fit-to-width and scrolls inside
     //                 (use for tall / uneven pages like cd_sales: 1.9 to 5.2 height/width)
     // Preferred source is companies.pbi_embed_url / pbi_embed_ratio / pbi_embed_fit (Supabase); this map is the fallback.
-    'cd': { url: 'https://app.powerbi.com/reportEmbed?reportId=f1a1a769-f7b3-44aa-839f-159f482fe0f8&autoAuth=true&ctid=afd10560-c05e-4ac9-8965-d56483fb5689&pageView=fitToWidth',
-            fit: 'height' },
+    'cd': { url: 'https://app.powerbi.com/reportEmbed?reportId=f1a1a769-f7b3-44aa-839f-159f482fe0f8&autoAuth=true&ctid=afd10560-c05e-4ac9-8965-d56483fb5689',
+            ratio: 1.5, fit: 'width' },
     // 'tch': { url: '…', ratio: 0.5625, fit: 'width' },
   };
   const PBI_DEFAULTS = { ratio: 541.25 / 1140, fit: 'width' };
@@ -5780,6 +5804,33 @@
     `).join('');
   }
 
+  // ── POWER BI EMBED (system_admin) ─────────────────────────────────
+  function loadEmbedCard() {
+    const card = document.getElementById('company-embed-card');
+    if (!card) return;
+    if (!currentProfile || currentProfile.role !== 'system_admin') { card.style.display = 'none'; return; }
+    document.getElementById('embed-url').value   = currentCompany.pbi_embed_url || '';
+    document.getElementById('embed-fit').value   = currentCompany.pbi_embed_fit || 'width';
+    document.getElementById('embed-ratio').value = currentCompany.pbi_embed_ratio != null ? currentCompany.pbi_embed_ratio : '';
+    UI.hideAlert('embed-error'); UI.hideAlert('embed-success');
+    card.style.display = 'block';
+  }
+  document.getElementById('btn-save-embed').addEventListener('click', async () => {
+    const url   = document.getElementById('embed-url').value.trim();
+    const fit   = document.getElementById('embed-fit').value;
+    const ratioRaw = document.getElementById('embed-ratio').value.trim();
+    const ratio = ratioRaw === '' ? null : Number(ratioRaw);
+    UI.hideAlert('embed-error'); UI.hideAlert('embed-success');
+    if (url && !/^https:\/\/app\.powerbi\.com\/reportEmbed\?/.test(url)) { UI.showAlert('embed-error', 'The URL must start with https://app.powerbi.com/reportEmbed?'); return; }
+    if (ratio !== null && !(ratio > 0.2 && ratio < 8)) { UI.showAlert('embed-error', 'Ratio must be between 0.2 and 8 (height ÷ width).'); return; }
+    UI.setLoading('btn-save-embed', true, 'Save embed');
+    const { data, error } = await Companies.update(currentCompany.id, { pbi_embed_url: url || null, pbi_embed_fit: fit, pbi_embed_ratio: ratio });
+    UI.setLoading('btn-save-embed', false, 'Save embed');
+    if (error) { UI.showAlert('embed-error', error.message); return; }
+    currentCompany = data;
+    UI.showAlert('embed-success', 'Embed saved. Open "Mi Dashboard" to see it.');
+  });
+
   // ── COMPANY EDIT ──────────────────────────────────────────────────
   async function loadCompany() {
     document.getElementById('company-name').value   = currentCompany.name;
@@ -5787,6 +5838,7 @@
     document.getElementById('company-active').value = currentCompany.active ? 'true' : 'false';
     UI.hideAlert('company-error');
     UI.hideAlert('company-success');
+    loadEmbedCard();
     renderPbiCard();
   }
 
