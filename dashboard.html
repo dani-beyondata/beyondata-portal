@@ -328,7 +328,7 @@
       </div>
 
       <div class="table-wrap" id="company-pbi-card" style="max-width:760px;margin-top:1.25rem;display:none">
-        <div class="table-header"><h3>Power BI connection</h3></div>
+        <div class="table-header"><h3>Report template parameters</h3></div>
         <div style="padding:1rem 1.25rem 1.25rem" id="company-pbi-body"></div>
       </div>
     </div>
@@ -5857,19 +5857,22 @@
     const copyBtn = (val) =>
       `<button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${val.replace(/'/g, "\\'")}');this.textContent='✓';setTimeout(()=>this.textContent='Copy',1200)">Copy</button>`;
 
-    const blocks = (props || []).map(pr => `
-      <div style="margin-bottom:1rem">
-        <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.4rem">${escapeHtml(pr.property_id)}${pr.property_name ? ' — ' + escapeHtml(pr.property_name) : ''}</div>
-        <div class="pbi-param"><span>client_slug</span><code>${escapeHtml(slug)}</code>${copyBtn(slug)}</div>
-        <div class="pbi-param"><span>property_id</span><code>${escapeHtml(pr.property_id)}</code>${copyBtn(pr.property_id)}</div>
-      </div>`).join('');
+    const rows = (props || []).map(pr => `
+      <tr>
+        <td><code>${escapeHtml(pr.property_id)}</code></td>
+        <td>${escapeHtml(pr.property_name || '')}</td>
+        <td style="text-align:right">${copyBtn(pr.property_id)}</td>
+      </tr>`).join('');
 
     document.getElementById('company-pbi-body').innerHTML = `
       <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 0.75rem">
-        Values for the report template's two Power Query parameters (Transform data → Manage parameters).
-        File URLs and master queries are built from these inside the model — nothing else to configure.
+        Values for the report template's Power Query parameters (Transform data → Manage parameters).
+        The model builds the gold file URLs and master queries from these — nothing else to configure.
       </p>
-      ${blocks || '<p style="color:var(--text-muted)">No properties yet.</p>'}`;
+      <div class="pbi-param" style="margin-bottom:0.75rem"><span>client_slug</span><code>${escapeHtml(slug)}</code>${copyBtn(slug)}</div>
+      <div style="font-size:0.75rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted);margin:0.4rem 0 0.3rem">property_id (one report per property)</div>
+      ${rows ? `<table class="data-table" style="max-width:520px"><thead><tr><th>property_id</th><th>Property</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+             : '<p style="color:var(--text-muted)">No properties yet.</p>'}`;
     card.style.display = 'block';
   }
 
