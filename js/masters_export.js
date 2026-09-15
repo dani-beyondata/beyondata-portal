@@ -208,7 +208,7 @@ const MastersExport = (() => {
     // ── Extras ────────────────────────────────────────────────
     {
       const data = await q('Extras', sb.from('v_extras_catalog')
-        .select('raw_value, display_name, category_name, subcategory_name, unit_price_gross, vat_rate, unit_price_net, charge_timing, status')
+        .select('raw_value, display_name, category_name, subcategory_name, unit_price_gross, vat_rate, unit_price_net, revenue_timing, is_passthrough, status')
         .eq('company_id', companyId)
         .order('category_name').order('display_name'));
       addSheet(wb, 'Extras', data, r => ({
@@ -219,7 +219,8 @@ const MastersExport = (() => {
         'Unit price (gross)': r.unit_price_gross ?? '',
         'VAT %':              r.vat_rate != null ? (r.vat_rate * 100).toFixed(0) + '%' : '',
         'Unit price (net)':   r.unit_price_net != null ? parseFloat(r.unit_price_net).toFixed(4) : '',
-        'Charge timing':      r.charge_timing || '',
+        'Revenue timing':     r.revenue_timing || '',
+        'Pass-through':       r.is_passthrough ? 'yes' : 'no',
         'Status':             r.status || '',
       }));
     }

@@ -202,7 +202,11 @@ const MastersImport = (() => {
         unit_price_gross: r['Unit price (gross)'] === '' || r['Unit price (gross)'] == null
                             ? null : parseFloat(String(r['Unit price (gross)']).replace(',', '.')),
         vat_rate:         parseVat(r['VAT %']),
-        charge_timing:    (r['Charge timing'] || 'during_stay').trim(),
+        revenue_timing:   ['at_arrival','per_night','at_checkout']
+                            .includes(String(r['Revenue timing'] || '').trim())
+                              ? String(r['Revenue timing']).trim() : 'at_arrival',
+        is_passthrough:   ['yes','y','true','1','si','sí']
+                            .includes(String(r['Pass-through'] || '').trim().toLowerCase()),
         status:           (r['Status'] || 'active').trim().toLowerCase() === 'inactive' ? 'inactive' : 'active',
       }),
     },

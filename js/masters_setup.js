@@ -203,7 +203,7 @@ const MastersSetup = (() => {
       async fetchExisting(companyId) {
         const { data, error } = await sb
           .from('extras_catalog')
-          .select('id, raw_value, display_name, category, status')
+          .select('id, raw_value, display_name, category_id, status, extras_categories!extras_catalog_category_id_fkey(category_name)')
           .eq('company_id', companyId);
         if (error) throw error;
         return data || [];
@@ -213,8 +213,8 @@ const MastersSetup = (() => {
           company_id: companyId,
           raw_value: rawValue,
           display_name: displayName || rawValue,
-          category: extraFields?.category,  // required — validated in the UI before calling
-          charge_timing: 'during_stay',
+          category_id: extraFields?.category_id,  // required — validated in the UI before calling
+          revenue_timing: 'at_arrival',
           status: 'active',
         });
         if (error) throw error;
@@ -604,6 +604,7 @@ const MastersSetup = (() => {
         .select('id, category_name')
         .eq('company_id', currentCompany.id)
         .eq('status', 'active')
+        .is('parent_id', null)          // subcategories are assigned in the master screen
         .order('category_name');
       extrasCategories = cats || [];
     }
@@ -740,7 +741,7 @@ const MastersSetup = (() => {
           // button creates one inline (extras_categories insert) and
           // re-renders with it available everywhere.
           const catOptions = extrasCategories.length
-            ? '<option value="">Category...</option>' + extrasCategories.map(c => `<option value="${escapeAttr(c.category_name)}">${escapeHtml(c.category_name)}</option>`).join('')
+            ? '<option value="">Category...</option>' + extrasCategories.map(c => `<option value="${escapeAttr(c.id)}">${escapeHtml(c.category_name)}</option>`).join('')
             : '<option value="" selected>No categories yet — create one above ↑</option>';
           actionHtml = `
             <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
@@ -834,8 +835,9 @@ const MastersSetup = (() => {
         }
       } else {
         statusHtml = `<span class="badge" style="background:#d1fae5;color:#065f46">Active in master</span>`;
-        const extraInfo = config.actionType === 'extras' && match.category
-          ? ` · ${escapeHtml(match.category)}`
+        const catName = match.extras_categories?.category_name;
+        const extraInfo = config.actionType === 'extras' && catName
+          ? ` · ${escapeHtml(catName)}`
           : '';
         actionHtml = `<span style="color:var(--text-muted);font-size:0.85rem">Shown as "${escapeHtml(match.display_name)}"${extraInfo}</span>`;
       }
@@ -886,7 +888,7 @@ const MastersSetup = (() => {
               catEl.style.borderColor = '#dc2626';
               return; // a real category is required — no UNCATEGORISED shortcut
             }
-            extraFields = { category: catEl.value };
+            extraFields = { category_id: catEl.value };
           } else if (config.actionType === 'channel') {
             const typeEl      = row.querySelector('select[data-role="channel-type"]');
             const subtypeEl   = row.querySelector('select[data-role="channel-subtype"]');
@@ -951,7 +953,7 @@ const MastersSetup = (() => {
           if (!name) continue;
           if (config.actionType === 'extras') {
             const cat = row.querySelector('select[data-role="extra-category"]')?.value;
-            if (cat) ready.push({ action, value, second: name, extraFields: { category: cat } });
+            if (cat) ready.push({ action, value, second: name, extraFields: { category_id: cat } });
           } else if (config.actionType === 'channel') {
             const t = row.querySelector('select[data-role="channel-type"]')?.value;
             const st = row.querySelector('select[data-role="channel-subtype"]')?.value;
