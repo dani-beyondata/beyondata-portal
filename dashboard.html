@@ -6242,16 +6242,21 @@
       return;
     }
     const rows = _importPlan.map(s => {
-      if (s.error) return `<tr><td>${escapeHtml(s.name)}</td><td colspan="3" style="color:#dc2626">${escapeHtml(s.error)}</td></tr>`;
+      if (s.error) return `<tr><td>${escapeHtml(s.name)}</td><td colspan="4" style="color:#dc2626">${escapeHtml(s.error)}</td></tr>`;
+      const skipped = s.skipped || [];
       return `<tr>
         <td>${escapeHtml(s.name)}</td>
         <td>${s.inserts.length ? `<strong style="color:#16a34a">+${s.inserts.length}</strong>` : '0'}</td>
         <td>${s.updates.length ? `<strong style="color:#d97706">${s.updates.length}</strong>` : '0'}</td>
         <td style="color:var(--text-muted)">${s.unchanged}</td>
-      </tr>`;
+        <td>${skipped.length ? `<strong style="color:#dc2626">${skipped.length}</strong>` : '0'}</td>
+      </tr>` + (skipped.length ? `<tr><td colspan="5" style="padding-left:1.5rem;font-size:0.8rem;color:#b45309">${
+        skipped.slice(0, 10).map(k => `<div>${escapeHtml(k.key)} — ${escapeHtml(k.reason)}</div>`).join('') +
+        (skipped.length > 10 ? `<div>…and ${skipped.length - 10} more</div>` : '')
+      }</td></tr>` : '');
     }).join('');
     document.getElementById('import-masters-summary').innerHTML = _importPlan.length
-      ? `<table style="width:100%"><thead><tr><th style="text-align:left">Sheet</th><th>Inserts</th><th>Updates</th><th>Unchanged</th></tr></thead><tbody>${rows}</tbody></table>`
+      ? `<table style="width:100%"><thead><tr><th style="text-align:left">Sheet</th><th>Inserts</th><th>Updates</th><th>Unchanged</th><th>Skipped</th></tr></thead><tbody>${rows}</tbody></table>`
       : '<em>No recognisable master sheets found in this file.</em>';
   });
 
@@ -6264,7 +6269,13 @@
     const failed = results.filter(r => r.failed);
     if (failed.length) {
       UI.showAlert('import-masters-error',
-        failed.map(f => `${f.name}: ${f.failed} failed (${f.firstError})`).join(' · '));
+        failed.map(f => {
+          const detail = (f.rowErrors && f.rowErrors.length)
+            ? f.rowErrors.slice(0, 5).join(' · ') +
+              (f.rowErrors.length > 5 ? ` · …y ${f.rowErrors.length - 5} más` : '')
+            : f.firstError;
+          return `${f.name}: ${f.failed} fallidas (${detail})`;
+        }).join(' — '));
     }
     const okTotal = results.reduce((a, r) => a + r.ok, 0);
     UI.showAlert('import-masters-success', `Applied ${okTotal} change(s).`, 'success');
