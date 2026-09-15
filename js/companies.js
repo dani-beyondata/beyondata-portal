@@ -19,10 +19,10 @@ const Companies = (() => {
     return { data, error };
   }
 
-  async function create(name, slug) {
+  async function create(name, slug, pms) {
     const { data, error } = await sb
       .from('companies')
-      .insert({ name, slug, active: true })
+      .insert({ name, slug, pms, active: true })
       .select()
       .single();
     return { data, error };

@@ -51,6 +51,12 @@
       <label>Slug</label>
       <input type="text" id="new-slug" placeholder="e.g. tch">
     </div>
+    <div class="field">
+      <label>PMS</label>
+      <select id="new-pms">
+        <option value="">Loading…</option>
+      </select>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-new-company')">Cancel</button>
       <button class="btn btn-primary" id="btn-create-company">Create</button>
@@ -65,6 +71,7 @@
 <script src="js/ui.js"></script>
 <script src="js/params.js"></script>
 <script src="js/companies.js"></script>
+<script src="js/pms_catalog.js"></script>
 <script>
   async function init() {
     const session = await Auth.requireAuth();
@@ -78,6 +85,20 @@
 
     document.getElementById('user-label').textContent = profile.full_name || session.user.email;
     loadCompanies();
+    loadPmsOptions();
+  }
+
+  async function loadPmsOptions() {
+    const select = document.getElementById('new-pms');
+    const { data, error } = await PmsCatalog.getActive();
+
+    if (error || !data || !data.length) {
+      select.innerHTML = '<option value="">No PMS available</option>';
+      return;
+    }
+
+    select.innerHTML = '<option value="">Select a PMS</option>' +
+      data.map(p => `<option value="${p.code}">${p.display_name}</option>`).join('');
   }
 
   async function loadCompanies() {
@@ -129,12 +150,14 @@
   document.getElementById('btn-create-company').addEventListener('click', async () => {
     const name = document.getElementById('new-name').value.trim();
     const slug = document.getElementById('new-slug').value.trim();
+    const pms  = document.getElementById('new-pms').value;
     UI.hideAlert('modal-error');
 
     if (!name || !slug) { UI.showAlert('modal-error', 'Name and slug are required.'); return; }
+    if (!pms) { UI.showAlert('modal-error', 'Select the PMS this client uses.'); return; }
 
     UI.setLoading('btn-create-company', true, 'Create');
-    const { data: company, error } = await Companies.create(name, slug);
+    const { data: company, error } = await Companies.create(name, slug, pms);
     UI.setLoading('btn-create-company', false, 'Create');
 
     if (error) { UI.showAlert('modal-error', error.message); return; }
@@ -145,6 +168,7 @@
     UI.closeModal('modal-new-company');
     document.getElementById('new-name').value = '';
     document.getElementById('new-slug').value = '';
+    document.getElementById('new-pms').value = '';
     loadCompanies();
   });
 
