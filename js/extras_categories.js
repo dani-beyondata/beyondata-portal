@@ -1,4 +1,5 @@
-// extras_categories.js — extras category master CRUD
+// extras_categories.js — extras category master CRUD (two levels:
+// rows without parent_id are categories, rows with parent_id are subcategories)
 
 const ExtrasCategories = (() => {
 
@@ -9,24 +10,35 @@ const ExtrasCategories = (() => {
     return { data, error };
   }
 
-  async function create(companyId, categoryName) {
+  async function create(companyId, categoryName, parentId) {
     const { data, error } = await sb.from('extras_categories')
-      .insert({ company_id: companyId, category_name: categoryName, status: 'active' })
+      .insert({ company_id: companyId, category_name: categoryName,
+                parent_id: parentId || null, status: 'active' })
       .select().single();
     return { data, error };
   }
 
-  async function update(id, categoryName) {
+  async function update(id, categoryName, parentId) {
+    const fields = { category_name: categoryName, updated_at: new Date().toISOString() };
+    if (parentId !== undefined) fields.parent_id = parentId || null;
     const { data, error } = await sb.from('extras_categories')
-      .update({ category_name: categoryName, updated_at: new Date().toISOString() }).eq('id', id);
+      .update(fields).eq('id', id);
     return { data, error };
   }
 
+  // Subcategories follow their parent: an active subcategory hanging off a
+  // deactivated category would still be offered in the pickers.
   async function toggle(id, currentStatus) {
     const status = currentStatus === 'active' ? 'inactive' : 'active';
-    const { data, error } = await sb.from('extras_categories')
-      .update({ status, updated_at: new Date().toISOString() }).eq('id', id);
-    return { data, error };
+    const ts     = new Date().toISOString();
+
+    const { error } = await sb.from('extras_categories')
+      .update({ status, updated_at: ts }).eq('id', id);
+    if (error) return { error };
+
+    const { error: childError } = await sb.from('extras_categories')
+      .update({ status, updated_at: ts }).eq('parent_id', id);
+    return { error: childError };
   }
 
   return { getByCompany, create, update, toggle };

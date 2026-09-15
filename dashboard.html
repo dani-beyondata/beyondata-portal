@@ -1506,9 +1506,15 @@
 <!-- Modal: Add extras category -->
 <div class="modal-overlay" id="modal-extras-category">
   <div class="modal">
-    <h3>Add extras category</h3>
+    <h3 id="modal-extras-category-title">Add extras category</h3>
     <div class="alert error" id="extras-cat-error"></div>
     <div class="field"><label>Category name</label><input type="text" id="extras-cat-name" placeholder="e.g. Food & Beverage"></div>
+    <div class="field"><label>Parent category</label>
+      <select id="extras-cat-parent">
+        <option value="">— None (top-level category) —</option>
+      </select>
+      <small id="extras-cat-parent-hint" style="color:var(--text-muted)">Leave empty for a category. Pick one to create a subcategory under it.</small>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modal-extras-category')">Cancel</button>
       <button class="btn btn-primary" id="btn-save-extras-category">Save</button>
@@ -1525,11 +1531,16 @@
     <div class="field"><label>Raw value (Mews product name)</label><input type="text" id="extra-code" placeholder="e.g. Breakfast Web"></div>
     <div class="field"><label>Display name (for reports)</label><input type="text" id="extra-display" placeholder="e.g. Breakfast"></div>
     <div class="field"><label>Category</label>
-      <select id="extra-category">
+      <select id="extra-category" onchange="loadExtraSubcategories()">
         <option value="">— Select category —</option>
       </select>
     </div>
-    <div class="field"><label>Subcategory</label><input type="text" id="extra-subcategory" placeholder="e.g. SPA"></div>
+    <div class="field"><label>Subcategory</label>
+      <select id="extra-subcategory">
+        <option value="">— None —</option>
+      </select>
+      <small style="color:var(--text-muted)">Optional. Only the subcategories of the selected category are offered.</small>
+    </div>
     <div class="field"><label>VAT rate</label>
       <select id="extra-vat" onchange="extraPricePreview()">
         <option value="">— Select VAT —</option>
@@ -3272,25 +3283,44 @@
   }
 
   // ── EXTRAS CATALOG ────────────────────────────────────────────────
-  let allExtras = [];
+  let allExtras     = [];
+  let allExtrasCats = [];   // categories + subcategories, as stored
 
   async function loadExtras() {
     const { data } = await ExtrasCatalog.getByCompany(currentCompany.id);
     allExtras = data || [];
 
-    // Populate category filter and modal dropdown from extras_categories master
     const { data: cats } = await ExtrasCategories.getByCompany(currentCompany.id);
-    const activeCats = (cats || []).filter(c => c.status === 'active');
+    allExtrasCats = cats || [];
+
+    // Only active top-level categories can be assigned to a product.
+    const activeRoots = allExtrasCats.filter(c => c.status === 'active' && !c.parent_id);
+    const options = activeRoots
+      .map(c => `<option value="${c.id}">${escapeHtml(c.category_name)}</option>`).join('');
+
     const catSel = document.getElementById('extras-category-filter');
-    catSel.innerHTML = '<option value="">All categories</option>' +
-      activeCats.map(c => `<option value="${c.category_name}">${escapeHtml(c.category_name)}</option>`).join('');
+    catSel.innerHTML = '<option value="">All categories</option>' + options;
+
     const modalCatSel = document.getElementById('extra-category');
     if (modalCatSel) {
-      modalCatSel.innerHTML = '<option value="">— Select category —</option>' +
-        activeCats.map(c => `<option value="${c.category_name}">${escapeHtml(c.category_name)}</option>`).join('');
+      modalCatSel.innerHTML = '<option value="">— Select category —</option>' + options;
     }
 
     renderExtras(allExtras);
+  }
+
+  // Subcategories depend on the category picked in the modal.
+  function loadExtraSubcategories(selectedId) {
+    const catId = document.getElementById('extra-category').value;
+    const sel   = document.getElementById('extra-subcategory');
+    const subs  = allExtrasCats
+      .filter(c => c.parent_id === catId && c.status === 'active')
+      .sort((a, b) => a.category_name.localeCompare(b.category_name));
+
+    sel.innerHTML = '<option value="">— None —</option>' +
+      subs.map(s => `<option value="${s.id}">${escapeHtml(s.category_name)}</option>`).join('');
+    sel.value = selectedId && subs.some(s => s.id === selectedId) ? selectedId : '';
+    sel.disabled = !catId;
   }
 
   function filterExtras() {
@@ -3301,7 +3331,7 @@
     const filtered = allExtras.filter(e => {
       if (search && !(e.raw_value || e.extra_code || '').toLowerCase().includes(search) &&
                     !(e.display_name || '').toLowerCase().includes(search)) return false;
-      if (cat    && e.category !== cat)       return false;
+      if (cat    && e.category_id !== cat)    return false;
       if (timing && e.charge_timing !== timing) return false;
       return true;
     });
@@ -3328,20 +3358,26 @@
     }
     tbody.innerHTML = data.map(e => `
       <tr>
-        <td>${UI.mono(e.raw_value || e.extra_code || '—')}</td>
+        <td>${UI.mono(e.raw_value || '—')}</td>
         <td>${e.display_name || e.raw_value || '—'}</td>
-        <td>${e.category || '—'}</td>
-        <td>${e.subcategory || '—'}</td>
+        <td>${escapeHtml(e.category_name || '—')}${
+          e.classification_stale
+            ? ' <span title="Its category or subcategory is deactivated" style="color:#b45309;font-weight:600">⚠</span>'
+            : ''
+        }</td>
+        <td>${escapeHtml(e.subcategory_name || '—')}</td>
         <td style="font-family:'DM Mono',monospace;font-size:0.85rem">${
           e.unit_price_gross === null || e.unit_price_gross === undefined
             ? '<span style="color:#b45309;font-weight:600">sin precio</span>'
             : `${parseFloat(e.unit_price_gross).toFixed(2)} €` +
-              (e.vat_rate ? `<br><span style="font-size:0.7rem;color:var(--text-muted)">net ${(e.unit_price_gross/(1+parseFloat(e.vat_rate))).toFixed(2)}</span>` : '')
+              (e.unit_price_net !== null && e.unit_price_net !== undefined
+                ? `<br><span style="font-size:0.7rem;color:var(--text-muted)">net ${parseFloat(e.unit_price_net).toFixed(2)}</span>`
+                : '<br><span style="font-size:0.7rem;color:#b45309">sin IVA</span>')
         }</td>
         <td>${UI.badge(TIMING_LABELS[e.charge_timing] || e.charge_timing, TIMING_COLORS[e.charge_timing] || 'badge-user')}</td>
         <td>${UI.statusBadge(e.status === 'active')}</td>
         <td style="display:flex;gap:0.4rem">${isAdmin ? `
-          <button class="btn btn-secondary btn-sm" onclick="editExtra('${e.id}','${(e.raw_value||'').replace(/'/g,"\\'")}','${(e.display_name||'').replace(/'/g,"\\'")}','${(e.category||'').replace(/'/g,"\\'")}','${(e.subcategory||'').replace(/'/g,"\\'")}','${e.charge_timing}')">Edit</button>
+          <button class="btn btn-secondary btn-sm" onclick="editExtra('${e.id}')">Edit</button>
           <button class="btn btn-secondary btn-sm" onclick="toggleExtra('${e.id}','${e.status}')">
             ${e.status === 'active' ? 'Deactivate' : 'Activate'}</button>` : ''}
         </td>
@@ -3410,41 +3446,69 @@
     sel.value = opt ? opt.value : '';
   }
 
+  let extrasCatRows = [];
+
   async function loadExtrasCategories() {
     UI.tableLoading('extras-categories-tbody', 4);
     const { data, error } = await ExtrasCategories.getByCompany(currentCompany.id);
     if (error || !data?.length) {
       UI.tableEmpty('extras-categories-tbody', 4, 'No categories yet — add one to get started.');
       document.getElementById('extras-categories-count').textContent = '0 categories';
+      extrasCatRows = [];
       return;
     }
-    // How many catalog products use each category (category is stored as text
-    // on the product, so count client-side; also lets us show 0 for orphans).
-    const usage = {};
-    {
-      const { data: prods } = await sb.from('extras_catalog')
-        .select('category').eq('company_id', currentCompany.id);
-      (prods || []).forEach(p => {
-        const k = (p.category || '').trim();
-        if (k) usage[k] = (usage[k] || 0) + 1;
-      });
-    }
-    document.getElementById('extras-categories-count').textContent = `${data.length} categories`;
-    document.getElementById('extras-categories-tbody').innerHTML = data.map(c => {
-      const n = usage[(c.category_name || '').trim()] || 0;
-      return `
-      <tr>
-        <td>${escapeHtml(c.category_name)}</td>
-        <td>${n ? `<span style="font-weight:600">${n}</span>`
-               : '<span style="color:var(--text-muted)">0</span>'}</td>
-        <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
-        <td>
-          <button class="btn btn-secondary btn-sm" onclick="editExtrasCategory('${c.id}','${c.category_name.replace(/'/g,"\\'")}')">Edit</button>
+    extrasCatRows = data;
+
+    // Products per category: total includes everything under it, direct counts
+    // only the ones with no subcategory assigned.
+    const { data: prods } = await sb.from('extras_catalog')
+      .select('category_id, subcategory_id').eq('company_id', currentCompany.id);
+    const total = {}, direct = {}, bySub = {};
+    (prods || []).forEach(p => {
+      total[p.category_id] = (total[p.category_id] || 0) + 1;
+      if (p.subcategory_id) bySub[p.subcategory_id] = (bySub[p.subcategory_id] || 0) + 1;
+      else direct[p.category_id] = (direct[p.category_id] || 0) + 1;
+    });
+
+    const roots = data.filter(c => !c.parent_id)
+                      .sort((a, b) => a.category_name.localeCompare(b.category_name));
+    const childrenOf = id => data.filter(c => c.parent_id === id)
+                                 .sort((a, b) => a.category_name.localeCompare(b.category_name));
+
+    document.getElementById('extras-categories-count').textContent =
+      `${roots.length} categories · ${data.length - roots.length} subcategories`;
+
+    const count = n => n ? `<span style="font-weight:600">${n}</span>`
+                         : '<span style="color:var(--text-muted)">0</span>';
+
+    const actions = c => `
+        <td style="display:flex;gap:0.4rem">
+          <button class="btn btn-secondary btn-sm" onclick="editExtrasCategory('${c.id}')">Edit</button>
           <button class="btn btn-secondary btn-sm" onclick="toggleExtrasCategory('${c.id}','${c.status}')">
             ${c.status === 'active' ? 'Deactivate' : 'Activate'}</button>
-        </td>
-      </tr>`;
-    }).join('');
+        </td>`;
+
+    const rows = [];
+    roots.forEach(c => {
+      const t = total[c.id] || 0, d = direct[c.id] || 0;
+      rows.push(`
+      <tr>
+        <td>${escapeHtml(c.category_name)}</td>
+        <td>${count(t)}${t ? `<span style="color:var(--text-muted);font-size:0.8rem"> (${d} directos)</span>` : ''}</td>
+        <td>${UI.badge(c.status, c.status === 'active' ? 'active' : 'inactive')}</td>
+        ${actions(c)}
+      </tr>`);
+      childrenOf(c.id).forEach(s => {
+        rows.push(`
+      <tr>
+        <td style="padding-left:2rem;color:var(--text-secondary)">↳ ${escapeHtml(s.category_name)}</td>
+        <td>${count(bySub[s.id] || 0)}</td>
+        <td>${UI.badge(s.status, s.status === 'active' ? 'active' : 'inactive')}</td>
+        ${actions(s)}
+      </tr>`);
+      });
+    });
+    document.getElementById('extras-categories-tbody').innerHTML = rows.join('');
   }
 
   async function toggleExtrasCategory(id, status) {
@@ -3452,15 +3516,48 @@
     loadExtrasCategories();
   }
 
-  function editExtrasCategory(id, categoryName) {
-    document.getElementById('extras-cat-name').value = categoryName;
+  // Only top-level categories can be a parent — the model is two levels deep.
+  function fillExtrasCatParents(selectedId, excludeId) {
+    const sel = document.getElementById('extras-cat-parent');
+    const roots = extrasCatRows
+      .filter(c => !c.parent_id && c.id !== excludeId)
+      .sort((a, b) => a.category_name.localeCompare(b.category_name));
+    sel.innerHTML = '<option value="">— None (top-level category) —</option>' +
+      roots.map(c => `<option value="${c.id}">${escapeHtml(c.category_name)}</option>`).join('');
+    sel.value = selectedId || '';
+  }
+
+  function editExtrasCategory(id) {
+    const rec = extrasCatRows.find(c => c.id === id);
+    if (!rec) return;
+    const hasChildren = extrasCatRows.some(c => c.parent_id === id);
+
+    document.getElementById('modal-extras-category-title').textContent =
+      rec.parent_id ? 'Edit subcategory' : 'Edit category';
+    document.getElementById('extras-cat-name').value = rec.category_name;
+    fillExtrasCatParents(rec.parent_id, id);
+
+    // A category with subcategories cannot become one itself: that would be a
+    // third level, which the model does not have.
+    const sel  = document.getElementById('extras-cat-parent');
+    sel.disabled = hasChildren;
+    document.getElementById('extras-cat-parent-hint').textContent = hasChildren
+      ? 'This category has subcategories, so it cannot become one itself.'
+      : 'Leave empty for a category. Pick one to create a subcategory under it.';
+
     document.getElementById('btn-save-extras-category').dataset.editId = id;
     UI.hideAlert('extras-cat-error');
     UI.openModal('modal-extras-category');
   }
 
   document.getElementById('btn-add-extras-category').addEventListener('click', () => {
+    document.getElementById('modal-extras-category-title').textContent = 'Add extras category';
     document.getElementById('extras-cat-name').value = '';
+    fillExtrasCatParents(null, null);
+    const sel = document.getElementById('extras-cat-parent');
+    sel.disabled = false;
+    document.getElementById('extras-cat-parent-hint').textContent =
+      'Leave empty for a category. Pick one to create a subcategory under it.';
     delete document.getElementById('btn-save-extras-category').dataset.editId;
     UI.hideAlert('extras-cat-error');
     UI.openModal('modal-extras-category');
@@ -3468,13 +3565,14 @@
 
   document.getElementById('btn-save-extras-category').addEventListener('click', async () => {
     const categoryName = document.getElementById('extras-cat-name').value.trim();
+    const parentId     = document.getElementById('extras-cat-parent').value || null;
     const editId       = document.getElementById('btn-save-extras-category').dataset.editId;
     UI.hideAlert('extras-cat-error');
     if (!categoryName) { UI.showAlert('extras-cat-error', 'Category name is required.'); return; }
     UI.setLoading('btn-save-extras-category', true, 'Save');
     const { error } = editId
-      ? await ExtrasCategories.update(editId, categoryName)
-      : await ExtrasCategories.create(currentCompany.id, categoryName);
+      ? await ExtrasCategories.update(editId, categoryName, parentId)
+      : await ExtrasCategories.create(currentCompany.id, categoryName, parentId);
     UI.setLoading('btn-save-extras-category', false, 'Save');
     if (error) { UI.showAlert('extras-cat-error', error.message); return; }
     UI.closeModal('modal-extras-category');
@@ -3486,9 +3584,10 @@
     document.getElementById('modal-extra-title').textContent = 'Add extra';
     document.getElementById('extra-code').readOnly = false;
     document.getElementById('extra-code').style.opacity = '1';
-    ['extra-code','extra-display','extra-category','extra-subcategory','extra-price','extra-vat'].forEach(id => {
+    ['extra-code','extra-display','extra-category','extra-price','extra-vat'].forEach(id => {
       document.getElementById(id).value = '';
     });
+    loadExtraSubcategories();
     document.getElementById('extra-timing').value = 'during_stay';
     setExtraPriceMode('gross');
     extraPricePreview();
@@ -3496,25 +3595,35 @@
     UI.openModal('modal-extra');
   });
 
-  function editExtra(id, rawValue, displayName, category, subcategory, timing) {
+  function editExtra(id) {
+    const rec = allExtras.find(x => x.id === id);
+    if (!rec) return;
+
     document.getElementById('extra-edit-id').value = id;
     document.getElementById('modal-extra-title').textContent = 'Edit extra';
-    document.getElementById('extra-code').value = rawValue;
+    document.getElementById('extra-code').value = rec.raw_value || '';
     document.getElementById('extra-code').readOnly = true;
     document.getElementById('extra-code').style.opacity = '0.6';
-    document.getElementById('extra-display').value = displayName;
-    document.getElementById('extra-category').value = category;
-    document.getElementById('extra-subcategory').value = subcategory;
-    document.getElementById('extra-timing').value = timing;
-    const rec = allExtras.find(x => x.id === id);
-    setExtraVatValue(rec ? rec.vat_rate : null);
+    document.getElementById('extra-display').value = rec.display_name || '';
+    document.getElementById('extra-timing').value = rec.charge_timing;
+
+    // A deactivated category is not in the dropdown, so the select would land
+    // empty and a save would silently reclassify the row. Warn instead.
+    document.getElementById('extra-category').value = rec.category_id || '';
+    if (rec.category_id && document.getElementById('extra-category').value !== rec.category_id) {
+      UI.showAlert('extra-error', `Its category (${rec.category_name}) is deactivated — pick an active one to save.`);
+    } else {
+      UI.hideAlert('extra-error');
+    }
+    loadExtraSubcategories(rec.subcategory_id);
+
+    setExtraVatValue(rec.vat_rate);
     // Always reopen in gross mode with the stored value, so editing a row
     // never pushes it through a conversion it did not need.
     setExtraPriceMode('gross');
     document.getElementById('extra-price').value =
-      (rec && rec.unit_price_gross !== null && rec.unit_price_gross !== undefined) ? rec.unit_price_gross : '';
+      (rec.unit_price_gross !== null && rec.unit_price_gross !== undefined) ? rec.unit_price_gross : '';
     extraPricePreview();
-    UI.hideAlert('extra-error');
     UI.openModal('modal-extra');
   }
 
@@ -3522,19 +3631,19 @@
     const editId          = document.getElementById('extra-edit-id').value;
     const raw_value       = document.getElementById('extra-code').value.trim();
     const display_name    = document.getElementById('extra-display').value.trim();
-    const category        = document.getElementById('extra-category').value.trim();
-    const subcategory     = document.getElementById('extra-subcategory').value.trim() || null;
+    const category_id     = document.getElementById('extra-category').value || null;
+    const subcategory_id  = document.getElementById('extra-subcategory').value || null;
     const vatRaw          = document.getElementById('extra-vat').value;
     const vat_rate        = vatRaw === '' ? null : parseFloat(vatRaw);
     const unit_price_gross = extraGrossFromForm();
     const charge_timing   = document.getElementById('extra-timing').value;
 
     UI.hideAlert('extra-error');
-    if (!raw_value || !category) { UI.showAlert('extra-error', 'Raw value and category are required.'); return; }
+    if (!raw_value || !category_id) { UI.showAlert('extra-error', 'Raw value and category are required.'); return; }
     if (vat_rate === null) { UI.showAlert('extra-error', 'Select the VAT rate — it is needed to split gross and net.'); return; }
 
     UI.setLoading('btn-save-extra', true, 'Save');
-    const fields = { display_name: display_name || raw_value, category, subcategory, charge_timing, unit_price_gross, vat_rate };
+    const fields = { display_name: display_name || raw_value, category_id, subcategory_id, charge_timing, unit_price_gross, vat_rate };
     const { error } = editId
       ? await ExtrasCatalog.update(editId, fields)
       : await ExtrasCatalog.create(currentCompany.id, { raw_value, ...fields });

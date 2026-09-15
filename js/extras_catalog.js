@@ -2,10 +2,12 @@
 
 const ExtrasCatalog = (() => {
 
+  // Reads go through the view, which resolves category and subcategory names
+  // from their ids; writes go to the table.
   async function getByCompany(companyId) {
-    const { data, error } = await sb.from('extras_catalog')
+    const { data, error } = await sb.from('v_extras_catalog')
       .select('*').eq('company_id', companyId)
-      .order('category').order('display_name');
+      .order('category_name').order('display_name');
     return { data, error };
   }
 
