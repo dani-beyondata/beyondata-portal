@@ -1530,18 +1530,26 @@
       </select>
     </div>
     <div class="field"><label>Subcategory</label><input type="text" id="extra-subcategory" placeholder="e.g. SPA"></div>
-    <div class="field"><label>Unit price — GROSS, VAT incl. (€)</label>
-      <input type="number" id="extra-price-gross" placeholder="e.g. 10.00" step="0.01" min="0" oninput="extraNetPreview()">
-      <small style="color:var(--text-muted)">Used for the estimated Extras Production (units × price) when the PMS export carries no amounts. Free perks: 0.</small>
-    </div>
     <div class="field"><label>VAT rate</label>
-      <select id="extra-vat" onchange="extraNetPreview()">
-        <option value="">—</option>
+      <select id="extra-vat" onchange="extraPricePreview()">
+        <option value="">— Select VAT —</option>
+        <option value="0">0%</option>
+        <option value="0.04">4% (superreducido)</option>
         <option value="0.10">10% (F&amp;B / alojamiento)</option>
         <option value="0.21">21% (general)</option>
-        <option value="0">0%</option>
       </select>
-      <small id="extra-net-preview" style="color:var(--text-muted)"></small>
+      <small style="color:var(--text-muted)">Required. Needed to split gross and net whatever the amount source is.</small>
+    </div>
+    <div class="field"><label>Unit price (€)</label>
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <input type="number" id="extra-price" placeholder="e.g. 10.00" step="0.01" min="0" oninput="extraPricePreview()" style="flex:1">
+        <div class="toggle-wrap">
+          <button type="button" class="toggle-btn active" id="extra-price-mode-gross" onclick="setExtraPriceMode('gross')">Gross</button>
+          <button type="button" class="toggle-btn" id="extra-price-mode-net" onclick="setExtraPriceMode('net')">Net</button>
+        </div>
+      </div>
+      <small id="extra-price-preview" style="color:var(--text-muted)"></small>
+      <small style="color:var(--text-muted)">Only used when the amount source is Master (units × price). Free perks: 0.</small>
     </div>
     <div class="field">
       <label>Charge timing</label>
@@ -3346,11 +3354,60 @@
     loadExtras();
   }
 
-  function extraNetPreview() {
-    const g = parseFloat(document.getElementById('extra-price-gross').value);
+  let extraPriceMode = 'gross';
+
+  function setExtraPriceMode(mode) {
+    const vat = parseFloat(document.getElementById('extra-vat').value);
+    if (mode === 'net' && isNaN(vat)) return;
+    extraPriceMode = mode;
+    document.getElementById('extra-price-mode-gross').classList.toggle('active', mode === 'gross');
+    document.getElementById('extra-price-mode-net').classList.toggle('active', mode === 'net');
+    extraPricePreview();
+  }
+
+  // The gross price is what gets stored; unit_price_net is a generated column.
+  // When the user types a net price we convert it here.
+  function extraGrossFromForm() {
+    const p = parseFloat(document.getElementById('extra-price').value);
     const v = parseFloat(document.getElementById('extra-vat').value);
-    const el = document.getElementById('extra-net-preview');
-    el.textContent = (!isNaN(g) && !isNaN(v)) ? `→ net: ${(g/(1+v)).toFixed(2)} €` : '';
+    if (isNaN(p)) return null;
+    if (extraPriceMode === 'net') {
+      if (isNaN(v)) return null;
+      return Math.round(p * (1 + v) * 100) / 100;
+    }
+    return p;
+  }
+
+  function extraPricePreview() {
+    const v      = parseFloat(document.getElementById('extra-vat').value);
+    const netBtn = document.getElementById('extra-price-mode-net');
+
+    // Without a VAT rate there is no conversion to make.
+    netBtn.disabled = isNaN(v);
+    netBtn.title    = isNaN(v) ? 'Select the VAT rate first' : '';
+    if (isNaN(v) && extraPriceMode === 'net') {
+      extraPriceMode = 'gross';
+      document.getElementById('extra-price-mode-gross').classList.add('active');
+      netBtn.classList.remove('active');
+    }
+
+    const p  = parseFloat(document.getElementById('extra-price').value);
+    const el = document.getElementById('extra-price-preview');
+    if (isNaN(p) || isNaN(v)) { el.textContent = ''; return; }
+
+    el.textContent = extraPriceMode === 'gross'
+      ? `net ${(p / (1 + v)).toFixed(4)} €`
+      : `stored as gross ${(Math.round(p * (1 + v) * 100) / 100).toFixed(2)} €`;
+  }
+
+  // vat_rate comes back as 0.1 or "0.10" depending on the driver, so match the
+  // option numerically instead of by string.
+  function setExtraVatValue(v) {
+    const sel = document.getElementById('extra-vat');
+    if (v === null || v === undefined || v === '') { sel.value = ''; return; }
+    const num = Number(v);
+    const opt = [...sel.options].find(o => o.value !== '' && Math.abs(parseFloat(o.value) - num) < 1e-9);
+    sel.value = opt ? opt.value : '';
   }
 
   async function loadExtrasCategories() {
@@ -3426,16 +3483,15 @@
 
   document.getElementById('btn-add-extra').addEventListener('click', () => {
     document.getElementById('extra-edit-id').value = '';
-    document.getElementById('extra-price-gross').value = '';
-    document.getElementById('extra-vat').value = '';
-    extraNetPreview();
     document.getElementById('modal-extra-title').textContent = 'Add extra';
     document.getElementById('extra-code').readOnly = false;
     document.getElementById('extra-code').style.opacity = '1';
-    ['extra-code','extra-display','extra-category','extra-subcategory','extra-amount'].forEach(id => {
+    ['extra-code','extra-display','extra-category','extra-subcategory','extra-price','extra-vat'].forEach(id => {
       document.getElementById(id).value = '';
     });
     document.getElementById('extra-timing').value = 'during_stay';
+    setExtraPriceMode('gross');
+    extraPricePreview();
     UI.hideAlert('extra-error');
     UI.openModal('modal-extra');
   });
@@ -3451,11 +3507,13 @@
     document.getElementById('extra-subcategory').value = subcategory;
     document.getElementById('extra-timing').value = timing;
     const rec = allExtras.find(x => x.id === id);
-    document.getElementById('extra-price-gross').value =
+    setExtraVatValue(rec ? rec.vat_rate : null);
+    // Always reopen in gross mode with the stored value, so editing a row
+    // never pushes it through a conversion it did not need.
+    setExtraPriceMode('gross');
+    document.getElementById('extra-price').value =
       (rec && rec.unit_price_gross !== null && rec.unit_price_gross !== undefined) ? rec.unit_price_gross : '';
-    document.getElementById('extra-vat').value =
-      (rec && rec.vat_rate !== null && rec.vat_rate !== undefined) ? String(rec.vat_rate) : '';
-    extraNetPreview();
+    extraPricePreview();
     UI.hideAlert('extra-error');
     UI.openModal('modal-extra');
   }
@@ -3466,14 +3524,14 @@
     const display_name    = document.getElementById('extra-display').value.trim();
     const category        = document.getElementById('extra-category').value.trim();
     const subcategory     = document.getElementById('extra-subcategory').value.trim() || null;
-    const priceRaw        = document.getElementById('extra-price-gross').value;
-    const unit_price_gross = priceRaw === '' ? null : parseFloat(priceRaw);
     const vatRaw          = document.getElementById('extra-vat').value;
     const vat_rate        = vatRaw === '' ? null : parseFloat(vatRaw);
+    const unit_price_gross = extraGrossFromForm();
     const charge_timing   = document.getElementById('extra-timing').value;
 
     UI.hideAlert('extra-error');
     if (!raw_value || !category) { UI.showAlert('extra-error', 'Raw value and category are required.'); return; }
+    if (vat_rate === null) { UI.showAlert('extra-error', 'Select the VAT rate — it is needed to split gross and net.'); return; }
 
     UI.setLoading('btn-save-extra', true, 'Save');
     const fields = { display_name: display_name || raw_value, category, subcategory, charge_timing, unit_price_gross, vat_rate };
