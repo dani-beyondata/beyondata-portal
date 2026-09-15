@@ -62,13 +62,23 @@ const MastersExport = (() => {
   async function exportAll(companyId, companyName) {
     const wb = XLSX.utils.book_new();
 
+    // Every sheet reads through here. A failed read used to land as (data || [])
+    // — an empty sheet inside a file that looked complete. Now it is recorded
+    // and the whole export aborts before writing anything.
+    const failures = [];
+    async function q(sheetName, query) {
+      const { data, error } = await query;
+      if (error) { failures.push(sheetName + ': ' + error.message); return []; }
+      return data || [];
+    }
+
     // ── Channels ──────────────────────────────────────────────
     {
-      const { data } = await sb.from('channels')
+      const data = await q('Channels', sb.from('channels')
         .select('raw_value, display_name, channel_type, channel_subtype, rate_type, avg_cost_pct, status')
         .eq('company_id', companyId)
-        .order('channel_type').order('display_name');
-      addSheet(wb, 'Channels', (data || []).map(r => ({
+        .order('channel_type').order('display_name'));
+      addSheet(wb, 'Channels', data.map(r => ({
         'Raw value (PMS)':   r.raw_value || '',
         'Display name':      r.display_name || '',
         'Type':              r.channel_type || '',
@@ -81,11 +91,11 @@ const MastersExport = (() => {
 
     // ── Channel Types & Subtypes ──────────────────────────────
     {
-      const { data } = await sb.from('channel_subtypes')
+      const data = await q('Channel Types', sb.from('channel_subtypes')
         .select('type_name, subtype_name, status')
         .eq('company_id', companyId)
-        .order('type_name').order('subtype_name');
-      addSheet(wb, 'Channel Types', (data || []).map(r => ({
+        .order('type_name').order('subtype_name'));
+      addSheet(wb, 'Channel Types', data.map(r => ({
         'Type':    r.type_name,
         'Subtype': r.subtype_name,
         'Status':  r.status,
@@ -94,11 +104,11 @@ const MastersExport = (() => {
 
     // ── OTAs ──────────────────────────────────────────────────
     {
-      const { data } = await sb.from('otas')
+      const data = await q('OTAs', sb.from('otas')
         .select('raw_value, display_name, status')
         .eq('company_id', companyId)
-        .order('display_name');
-      addSheet(wb, 'OTAs', (data || []).map(r => ({
+        .order('display_name'));
+      addSheet(wb, 'OTAs', data.map(r => ({
         'Raw value (PMS)': r.raw_value || '',
         'Display name':    r.display_name || '',
         'Status':          r.status || 'active',
@@ -107,11 +117,11 @@ const MastersExport = (() => {
 
     // ── Segments ──────────────────────────────────────────────
     {
-      const { data } = await sb.from('segments')
+      const data = await q('Segments', sb.from('segments')
         .select('raw_value, display_name, status')
         .eq('company_id', companyId)
-        .order('display_name');
-      addSheet(wb, 'Segments', (data || []).map(r => ({
+        .order('display_name'));
+      addSheet(wb, 'Segments', data.map(r => ({
         'Raw value (PMS)': r.raw_value || '',
         'Display name':    r.display_name || '',
         'Status':          r.status || '',
@@ -120,11 +130,11 @@ const MastersExport = (() => {
 
     // ── Booking Purposes ──────────────────────────────────────
     {
-      const { data } = await sb.from('booking_purposes')
+      const data = await q('Booking Purposes', sb.from('booking_purposes')
         .select('raw_value, display_name, status')
         .eq('company_id', companyId)
-        .order('display_name');
-      addSheet(wb, 'Booking Purposes', (data || []).map(r => ({
+        .order('display_name'));
+      addSheet(wb, 'Booking Purposes', data.map(r => ({
         'Raw value (PMS)': r.raw_value || '',
         'Display name':    r.display_name || '',
         'Status':          r.status || '',
@@ -133,11 +143,11 @@ const MastersExport = (() => {
 
     // ── Room Categories ───────────────────────────────────────
     {
-      const { data } = await sb.from('room_categories')
+      const data = await q('Room Categories', sb.from('room_categories')
         .select('raw_value, display_name, status')
         .eq('company_id', companyId)
-        .order('display_name');
-      addSheet(wb, 'Room Categories', (data || []).map(r => ({
+        .order('display_name'));
+      addSheet(wb, 'Room Categories', data.map(r => ({
         'Raw value (PMS)': r.raw_value || '',
         'Display name':    r.display_name || '',
         'Status':          r.status || '',
@@ -146,11 +156,11 @@ const MastersExport = (() => {
 
     // ── Rooms ─────────────────────────────────────────────────
     {
-      const { data } = await sb.from('rooms')
+      const data = await q('Rooms', sb.from('rooms')
         .select('property_id, raw_value, display_name, beds_per_room, status, category_id, room_categories(display_name, raw_value)')
         .eq('company_id', companyId)
-        .order('property_id').order('raw_value');
-      addSheet(wb, 'Rooms', (data || []).map(r => ({
+        .order('property_id').order('raw_value'));
+      addSheet(wb, 'Rooms', data.map(r => ({
         'Property':      r.property_id || '',
         'Room code':     r.raw_value || '',
         'Room name':     r.display_name || '',
@@ -162,48 +172,59 @@ const MastersExport = (() => {
 
     // ── Extras Categories ─────────────────────────────────────
     {
-      const { data } = await sb.from('extras_categories')
-        .select('category_name, status')
+      const data = await q('Extras Categories', sb.from('extras_categories')
+        .select('id, category_name, parent_id, status')
         .eq('company_id', companyId)
-        .order('category_name');
-      addSheet(wb, 'Extras Categories', (data || []).map(r => ({
-        'Category name': r.category_name,
-        'Status':        r.status,
+        .order('category_name'));
+      // Subcategories are listed right under their parent, as in the portal.
+      const nameById = new Map(data.map(r => [r.id, r.category_name]));
+      const roots    = data.filter(r => !r.parent_id);
+      const ordered  = [];
+      roots.forEach(root => {
+        ordered.push(root);
+        data.filter(r => r.parent_id === root.id).forEach(sub => ordered.push(sub));
+      });
+      addSheet(wb, 'Extras Categories', ordered.map(r => ({
+        'Category name':   r.category_name,
+        'Parent category': r.parent_id ? (nameById.get(r.parent_id) || '') : '',
+        'Status':          r.status,
       })));
     }
 
     // ── Extras ────────────────────────────────────────────────
     {
-      const { data } = await sb.from('extras_catalog')
-        .select('raw_value, display_name, category, subcategory, default_amount, charge_timing, status')
+      const data = await q('Extras', sb.from('v_extras_catalog')
+        .select('raw_value, display_name, category_name, subcategory_name, unit_price_gross, vat_rate, unit_price_net, charge_timing, status')
         .eq('company_id', companyId)
-        .order('category').order('display_name');
-      addSheet(wb, 'Extras', (data || []).map(r => ({
-        'Raw value (PMS)': r.raw_value || '',
-        'Display name':    r.display_name || '',
-        'Category':        r.category || '',
-        'Subcategory':     r.subcategory || '',
-        'Default €':       r.default_amount ?? '',
-        'Charge timing':   r.charge_timing || '',
-        'Status':          r.status || '',
+        .order('category_name').order('display_name'));
+      addSheet(wb, 'Extras', data.map(r => ({
+        'Raw value (PMS)':    r.raw_value || '',
+        'Display name':       r.display_name || '',
+        'Category':           r.category_name || '',
+        'Subcategory':        r.subcategory_name || '',
+        'Unit price (gross)': r.unit_price_gross ?? '',
+        'VAT %':              r.vat_rate != null ? (r.vat_rate * 100).toFixed(0) + '%' : '',
+        'Unit price (net)':   r.unit_price_net != null ? parseFloat(r.unit_price_net).toFixed(4) : '',
+        'Charge timing':      r.charge_timing || '',
+        'Status':             r.status || '',
       })));
     }
 
     // ── Market Groups ─────────────────────────────────────────
     {
-      const { data: groups } = await sb.from('market_groups')
+      const groups = await q('Market Groups', sb.from('market_groups')
         .select('id, group_code, group_name, status')
         .eq('company_id', companyId)
-        .order('group_code');
-      const { data: cmap } = await sb.from('country_mapping')
+        .order('group_code'));
+      const cmap = await q('Market Groups (countries)', sb.from('country_mapping')
         .select('country_code, market_group_id')
-        .eq('company_id', companyId);
+        .eq('company_id', companyId));
       const byGroup = {};
-      (cmap || []).forEach(c => {
+      cmap.forEach(c => {
         if (!byGroup[c.market_group_id]) byGroup[c.market_group_id] = [];
         byGroup[c.market_group_id].push(c.country_code);
       });
-      addSheet(wb, 'Market Groups', (groups || []).map(r => ({
+      addSheet(wb, 'Market Groups', groups.map(r => ({
         'Group code': r.group_code || '',
         'Group name': r.group_name || '',
         'Countries':  (byGroup[r.id] || []).sort().join(', '),
@@ -213,11 +234,11 @@ const MastersExport = (() => {
 
     // ── Client Country Mapping ────────────────────────────────
     {
-      const { data } = await sb.from('client_country_mapping')
+      const data = await q('Country Mapping', sb.from('client_country_mapping')
         .select('raw_value, country_code, status')
         .eq('company_id', companyId)
-        .order('raw_value');
-      addSheet(wb, 'Country Mapping', (data || []).map(r => ({
+        .order('raw_value'));
+      addSheet(wb, 'Country Mapping', data.map(r => ({
         'Raw value (PMS)': r.raw_value || '',
         'ISO country':     r.country_code || '',
         'Status':          r.status || '',
@@ -231,6 +252,14 @@ const MastersExport = (() => {
         pending.forEach(p => addSheet(wb, p.name, p.rows));
       }
     } catch (e) { /* pending is best-effort */ }
+
+    // ── Abort on any failed sheet ─────────────────────────────
+    // Handing over a file with a silently missing sheet is worse than handing
+    // over nothing: nobody can tell what is absent.
+    if (failures.length) {
+      throw new Error('no se pudieron leer ' + failures.length +
+        (failures.length === 1 ? ' maestro' : ' maestros') + ' — ' + failures.join(' · '));
+    }
 
     // ── Write file ────────────────────────────────────────────
     const today = new Date().toISOString().slice(0, 10);
