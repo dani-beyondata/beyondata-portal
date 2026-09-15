@@ -257,7 +257,18 @@
         <p>Company parameters and configuration.</p>
       </div>
       <div class="table-wrap">
-        <div class="table-header"><h3>Parameters</h3></div>
+        <div class="table-header">
+          <h3>Data source</h3>
+          <span style="font-size:0.78rem;color:var(--text-muted)">Part of the company record — not a parameter</span>
+        </div>
+        <div id="pms-list"></div>
+      </div>
+
+      <div class="table-wrap" style="margin-top:1.25rem">
+        <div class="table-header">
+          <h3>Company parameters</h3>
+          <span style="font-size:0.78rem;color:var(--text-muted)">Read by reports and pipelines at run time</span>
+        </div>
         <div id="params-list"></div>
       </div>
     </div>
@@ -1837,6 +1848,7 @@
 <script src="js/corporations.js"></script>
 <script src="js/users.js"></script>
 <script src="js/params.js"></script>
+<script src="js/pms_catalog.js"></script>
 <script src="js/segments.js"></script>
 <script src="js/booking_purposes.js"></script>
 <script src="js/markets.js"></script>
@@ -2638,6 +2650,32 @@
 
     const pms = (currentCompany.pms || '').toLowerCase();
     const isSys = currentProfile.role === 'system_admin';
+
+    const { data: pmsList } = await PmsCatalog.getActive();
+    const codes = (pmsList || []).map(p => p.code.toLowerCase());
+    const orphan = pms && !codes.includes(pms);
+
+    let pmsButtons = (pmsList || []).map(p => `
+          <button class="toggle-btn ${pms === p.code.toLowerCase() ? 'active' : ''}"
+            ${isSys ? `onclick="setPms('${p.code}')"` : 'disabled'}>${p.display_name}</button>`).join('');
+
+    if (orphan) {
+      pmsButtons = `<button class="toggle-btn active" disabled title="This PMS is not active in the catalog">${currentCompany.pms} ⚠</button>` + pmsButtons;
+    }
+    if (!pmsButtons) {
+      pmsButtons = '<span style="font-size:0.8rem;color:var(--text-muted)">No PMS available</span>';
+    }
+
+    document.getElementById('pms-list').innerHTML = `
+      <div class="param-row">
+        <div class="param-info">
+          <h4>PMS</h4>
+          <p>Property management system this company exports data from. Stored on the company record, not as a parameter. Drives the data pipeline: upload paths and which ETLs process the files.${isSys ? '' : ' Managed by BeyonData.'}</p>
+        </div>
+        <div class="toggle-wrap">${pmsButtons}</div>
+      </div>
+    `;
+
     document.getElementById('params-list').innerHTML = `
       <div class="param-row">
         <div class="param-info">
@@ -2663,18 +2701,6 @@
             ${isAdmin ? `onclick="setParam('extras_amount_source','gold')"` : 'disabled'}>Gold (real €)</button>
           <button class="toggle-btn ${params.extras_amount_source === 'master' ? 'active' : ''}"
             ${isAdmin ? `onclick="setParam('extras_amount_source','master')"` : 'disabled'}>Master (tarifario)</button>
-        </div>
-      </div>
-      <div class="param-row">
-        <div class="param-info">
-          <h4>PMS</h4>
-          <p>Property management system this company exports data from. Drives the data pipeline: upload paths and which ETLs process the files.${isSys ? '' : ' Managed by BeyonData.'}</p>
-        </div>
-        <div class="toggle-wrap">
-          <button class="toggle-btn ${pms === 'mews' ? 'active' : ''}"
-            ${isSys ? `onclick="setPms('mews')"` : 'disabled'}>Mews</button>
-          <button class="toggle-btn ${pms === 'littlehotelier' ? 'active' : ''}"
-            ${isSys ? `onclick="setPms('littlehotelier')"` : 'disabled'}>Little Hotelier</button>
         </div>
       </div>
     `;
