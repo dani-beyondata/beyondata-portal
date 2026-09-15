@@ -12,14 +12,30 @@ const MastersExport = (() => {
     }));
   }
 
-  function addSheet(wb, name, rows, emptyMessage) {
-    const data = rows.length ? rows : [{ '': emptyMessage || 'No records yet' }];
+  // mapRow is passed instead of an already-mapped array so that an empty master
+  // still produces its real headers: a client receiving the file has to see
+  // which columns to fill in. Calling it with {} yields the column list.
+  function addSheet(wb, name, rows, mapRow) {
+    const mapped  = mapRow ? rows.map(mapRow) : rows;
+    const columns = mapRow ? Object.keys(mapRow({})) : (rows.length ? Object.keys(rows[0]) : ['']);
+
+    if (!mapped.length) {
+      const empty = XLSX.utils.json_to_sheet([], { header: columns });
+      empty['!cols'] = columns.map(k => ({ wch: Math.min(60, k.length + 2) }));
+      styleSheet(empty, name);
+      XLSX.utils.book_append_sheet(wb, empty, name.substring(0, 31));
+      return;
+    }
+    const data = mapped;
     const ws = XLSX.utils.json_to_sheet(data);
     ws['!cols'] = autoWidth(data);
+    styleSheet(ws, name);
+    XLSX.utils.book_append_sheet(wb, ws, name.substring(0, 31)); // Excel sheet name limit
+  }
 
+  function styleSheet(ws, name) {
     const isPending = name.startsWith('PENDING');
     const headerFill = isPending ? 'D97706' : '1E3A5F';   // amber for pending, navy for masters
-    const keys = Object.keys(data[0]);
     const range = XLSX.utils.decode_range(ws['!ref']);
 
     // Header row style
@@ -55,8 +71,6 @@ const MastersExport = (() => {
     ws['!autofilter'] = { ref: ws['!ref'] };
     // Taller header row
     ws['!rows'] = [{ hpt: 22 }];
-
-    XLSX.utils.book_append_sheet(wb, ws, name.substring(0, 31)); // Excel sheet name limit
   }
 
   async function exportAll(companyId, companyName) {
@@ -78,7 +92,7 @@ const MastersExport = (() => {
         .select('raw_value, display_name, channel_type, channel_subtype, rate_type, avg_cost_pct, status')
         .eq('company_id', companyId)
         .order('channel_type').order('display_name'));
-      addSheet(wb, 'Channels', data.map(r => ({
+      addSheet(wb, 'Channels', data, r => ({
         'Raw value (PMS)':   r.raw_value || '',
         'Display name':      r.display_name || '',
         'Type':              r.channel_type || '',
@@ -86,7 +100,7 @@ const MastersExport = (() => {
         'Rate type':         r.rate_type || 'gross',
         'Avg commission %':  r.avg_cost_pct != null ? (r.avg_cost_pct * 100).toFixed(1) + '%' : '',
         'Status':            r.status || '',
-      })));
+      }));
     }
 
     // ── Channel Types & Subtypes ──────────────────────────────
@@ -95,11 +109,11 @@ const MastersExport = (() => {
         .select('type_name, subtype_name, status')
         .eq('company_id', companyId)
         .order('type_name').order('subtype_name'));
-      addSheet(wb, 'Channel Types', data.map(r => ({
+      addSheet(wb, 'Channel Types', data, r => ({
         'Type':    r.type_name,
         'Subtype': r.subtype_name,
         'Status':  r.status,
-      })));
+      }));
     }
 
     // ── OTAs ──────────────────────────────────────────────────
@@ -108,11 +122,11 @@ const MastersExport = (() => {
         .select('raw_value, display_name, status')
         .eq('company_id', companyId)
         .order('display_name'));
-      addSheet(wb, 'OTAs', data.map(r => ({
+      addSheet(wb, 'OTAs', data, r => ({
         'Raw value (PMS)': r.raw_value || '',
         'Display name':    r.display_name || '',
         'Status':          r.status || 'active',
-      })));
+      }));
     }
 
     // ── Segments ──────────────────────────────────────────────
@@ -121,11 +135,11 @@ const MastersExport = (() => {
         .select('raw_value, display_name, status')
         .eq('company_id', companyId)
         .order('display_name'));
-      addSheet(wb, 'Segments', data.map(r => ({
+      addSheet(wb, 'Segments', data, r => ({
         'Raw value (PMS)': r.raw_value || '',
         'Display name':    r.display_name || '',
         'Status':          r.status || '',
-      })));
+      }));
     }
 
     // ── Booking Purposes ──────────────────────────────────────
@@ -134,11 +148,11 @@ const MastersExport = (() => {
         .select('raw_value, display_name, status')
         .eq('company_id', companyId)
         .order('display_name'));
-      addSheet(wb, 'Booking Purposes', data.map(r => ({
+      addSheet(wb, 'Booking Purposes', data, r => ({
         'Raw value (PMS)': r.raw_value || '',
         'Display name':    r.display_name || '',
         'Status':          r.status || '',
-      })));
+      }));
     }
 
     // ── Room Categories ───────────────────────────────────────
@@ -147,11 +161,11 @@ const MastersExport = (() => {
         .select('raw_value, display_name, status')
         .eq('company_id', companyId)
         .order('display_name'));
-      addSheet(wb, 'Room Categories', data.map(r => ({
+      addSheet(wb, 'Room Categories', data, r => ({
         'Raw value (PMS)': r.raw_value || '',
         'Display name':    r.display_name || '',
         'Status':          r.status || '',
-      })));
+      }));
     }
 
     // ── Rooms ─────────────────────────────────────────────────
@@ -160,14 +174,14 @@ const MastersExport = (() => {
         .select('property_id, raw_value, display_name, beds_per_room, status, category_id, room_categories(display_name, raw_value)')
         .eq('company_id', companyId)
         .order('property_id').order('raw_value'));
-      addSheet(wb, 'Rooms', data.map(r => ({
+      addSheet(wb, 'Rooms', data, r => ({
         'Property':      r.property_id || '',
         'Room code':     r.raw_value || '',
         'Room name':     r.display_name || '',
         'Category':      r.room_categories?.display_name || r.room_categories?.raw_value || '',
         'Beds':          r.beds_per_room ?? '',
         'Status':        r.status || '',
-      })));
+      }));
     }
 
     // ── Extras Categories ─────────────────────────────────────
@@ -184,11 +198,11 @@ const MastersExport = (() => {
         ordered.push(root);
         data.filter(r => r.parent_id === root.id).forEach(sub => ordered.push(sub));
       });
-      addSheet(wb, 'Extras Categories', ordered.map(r => ({
+      addSheet(wb, 'Extras Categories', ordered, r => ({
         'Category name':   r.category_name,
         'Parent category': r.parent_id ? (nameById.get(r.parent_id) || '') : '',
         'Status':          r.status,
-      })));
+      }));
     }
 
     // ── Extras ────────────────────────────────────────────────
@@ -197,7 +211,7 @@ const MastersExport = (() => {
         .select('raw_value, display_name, category_name, subcategory_name, unit_price_gross, vat_rate, unit_price_net, charge_timing, status')
         .eq('company_id', companyId)
         .order('category_name').order('display_name'));
-      addSheet(wb, 'Extras', data.map(r => ({
+      addSheet(wb, 'Extras', data, r => ({
         'Raw value (PMS)':    r.raw_value || '',
         'Display name':       r.display_name || '',
         'Category':           r.category_name || '',
@@ -207,7 +221,7 @@ const MastersExport = (() => {
         'Unit price (net)':   r.unit_price_net != null ? parseFloat(r.unit_price_net).toFixed(4) : '',
         'Charge timing':      r.charge_timing || '',
         'Status':             r.status || '',
-      })));
+      }));
     }
 
     // ── Market Groups ─────────────────────────────────────────
@@ -224,12 +238,12 @@ const MastersExport = (() => {
         if (!byGroup[c.market_group_id]) byGroup[c.market_group_id] = [];
         byGroup[c.market_group_id].push(c.country_code);
       });
-      addSheet(wb, 'Market Groups', groups.map(r => ({
+      addSheet(wb, 'Market Groups', groups, r => ({
         'Group code': r.group_code || '',
         'Group name': r.group_name || '',
         'Countries':  (byGroup[r.id] || []).sort().join(', '),
         'Status':     r.status || '',
-      })));
+      }));
     }
 
     // ── Client Country Mapping ────────────────────────────────
@@ -238,11 +252,11 @@ const MastersExport = (() => {
         .select('raw_value, country_code, status')
         .eq('company_id', companyId)
         .order('raw_value'));
-      addSheet(wb, 'Country Mapping', data.map(r => ({
+      addSheet(wb, 'Country Mapping', data, r => ({
         'Raw value (PMS)': r.raw_value || '',
         'ISO country':     r.country_code || '',
         'Status':          r.status || '',
-      })));
+      }));
     }
 
     // ── Pending values from ALL files loaded in Masters Setup ──
