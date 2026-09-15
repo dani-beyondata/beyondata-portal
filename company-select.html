@@ -140,7 +140,7 @@
     if (error) { UI.showAlert('modal-error', error.message); return; }
 
     // Set default occupancy_mode param so Settings loads correctly from day one
-    await Params.set(company.id, 'occupancy_mode', 'rooms');
+    await Params.set(company.id, 'occupancy_mode', 'both');
 
     UI.closeModal('modal-new-company');
     document.getElementById('new-name').value = '';

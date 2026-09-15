@@ -22,7 +22,7 @@ const Companies = (() => {
   async function create(name, slug) {
     const { data, error } = await sb
       .from('companies')
-      .insert({ name, slug, active: true, occupancy_mode: 2 })
+      .insert({ name, slug, active: true })
       .select()
       .single();
     return { data, error };
