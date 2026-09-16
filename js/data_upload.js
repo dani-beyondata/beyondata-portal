@@ -578,17 +578,23 @@ const DataUpload = (() => {
 
     // Whatever is actually in the buckets — no whitelist. The previous one
     // silently hid any new output, extras_enriched included.
-    const found = [];
+    const found = [], failed = [];
     for (const { bucket, layer } of OUTPUT_BUCKETS) {
       const { data, error } = await sb.storage.from(bucket).list(prefix, { limit: 100 });
-      if (error) continue;
+      // A bucket we cannot read is not the same as a bucket with no files:
+      // swallowing the error here is what made the silver layer look empty.
+      if (error) { failed.push(`${bucket}: ${error.message}`); continue; }
       (data || []).filter(f => f.name && f.name.endsWith('.csv'))
         .forEach(f => found.push({ ...f, bucket, layer }));
     }
 
     countEl.textContent = found.length ? `${found.length} generated` : 'none yet';
+    const warn = failed.length
+      ? `<tr><td colspan="5" style="color:#b45309">Could not read ${escapeHtml(failed.join(' · '))}</td></tr>`
+      : '';
     if (!found.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted)">No outputs yet. Upload raw files and click Run ETL.</td></tr>';
+      tbody.innerHTML = warn ||
+        '<tr><td colspan="5" style="color:var(--text-muted)">No outputs yet. Upload raw files and click Run ETL.</td></tr>';
       return;
     }
 
@@ -606,7 +612,7 @@ const DataUpload = (() => {
         <td>${size}</td>
         <td style="font-size:0.8rem">${when}</td>
       </tr>`;
-    }).join('');
+    }).join('') + warn;
 
     for (const f of found) {
       const key = `${f.bucket}/${f.name}`;

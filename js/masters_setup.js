@@ -310,11 +310,17 @@ const MastersSetup = (() => {
   // current company, populating parsedByType exactly as a manual upload would.
   // Gold file → file-type mapping (entity name = our internal file type key).
   const GOLD_BUCKET = 'gold';
+  const SILVER_BUCKET = 'silver';
   const GOLD_FILES = {
     reservations: 'reservations_clean.csv',
     nights:       'nights_clean.csv',
     extras:       'extras_master.csv',
   };
+  // extras_master.csv is the raw vocabulary the PMS emits (raw_value +
+  // occurrences), not the curated catalog — that one lives in Supabase. It
+  // belongs to the silver layer. Gold is kept as a fallback until every client
+  // has been through the silver adapter.
+  const SILVER_FIRST = new Set(['extras_master.csv']);
 
   async function firstPropertyId() {
     // gold path is client/property/<file>; we need the property code.
@@ -340,8 +346,15 @@ const MastersSetup = (() => {
 
     for (const [fileType, fname] of Object.entries(GOLD_FILES)) {
       try {
-        let { data, error } = await sb.storage.from(GOLD_BUCKET)
-          .download(`${code}/${fname}`);
+        let data = null, error = null;
+        if (SILVER_FIRST.has(fname)) {
+          ({ data, error } = await sb.storage.from(SILVER_BUCKET)
+            .download(`${code}/${fname}`));
+        }
+        if (!data) {
+          ({ data, error } = await sb.storage.from(GOLD_BUCKET)
+            .download(`${code}/${fname}`));
+        }
         if ((error || !data) && legacyPcode) {
           ({ data, error } = await sb.storage.from(GOLD_BUCKET)
             .download(`${code}/${legacyPcode}/${fname}`));
