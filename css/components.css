@@ -697,6 +697,7 @@ tbody td:first-child { font-weight: 500; }
 }
 .rooms-totals:empty { display: none; }
 .rooms-total-item { display: flex; align-items: baseline; gap: 0.4rem; }
+.rooms-total-sub { font-size: 0.72rem; color: var(--text-muted); }
 .rooms-total-num { font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .rooms-total-lab { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.rooms-total-note { font-size: 0.76rem; color: var(--text-muted); margin-left: auto; }
+.rooms-total-note { font-size: 0.76rem; color: var(--text-muted); margin-left: auto; text-align: right; }

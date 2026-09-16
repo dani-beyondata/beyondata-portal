@@ -23,7 +23,7 @@ const Rooms = (() => {
   // ── Rooms ────────────────────────────────────────────────────────
   async function getByProperty(companyId, propertyId) {
     const { data, error } = await sb.from('rooms')
-      .select('*, room_categories(raw_value, display_name)')
+      .select('*, room_categories(raw_value, display_name, category_type)')
       .eq('company_id', companyId).eq('property_uuid', propertyId).order('raw_value');
     return { data, error };
   }
