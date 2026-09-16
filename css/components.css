@@ -679,3 +679,6 @@ tbody td:first-child { font-weight: 500; }
 .te-filter-row th { background:var(--white); border-bottom:1px solid var(--border); padding:0.35rem 0.6rem; position:sticky; top:2.1rem; z-index:1; }
 .te-filter-input { width:100%; border:1px solid var(--border); border-radius:6px; padding:0.25rem 0.5rem; font-size:0.78rem; font-family:inherit; outline:none; color:var(--text); }
 .te-filter-input:focus { border-color:var(--brand); box-shadow:0 0 0 2px var(--brand-light); }
+
+/* pipeline: silver layer badge */
+.pl-badge.pl-silver { background: #eef2f7; color: #475569; }

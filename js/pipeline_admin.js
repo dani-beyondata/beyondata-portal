@@ -12,24 +12,43 @@
 
 const PipelineAdmin = (() => {
 
-  const CATALOG = {
-    mews: {
-      label: 'Mews',
-      entities: [
-        { entity: 'reservations', etl: 'mews_reservations_etl',  gold: 'reservations_clean.csv', reads_from: null,           pattern: '*_reservations_*.xlsx' },
-        { entity: 'nights',       etl: 'mews_nights_etl',        gold: 'nights_clean.csv',       reads_from: 'reservations', pattern: '*_reservations_*.xlsx' },
-        { entity: 'extras',       etl: 'mews_extras_master_etl', gold: 'extras_master.csv',      reads_from: 'reservations', pattern: '*_reservations_*.xlsx' },
-      ],
-    },
-    littlehotelier: {
-      label: 'Little Hotelier',
-      entities: [
-        { entity: 'reservations', etl: 'littlehotelier_reservations_etl', gold: 'reservations_clean.csv', reads_from: null,           pattern: '*_reservations_*.csv' },
-        { entity: 'nights',       etl: 'littlehotelier_nights_etl',       gold: 'nights_clean.csv',       reads_from: 'reservations', pattern: '*_reservations_*.csv' },
-        { entity: 'extras',       etl: 'littlehotelier_extras_etl',       gold: 'extras_clean.csv (+ extras_master.csv)', reads_from: null, pattern: '*_extras_*.csv' },
-      ],
-    },
-  };
+  // The ETL catalog lives in Supabase (pipeline_entity_catalog), not here: it
+  // used to be hardcoded in this file, in pipeline_jobs.etl_name and in the
+  // runner's ETL_MAP, and the three had already drifted apart.
+  let CATALOG = {};
+
+  const PMS_LABELS = { mews: 'Mews', littlehotelier: 'Little Hotelier' };
+
+  async function loadCatalog() {
+    const { data, error } = await sb.from('pipeline_entity_catalog')
+      .select('*').order('source_system').order('run_order');
+    if (error || !data) { CATALOG = {}; return CATALOG; }
+    CATALOG = {};
+    data.forEach(r => {
+      const pms = r.source_system;
+      if (!CATALOG[pms]) CATALOG[pms] = { label: PMS_LABELS[pms] || pms, entities: [] };
+      CATALOG[pms].entities.push({
+        entity: r.entity,
+        etl: r.etl_name,
+        gold: r.output_file,
+        reads_from: r.reads_from_entity,
+        input_files: r.input_files,
+        pattern: r.file_pattern,
+        source_layer: r.source_layer,
+        target_layer: r.target_layer,
+        accepts_upload: r.accepts_upload,
+        run_order: r.run_order,
+        deprecated: r.is_deprecated,
+        notes: r.notes,
+      });
+    });
+    return CATALOG;
+  }
+
+  async function getCatalog() {
+    if (!Object.keys(CATALOG).length) await loadCatalog();
+    return CATALOG;
+  }
 
   const esc = (s) => escapeHtml(String(s ?? ''));
 
@@ -44,6 +63,13 @@ const PipelineAdmin = (() => {
       return;
     }
     root.innerHTML = '<div style="color:var(--text-muted);padding:1rem">Loading pipeline configuration…</div>';
+
+    await loadCatalog();
+    if (!Object.keys(CATALOG).length) {
+      root.innerHTML = '<div class="alert error">Could not read pipeline_entity_catalog. '
+        + 'Without it the portal cannot tell which ETLs exist.</div>';
+      return;
+    }
 
     const [cRes, pRes, jRes] = await Promise.all([
       sb.from('companies').select('id, name, slug, pms, active').order('name'),
@@ -77,14 +103,23 @@ const PipelineAdmin = (() => {
       <div class="pl-catalog-pms" style="min-width:0;margin-bottom:1.1rem">
         <div class="pl-pms-badge">${esc(def.label)}</div>
         <div class="pl-table"><table>
-          <thead><tr><th>Entity</th><th>ETL script</th><th>Gold output</th><th>Reads raw from</th></tr></thead>
+          <thead><tr><th>Entity</th><th>ETL script</th><th>Layer</th><th>Output</th><th>Reads from</th></tr></thead>
           <tbody>
             ${def.entities.map(e => `
-              <tr>
-                <td>${esc(e.entity)}</td>
+              <tr${e.deprecated ? ' style="opacity:0.55"' : ''}>
+                <td>${esc(e.entity)}${e.deprecated ? ' <span class="pl-badge pl-off">legacy</span>' : ''}
+                  ${e.notes ? `<div style="font-size:0.72rem;color:var(--text-muted)">${esc(e.notes)}</div>` : ''}</td>
                 <td style="font-family:monospace;font-size:0.78rem">${esc(e.etl)}.py</td>
+                <td style="white-space:nowrap"><span class="pl-badge">${esc(e.source_layer)}</span> →
+                  <span class="pl-badge ${e.target_layer === 'silver' ? 'pl-silver' : ''}">${esc(e.target_layer)}</span></td>
                 <td style="font-family:monospace;font-size:0.78rem">${esc(e.gold)}</td>
-                <td>${e.reads_from ? `<span class="pl-reads">↳ ${esc(e.reads_from)} files</span>` : '<span class="pl-direct">direct upload</span>'}</td>
+                <td>${
+                  e.input_files?.length
+                    ? `<span class="pl-reads">↳ ${e.input_files.map(esc).join('<br>↳ ')}</span>`
+                    : e.reads_from
+                      ? `<span class="pl-reads">↳ ${esc(e.reads_from)} raw files</span>`
+                      : '<span class="pl-direct">direct upload</span>'
+                }</td>
               </tr>`).join('')}
           </tbody>
         </table></div>
@@ -136,11 +171,16 @@ const PipelineAdmin = (() => {
             </tr>`;
           }
           const drift = (job.source_system || '').toLowerCase() !== pms;
+          // pipeline_jobs.etl_name is documentation: what actually runs comes
+          // from the catalog. When they disagree, say so instead of showing
+          // the job's value as if it were the truth.
+          const etlDrift = job.etl_name && e.etl && job.etl_name !== e.etl;
           const goldInfo = e.gold ? `<div style="color:var(--text-muted);font-size:0.7rem;margin-top:2px">→ ${esc(e.gold)}</div>` : '';
-          return `<tr>
-            <td>${esc(job.entity)}</td>
-            <td style="font-family:monospace;font-size:0.78rem">${esc(job.etl_name || '—')}${goldInfo}</td>
-            <td style="font-family:monospace;font-size:0.78rem">${esc(job.file_pattern || '—')}</td>
+          return `<tr${e.deprecated ? ' style="opacity:0.55"' : ''}>
+            <td>${esc(job.entity)}${e.deprecated ? ' <span class="pl-badge pl-off">legacy</span>' : ''}</td>
+            <td style="font-family:monospace;font-size:0.78rem">${esc(e.etl)}${goldInfo}
+              ${etlDrift ? `<div class="pl-badge pl-warn" title="pipeline_jobs.etl_name says '${esc(job.etl_name)}' — stale, the catalog wins">etl_name stale</div>` : ''}</td>
+            <td style="white-space:nowrap"><span class="pl-badge">${esc(e.source_layer)}</span> → <span class="pl-badge ${e.target_layer === 'silver' ? 'pl-silver' : ''}">${esc(e.target_layer)}</span></td>
             <td>${job.reads_from_entity ? `<span class="pl-reads">↳ ${esc(job.reads_from_entity)}</span>` : '<span class="pl-direct">direct</span>'}
               ${drift ? `<span class="pl-badge pl-warn" title="Job source_system is '${esc(job.source_system)}' but the company PMS is '${esc(pms)}' — the runner will use the wrong ETL">PMS mismatch</span>` : ''}</td>
             <td><span class="pl-badge ${job.is_active ? 'pl-on' : 'pl-off'}">${job.is_active ? 'active' : 'inactive'}</span></td>
@@ -161,7 +201,7 @@ const PipelineAdmin = (() => {
         return `<div class="pl-property">
           <div class="pl-property-head">${esc(p.property_id)}${p.property_name ? ' — ' + esc(p.property_name) : ''}</div>
           <div class="pl-table"><table>
-            <thead><tr><th>Entity</th><th>ETL</th><th>File pattern</th><th>Reads from</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Entity</th><th>ETL</th><th>Layer</th><th>Reads from</th><th>Status</th><th></th></tr></thead>
             <tbody>${rows}${extraRows}</tbody>
           </table></div>
         </div>`;
@@ -239,7 +279,7 @@ const PipelineAdmin = (() => {
     load();
   }
 
-  return { load, toggleJob, createJob, CATALOG };
+  return { load, toggleJob, createJob, getCatalog, get CATALOG() { return CATALOG; } };
 })();
 
 function plToggleJob(jobId, newActive) { PipelineAdmin.toggleJob(jobId, newActive); }

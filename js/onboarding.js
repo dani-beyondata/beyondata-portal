@@ -33,7 +33,7 @@ const Onboarding = (() => {
     const cid = currentCompany.id;
     const slug = (currentCompany.slug || '').toLowerCase();
     const pms = (currentCompany.pms || '').toLowerCase();
-    const catalog = (PipelineAdmin.CATALOG || {})[pms];
+    const catalog = (await PipelineAdmin.getCatalog())[pms];
 
     const [propsRes, jobsRes, paramsRes] = await Promise.all([
       sb.from('properties').select('property_id, property_name, total_rooms, active').eq('company_id', cid),

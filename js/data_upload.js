@@ -130,20 +130,40 @@ const DataUpload = (() => {
       jobs = catalog[currentPms()] || catalog.mews;
     }
 
+    // The catalog tells us which entities take uploads and in which order they
+    // must run; without it the checkboxes would be plain alphabetical.
+    try { await PipelineAdmin.getCatalog(); } catch (e) { /* falls back below */ }
+
     renderEntityOptions();
     renderRunEntities();
   }
 
-  // Upload targets = entities whose files are uploaded directly (no reads_from).
-  // Entities with reads_from consume another entity's raw files, so offering
-  // them as upload destinations would create dead uploads the runner ignores.
+  // Upload targets come from the catalog's accepts_upload flag. Deriving it
+  // from "has no reads_from" was wrong for derived entities like
+  // extras_enriched, which reads other layers and takes no uploads at all —
+  // offering it here would create files the runner never looks at.
   function uploadEntities() {
-    const direct = jobs.filter(j => !j.reads_from_entity).map(j => j.entity);
-    return [...new Set(direct)];
+    const ok = jobs
+      .filter(j => {
+        const c = catalogEntity(j.entity);
+        return c ? c.accepts_upload : !j.reads_from_entity;
+      })
+      .map(j => j.entity);
+    return [...new Set(ok)];
   }
 
+  function catalogEntity(entity) {
+    const def = (PipelineAdmin.CATALOG || {})[currentPms()];
+    return def?.entities.find(e => e.entity === entity) || null;
+  }
+
+  // Ordered by the catalog's run_order: a derived entity must run after the one
+  // that produces its input, and the runner processes whatever order it gets.
   function allEntities() {
-    return [...new Set(jobs.map(j => j.entity))];
+    const names = [...new Set(jobs.map(j => j.entity))];
+    return names.sort((a, b) =>
+      ((catalogEntity(a)?.run_order ?? 100) - (catalogEntity(b)?.run_order ?? 100))
+      || a.localeCompare(b));
   }
 
   function renderEntityOptions() {
@@ -192,13 +212,21 @@ const DataUpload = (() => {
     }
     const nProps = allProps.length;
     const propsTxt = nProps > 1 ? `all ${nProps} properties` : 'the property';
-    el.innerHTML = `Will process: <strong>${sel.map(escapeHtml).join(' · ')}</strong> — ${propsTxt} → one consolidated gold per entity.`;
+    const parts = sel.map(e => {
+      const c = catalogEntity(e);
+      return c ? `${escapeHtml(e)} <span style="color:var(--text-muted)">→ ${escapeHtml(c.target_layer)}</span>` : escapeHtml(e);
+    });
+    el.innerHTML = `Will process, in this order: <strong>${parts.join(' · ')}</strong> — ${propsTxt}.`;
   }
 
   function selectedRunEntities() {
     const wrap = document.getElementById('du-run-entities');
     if (!wrap) return allEntities();
-    return Array.from(wrap.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.value);
+    const picked = Array.from(wrap.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.value);
+    // Send them in dependency order. The runner takes the list as given, so an
+    // enriched entity arriving before its silver would fail on a missing input.
+    const order = allEntities();
+    return picked.sort((a, b) => order.indexOf(a) - order.indexOf(b));
   }
 
   // ── properties / listings ──────────────────────────────────────────────
