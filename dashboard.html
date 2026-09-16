@@ -808,15 +808,18 @@
         <div class="alert error" id="du-error"></div>
         <div class="alert success" id="du-success"></div>
 
-        <div class="du-browser-head">
+        <div class="du-browser-head du-collapsible" data-panel="du-raw-panel" role="button" tabindex="0">
+          <span class="du-caret">▾</span>
           <h3 id="du-browser-title">Raw files uploaded</h3>
           <span id="du-browser-count" class="du-count-badge"></span>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Property</th><th>Entity</th><th>File</th><th>Period</th><th>Size</th><th>Uploaded</th><th></th></tr></thead>
-            <tbody id="du-files-tbody"><tr><td colspan="7" style="color:var(--text-muted)">Select a property to view files…</td></tr></tbody>
-          </table>
+        <div id="du-raw-panel" class="du-panel">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Property</th><th>Entity</th><th>File</th><th>Period</th><th>Size</th><th>Uploaded</th><th></th></tr></thead>
+              <tbody id="du-files-tbody"><tr><td colspan="7" style="color:var(--text-muted)">Select a property to view files…</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -848,21 +851,21 @@
 
       <!-- ③ GOLD -->
       <div class="du-step">
-        <div class="du-step-head">
+        <div class="du-step-head du-collapsible" data-panel="du-gold-panel" role="button" tabindex="0">
           <span class="du-step-num">3</span>
-          <div>
-            <h3>Pipeline outputs <span class="du-step-tag">silver + gold</span></h3>
+          <div style="flex:1">
+            <h3><span class="du-caret">▾</span> Pipeline outputs <span class="du-step-tag">silver + gold</span>
+              <span id="du-gold-count" class="du-count-badge"></span></h3>
             <div class="du-step-hint">Company-level consolidated files. Silver is the cleaned PMS export; gold is what Power BI reads. Rows carry each property's id.</div>
           </div>
         </div>
-        <div class="du-browser-head" style="margin-top:0.25rem">
-          <span id="du-gold-count" class="du-count-badge"></span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>File</th><th>Layer</th><th class="num">Rows</th><th class="num">Size</th><th>Last generated</th></tr></thead>
-            <tbody id="du-gold-tbody"><tr><td colspan="5" style="color:var(--text-muted)">Select a property to view pipeline outputs…</td></tr></tbody>
-          </table>
+        <div id="du-gold-panel" class="du-panel">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>File</th><th>Layer</th><th class="num">Rows</th><th class="num">Size</th><th>Last generated</th></tr></thead>
+              <tbody id="du-gold-tbody"><tr><td colspan="5" style="color:var(--text-muted)">Select a property to view pipeline outputs…</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -875,6 +878,11 @@
       .du-path-preview { flex:1; min-width:220px; }
       .du-step { border:1px solid var(--border,#dbe2ec); border-radius:14px; padding:1.15rem 1.25rem; margin-bottom:1.4rem; background:white; }
       .du-step-head { display:flex; gap:0.8rem; align-items:flex-start; margin-bottom:0.9rem; }
+      .du-collapsible { cursor:pointer; user-select:none; }
+      .du-collapsible:hover .du-caret { color:var(--brand,#2563eb); }
+      .du-caret { display:inline-block; transition:transform 0.15s ease; color:var(--text-muted); font-size:0.8rem; }
+      .du-panel.collapsed { display:none; }
+      .du-collapsible.collapsed .du-caret { transform:rotate(-90deg); }
       .du-step-head h3 { margin:0 0 0.15rem 0; font-size:1.02rem; }
       .du-step-num { flex:0 0 auto; width:26px; height:26px; border-radius:50%; background:var(--brand,#2563eb); color:white; font-weight:700; font-size:0.85rem; display:flex; align-items:center; justify-content:center; margin-top:0.1rem; }
       .du-step-tag { font-size:0.68rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); background:var(--brand-light,#eef3fb); padding:0.15rem 0.5rem; border-radius:999px; vertical-align:middle; }
@@ -5275,6 +5283,35 @@
   let allRoomCategories = [];
 
   let allRoomAttributes = [];
+
+  // Long lists (raw files, pipeline outputs) push the actions off-screen. They
+  // collapse, and the choice is remembered so it does not have to be redone on
+  // every visit.
+  document.addEventListener('click', function(e) {
+    const head = e.target.closest('.du-collapsible');
+    if (!head) return;
+    const panel = document.getElementById(head.dataset.panel);
+    if (!panel) return;
+    const collapsed = panel.classList.toggle('collapsed');
+    head.classList.toggle('collapsed', collapsed);
+    try { localStorage.setItem('du-collapse:' + head.dataset.panel, collapsed ? '1' : '0'); } catch (err) {}
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const head = e.target.closest && e.target.closest('.du-collapsible');
+    if (head) { e.preventDefault(); head.click(); }
+  });
+
+  function restoreCollapseState() {
+    document.querySelectorAll('.du-collapsible').forEach(function(head) {
+      let saved = null;
+      try { saved = localStorage.getItem('du-collapse:' + head.dataset.panel); } catch (err) {}
+      if (saved !== '1') return;
+      const panel = document.getElementById(head.dataset.panel);
+      if (panel) { panel.classList.add('collapsed'); head.classList.add('collapsed'); }
+    });
+  }
 
   // table_enhance hides rows with display:none; recompute the totals whenever
   // it says the visible set changed.

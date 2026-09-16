@@ -769,6 +769,8 @@ const DataUpload = (() => {
     });
 
     document.getElementById('du-run-etl-btn').onclick = runETL;
+
+    if (typeof restoreCollapseState === 'function') restoreCollapseState();
   }
 
   return { init, listFiles, deleteFile, renameUpload, refreshRenamePreview };
