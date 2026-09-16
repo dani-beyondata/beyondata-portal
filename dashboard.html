@@ -825,8 +825,8 @@
         <div class="du-step-head">
           <span class="du-step-num">2</span>
           <div>
-            <h3>Process into gold</h3>
-            <div class="du-step-hint">Runs the ETL in the cloud: reads the raw files of every property, produces ONE consolidated gold per entity. Takes ~1–2 minutes.</div>
+            <h3>Run the pipeline</h3>
+            <div class="du-step-hint">Runs the ETL in the cloud, one consolidated output per entity for the whole company. Entities run in dependency order, so a derived one never starts before its input exists. Takes ~1–2 minutes.</div>
           </div>
         </div>
         <div class="du-run-panel">
@@ -851,8 +851,8 @@
         <div class="du-step-head">
           <span class="du-step-num">3</span>
           <div>
-            <h3>Gold outputs <span class="du-step-tag">analytics-ready</span></h3>
-            <div class="du-step-hint">Company-level consolidated files — what Power BI reads. Rows carry each property's id.</div>
+            <h3>Pipeline outputs <span class="du-step-tag">silver + gold</span></h3>
+            <div class="du-step-hint">Company-level consolidated files. Silver is the cleaned PMS export; gold is what Power BI reads. Rows carry each property's id.</div>
           </div>
         </div>
         <div class="du-browser-head" style="margin-top:0.25rem">
@@ -860,8 +860,8 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>File</th><th class="num">Rows</th><th class="num">Size</th><th>Last generated</th></tr></thead>
-            <tbody id="du-gold-tbody"><tr><td colspan="4" style="color:var(--text-muted)">Select a property to view gold outputs…</td></tr></tbody>
+            <thead><tr><th>File</th><th>Layer</th><th class="num">Rows</th><th class="num">Size</th><th>Last generated</th></tr></thead>
+            <tbody id="du-gold-tbody"><tr><td colspan="5" style="color:var(--text-muted)">Select a property to view pipeline outputs…</td></tr></tbody>
           </table>
         </div>
       </div>

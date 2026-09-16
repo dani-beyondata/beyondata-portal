@@ -560,57 +560,73 @@ const DataUpload = (() => {
     listFiles();
   }
 
-  // ── gold outputs ───────────────────────────────────────────────────────
-  const GOLD_BUCKET = 'gold';
-  const GOLD_FILES = ['reservations_clean.csv', 'nights_clean.csv', 'extras_clean.csv', 'extras_master.csv'];
+  // ── pipeline outputs (silver + gold) ───────────────────────────────────
+  const OUTPUT_BUCKETS = [
+    { bucket: 'silver', layer: 'silver' },
+    { bucket: 'gold',   layer: 'gold'   },
+  ];
+  // Counting rows means downloading the file. Above this it is not worth
+  // pulling 20 MB into the browser just to print a number.
+  const COUNT_LIMIT_BYTES = 8 * 1024 * 1024;
 
   async function listGold() {
     const tbody = document.getElementById('du-gold-tbody');
     const countEl = document.getElementById('du-gold-count');
-    // Gold is COMPANY-level since the multi-property consolidation: one
+    // Outputs are COMPANY-level since the multi-property consolidation: one
     // file per entity for the whole company, rows carry property_id.
-    const goldPrefix = currentClientCode();
-    const { data, error } = await sb.storage.from(GOLD_BUCKET)
-      .list(goldPrefix, { limit: 100 });
-    if (error) {
-      tbody.innerHTML = `<tr><td colspan="4" style="color:#dc2626">${escapeHtml(error.message)}</td></tr>`;
-      countEl.textContent = '';
+    const prefix = currentClientCode();
+
+    // Whatever is actually in the buckets — no whitelist. The previous one
+    // silently hid any new output, extras_enriched included.
+    const found = [];
+    for (const { bucket, layer } of OUTPUT_BUCKETS) {
+      const { data, error } = await sb.storage.from(bucket).list(prefix, { limit: 100 });
+      if (error) continue;
+      (data || []).filter(f => f.name && f.name.endsWith('.csv'))
+        .forEach(f => found.push({ ...f, bucket, layer }));
+    }
+
+    countEl.textContent = found.length ? `${found.length} generated` : 'none yet';
+    if (!found.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted)">No outputs yet. Upload raw files and click Run ETL.</td></tr>';
       return;
     }
-    const files = (data || []).filter(f => f.name && GOLD_FILES.includes(f.name));
-    countEl.textContent = files.length ? `${files.length} generated` : 'none yet';
-    if (!files.length) {
-      tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-muted)">No gold outputs yet. Upload raw files and click Run ETL.</td></tr>';
-      return;
-    }
-    // order them consistently
-    const ordered = GOLD_FILES.map(n => files.find(f => f.name === n)).filter(Boolean);
-    tbody.innerHTML = ordered.map(f => {
+
+    const rank = { silver: 0, gold: 1 };
+    found.sort((a, b) => (rank[a.layer] - rank[b.layer]) || a.name.localeCompare(b.name));
+
+    tbody.innerHTML = found.map(f => {
       const size = fmtSize(f.metadata?.size);
       const when = f.updated_at ? new Date(f.updated_at).toLocaleString() : '—';
-      return `<tr data-gold="${escAttr(f.name)}">
+      const key = `${f.bucket}/${f.name}`;
+      return `<tr data-gold="${escAttr(key)}">
         <td style="font-family:monospace;font-size:0.8rem">${escapeHtml(f.name)}</td>
+        <td><span class="pl-badge ${f.layer === 'silver' ? 'pl-silver' : ''}">${f.layer}</span></td>
         <td class="du-gold-rows" style="color:var(--text-muted)">counting…</td>
         <td>${size}</td>
         <td style="font-size:0.8rem">${when}</td>
       </tr>`;
     }).join('');
 
-    // Count rows by downloading each gold CSV (small, cached by browser).
-    for (const f of ordered) {
-      const path = `${goldPrefix}/${f.name}`;
+    for (const f of found) {
+      const key = `${f.bucket}/${f.name}`;
+      const cell = tbody.querySelector(`tr[data-gold="${key}"] .du-gold-rows`);
+      if (!cell) continue;
+      if ((f.metadata?.size || 0) > COUNT_LIMIT_BYTES) {
+        cell.textContent = '—';
+        cell.title = 'Too large to count from the browser';
+        continue;
+      }
       try {
-        const { data: blob, error: dlErr } = await sb.storage.from(GOLD_BUCKET).download(path);
-        const cell = tbody.querySelector(`tr[data-gold="${f.name}"] .du-gold-rows`);
-        if (dlErr || !blob) { if (cell) cell.textContent = '—'; continue; }
+        const { data: blob, error: dlErr } = await sb.storage.from(f.bucket)
+          .download(`${prefix}/${f.name}`);
+        if (dlErr || !blob) { cell.textContent = '—'; continue; }
         const text = await blob.text();
-        // rows = non-empty lines minus header
         const lines = text.split('\n').filter(l => l.trim().length).length;
-        const rows = Math.max(0, lines - 1);
-        if (cell) { cell.textContent = rows.toLocaleString(); cell.style.color = ''; }
+        cell.textContent = Math.max(0, lines - 1).toLocaleString();
+        cell.style.color = '';
       } catch (e) {
-        const cell = tbody.querySelector(`tr[data-gold="${f.name}"] .du-gold-rows`);
-        if (cell) cell.textContent = '—';
+        cell.textContent = '—';
       }
     }
   }
@@ -690,7 +706,11 @@ const DataUpload = (() => {
           btn.disabled = false; btn.textContent = '▶ Run ETL';
           if (allDone) {
             statusEl.className = 'alert success';
-            statusEl.textContent = `✓ ETL finished for "${client}" (${expectedEntities.join(', ')}). Gold outputs updated.`;
+            const layers = [...new Set(expectedEntities
+              .map(e => catalogEntity(e)?.target_layer)
+              .filter(Boolean))];
+            const what = layers.length ? `${layers.join(' + ')} updated` : 'outputs updated';
+            statusEl.textContent = `✓ ETL finished for "${client}" (${expectedEntities.join(', ')}). ${what}.`;
             listFiles(); listGold();
           } else if (failed.length) {
             statusEl.className = 'alert error';
