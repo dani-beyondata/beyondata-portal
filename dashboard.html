@@ -578,7 +578,6 @@
           <select class="filter-select" id="extras-timing-filter" onchange="filterExtras()">
             <option value="">All timings</option>
             <option value="at_arrival">At arrival</option>
-            <option value="per_night">Per night</option>
             <option value="at_checkout">At checkout</option>
           </select>
           <div style="margin-left:auto">
@@ -590,7 +589,7 @@
           <table>
             <thead><tr>
               <th>Raw value (Mews)</th><th>Display name</th><th>Category</th><th>Subcategory</th>
-              <th>Unit price</th><th>VAT</th><th>Revenue timing</th><th>Status</th><th></th>
+              <th>Unit price</th><th>VAT</th><th>Revenue timing</th><th>Purchase</th><th>Status</th><th></th>
             </tr></thead>
             <tbody id="extras-tbody"></tbody>
           </table>
@@ -1575,10 +1574,18 @@
         <div class="field"><label>Revenue timing</label>
           <select id="extra-timing">
             <option value="at_arrival">At arrival</option>
-            <option value="per_night">Per night (spread over the stay)</option>
             <option value="at_checkout">At checkout</option>
           </select>
           <small style="color:var(--text-muted)">Which date the pipeline books it on. Declared, not read from the export.</small>
+        </div>
+
+        <div class="field"><label>Purchase timing</label>
+          <select id="extra-purchase">
+            <option value="unknown">Unknown</option>
+            <option value="at_booking">At booking</option>
+            <option value="at_reception">At reception</option>
+          </select>
+          <small style="color:var(--text-muted)">Where the guest bought it. The PMS does not say, but the product name often does (Breakfast Web vs Breakfast Reception).</small>
         </div>
 
         <div class="field">
@@ -3362,20 +3369,24 @@
 
   const TIMING_LABELS = {
     at_arrival:  'At arrival',
-    per_night:   'Per night',
     at_checkout: 'At checkout'
+  };
+
+  const PURCHASE_LABELS = {
+    at_booking:   'Booking',
+    at_reception: 'Reception',
+    unknown:      '—',
   };
 
   const TIMING_COLORS = {
     at_arrival:  'badge-user',
-    per_night:   'badge-api',
     at_checkout: 'badge-upload'
   };
 
   function renderExtras(data) {
     const tbody = document.getElementById('extras-tbody');
     if (!data.length) {
-      tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state">No extras yet.</div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state">No extras yet.</div></td></tr>';
       return;
     }
     tbody.innerHTML = data.map(e => `
@@ -3404,6 +3415,10 @@
         <td>${UI.badge(TIMING_LABELS[e.revenue_timing] || e.revenue_timing, TIMING_COLORS[e.revenue_timing] || 'badge-user')}${
           e.is_passthrough ? ' <span title="Pass-through: excluded from production" style="font-size:0.7rem;color:var(--text-muted)">pass-through</span>' : ''
         }</td>
+        <td>${e.purchase_timing && e.purchase_timing !== 'unknown'
+          ? UI.badge(PURCHASE_LABELS[e.purchase_timing] || e.purchase_timing,
+                     e.purchase_timing === 'at_booking' ? 'badge-api' : 'badge-upload')
+          : '<span style="color:var(--text-muted);font-size:0.78rem">—</span>'}</td>
         <td>${UI.statusBadge(e.status === 'active')}</td>
         <td style="display:flex;gap:0.4rem">${isAdmin ? `
           <button class="btn btn-secondary btn-sm" onclick="editExtra('${e.id}')">Edit</button>
@@ -3618,6 +3633,7 @@
     });
     loadExtraSubcategories();
     document.getElementById('extra-timing').value = 'at_arrival';
+    document.getElementById('extra-purchase').value = 'unknown';
     document.getElementById('extra-passthrough').checked = false;
     setExtraPriceMode('gross');
     extraPricePreview();
@@ -3636,6 +3652,7 @@
     document.getElementById('extra-code').style.opacity = '0.6';
     document.getElementById('extra-display').value = rec.display_name || '';
     document.getElementById('extra-timing').value = rec.revenue_timing || 'at_arrival';
+    document.getElementById('extra-purchase').value = rec.purchase_timing || 'unknown';
     document.getElementById('extra-passthrough').checked = !!rec.is_passthrough;
 
     // A deactivated category is not in the dropdown, so the select would land
@@ -3668,6 +3685,7 @@
     const vat_rate        = vatRaw === '' ? null : parseFloat(vatRaw);
     const unit_price_gross = extraGrossFromForm();
     const revenue_timing  = document.getElementById('extra-timing').value;
+    const purchase_timing = document.getElementById('extra-purchase').value;
     const is_passthrough  = document.getElementById('extra-passthrough').checked;
 
     UI.hideAlert('extra-error');
@@ -3675,7 +3693,7 @@
     if (vat_rate === null) { UI.showAlert('extra-error', 'Select the VAT rate — it is needed to split gross and net.'); return; }
 
     UI.setLoading('btn-save-extra', true, 'Save');
-    const fields = { display_name: display_name || raw_value, category_id, subcategory_id, revenue_timing, is_passthrough, unit_price_gross, vat_rate };
+    const fields = { display_name: display_name || raw_value, category_id, subcategory_id, revenue_timing, purchase_timing, is_passthrough, unit_price_gross, vat_rate };
     const { error } = editId
       ? await ExtrasCatalog.update(editId, fields)
       : await ExtrasCatalog.create(currentCompany.id, { raw_value, ...fields });
