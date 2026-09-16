@@ -649,6 +649,7 @@
           </div>
           <button class="btn btn-primary" id="btn-add-room">+ Add room</button>
         </div>
+        <div id="rooms-totals" class="rooms-totals"></div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Beds</th><th>Attributes</th><th>Status</th><th></th></tr></thead>
@@ -5257,6 +5258,12 @@
 
   let allRoomAttributes = [];
 
+  // table_enhance hides rows with display:none; recompute the totals whenever
+  // it says the visible set changed.
+  document.addEventListener('te:filtered', function(e) {
+    if (e.target.querySelector && e.target.querySelector('#rooms-tbody')) renderRoomTotals();
+  });
+
   async function loadRooms() {
     await loadRoomCategories();
     const { data: attrData } = await Rooms.getAttributeTypes(currentCompany.id);
@@ -5441,7 +5448,7 @@
   document.getElementById('rooms-tbody').innerHTML = ordered.map(function(item) {
     const r = item.r;
     if (item.alias) {
-      return '<tr style="background:var(--bg-subtle,#f8fafc)">' +
+      return '<tr data-room-kind="alias" style="background:var(--bg-subtle,#f8fafc)">' +
         '<td style="padding-left:1.6rem;color:var(--text-muted)">↳ ' + UI.mono(r.raw_value || r.room_code) + '</td>' +
         '<td colspan="4"><span style="font-size:0.78rem;color:var(--text-muted)">same physical room as <b>' + escapeHtml(r.display_name || '') + '</b> — maps its sales; beds, category, attributes and STATUS come from the room above</span></td>' +
         '<td><span style="font-size:0.72rem;font-weight:600;background:#e0e7ff;color:#4338ca;padding:1px 8px;border-radius:10px">ALIAS</span></td>' +
@@ -5463,7 +5470,10 @@
       return '';
     }).join('');
 
-    return '<tr>' +
+    // The totals bar reads these instead of parsing the cells: an alias is the
+    // same physical room, so it must not be counted twice.
+    return '<tr data-room-kind="physical" data-beds="' + (r.beds_per_room || 0) +
+           '" data-status="' + r.status + '">' +
       '<td>' + UI.mono(r.raw_value || r.room_code) + '</td>' +
       '<td>' + (r.display_name || '') + '</td>' +
       '<td>' + (r.room_categories?.display_name ?? '—') + '</td>' +
@@ -5477,6 +5487,38 @@
         : '') + '</td>' +
       '</tr>';
   }).join('') || '<tr><td colspan="7"><div class="empty-state">No rooms for this property.</div></td></tr>';
+
+  renderRoomTotals();
+  }
+
+  // Totals over the rows actually visible: column filters and the global search
+  // hide rows with display:none, and a total that ignored that would contradict
+  // what is on screen.
+  function renderRoomTotals() {
+    const el = document.getElementById('rooms-totals');
+    const tbody = document.getElementById('rooms-tbody');
+    if (!el || !tbody) return;
+
+    let rooms = 0, beds = 0, inactive = 0, aliases = 0;
+    Array.from(tbody.rows).forEach(function(tr) {
+      if (tr.style.display === 'none') return;
+      const kind = tr.dataset.roomKind;
+      if (kind === 'alias') { aliases++; return; }
+      if (kind !== 'physical') return;
+      rooms++;
+      beds += parseInt(tr.dataset.beds, 10) || 0;
+      if (tr.dataset.status !== 'active') inactive++;
+    });
+
+    if (!rooms && !aliases) { el.innerHTML = ''; return; }
+    el.innerHTML =
+      '<div class="rooms-total-item"><span class="rooms-total-num">' + rooms.toLocaleString() + '</span>' +
+        '<span class="rooms-total-lab">rooms</span></div>' +
+      '<div class="rooms-total-item"><span class="rooms-total-num">' + beds.toLocaleString() + '</span>' +
+        '<span class="rooms-total-lab">beds</span></div>' +
+      (inactive ? '<div class="rooms-total-note">' + inactive + ' inactive included</div>' : '') +
+      (aliases ? '<div class="rooms-total-note">' + aliases + ' alias' + (aliases > 1 ? 'es' : '') +
+        ' not counted</div>' : '');
   }
 
   async function loadRoomAttributes() {

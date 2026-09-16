@@ -126,6 +126,13 @@
         r.style.display = show ? '' : 'none';
       });
       applyGlobalSearch();
+      announce();
+    }
+
+    // Anything that wants to summarise the visible rows (a totals bar, a
+    // counter) listens for this instead of re-implementing the filter logic.
+    function announce() {
+      table.dispatchEvent(new CustomEvent('te:filtered', { bubbles: true }));
     }
 
     // Global search (searches all cells)
@@ -142,6 +149,7 @@
     table.__setGlobalSearch = function (term) {
       globalTerm = (term || '').trim().toLowerCase();
       applyFilters(); // re-applies column filters then global
+      announce();
     };
 
     // Re-apply sort/filter after the section re-renders the tbody.
