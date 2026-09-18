@@ -590,11 +590,11 @@ const DataUpload = (() => {
 
     countEl.textContent = found.length ? `${found.length} generated` : 'none yet';
     const warn = failed.length
-      ? `<tr><td colspan="5" style="color:#b45309">Could not read ${escapeHtml(failed.join(' · '))}</td></tr>`
+      ? `<tr><td colspan="6" style="color:#b45309">Could not read ${escapeHtml(failed.join(' · '))}</td></tr>`
       : '';
     if (!found.length) {
       tbody.innerHTML = warn ||
-        '<tr><td colspan="5" style="color:var(--text-muted)">No outputs yet. Upload raw files and click Run ETL.</td></tr>';
+        '<tr><td colspan="6" style="color:var(--text-muted)">No outputs yet. Upload raw files and click Run ETL.</td></tr>';
       return;
     }
 
@@ -605,12 +605,21 @@ const DataUpload = (() => {
       const size = fmtSize(f.metadata?.size);
       const when = f.updated_at ? new Date(f.updated_at).toLocaleString() : '—';
       const key = `${f.bucket}/${f.name}`;
+      // Downloading a whole gold file is downloading the client's entire dataset,
+      // which is a different thing from seeing a row count. Restricted to system
+      // admin until there is a reason to widen it.
+      const dl = currentProfile.role === 'system_admin'
+        ? `<button class="btn btn-secondary btn-sm"
+             onclick="event.stopPropagation();DataUpload.downloadOutput('${escAttr(f.bucket)}','${escAttr(f.name)}')"
+             title="Descargar ${escapeHtml(f.name)}">⬇</button>`
+        : '';
       return `<tr data-gold="${escAttr(key)}">
         <td style="font-family:monospace;font-size:0.8rem">${escapeHtml(f.name)}</td>
         <td><span class="pl-badge ${f.layer === 'silver' ? 'pl-silver' : ''}">${f.layer}</span></td>
         <td class="du-gold-rows" style="color:var(--text-muted)">counting…</td>
         <td>${size}</td>
         <td style="font-size:0.8rem">${when}</td>
+        <td style="text-align:right">${dl}</td>
       </tr>`;
     }).join('') + warn;
 
@@ -635,6 +644,20 @@ const DataUpload = (() => {
         cell.textContent = '—';
       }
     }
+  }
+
+  // Signed URL instead of downloading and re-serving the file: the browser never
+  // touches the contents, Storage hands it straight to the user. Works the same
+  // for 500 KB as for 21 MB.
+  async function downloadOutput(bucket, name) {
+    const path = `${currentClientCode()}/${name}`;
+    const { data, error } = await sb.storage.from(bucket)
+      .createSignedUrl(path, 60, { download: name });
+    if (error || !data?.signedUrl) {
+      Toast.error(`No se pudo generar el enlace: ${error?.message || 'sin URL'}`);
+      return;
+    }
+    window.location.href = data.signedUrl;
   }
 
   // ── Run ETL ────────────────────────────────────────────────────────────
@@ -773,7 +796,7 @@ const DataUpload = (() => {
     if (typeof restoreCollapseState === 'function') restoreCollapseState();
   }
 
-  return { init, listFiles, deleteFile, renameUpload, refreshRenamePreview };
+  return { init, listFiles, deleteFile, renameUpload, refreshRenamePreview, downloadOutput };
 })();
 
 function duDeleteFile(path) { DataUpload.deleteFile(path); }
