@@ -1701,24 +1701,33 @@
 
 <!-- Modal: Edit room -->
 <div class="modal-overlay" id="modal-edit-room">
-  <div class="modal" style="max-height:88vh;overflow-y:auto">
+  <div class="modal modal-wide" style="max-height:88vh;overflow-y:auto">
     <h3>Edit room</h3>
     <div class="alert error" id="edit-room-error"></div>
     <input type="hidden" id="edit-room-id">
-    <div class="field"><label>Raw value (Mews space number)</label><input type="text" id="edit-room-code" disabled style="opacity:0.6;cursor:not-allowed"></div>
-    <div class="field"><label>Display name (for reports)</label><input type="text" id="edit-room-name"></div>
-    <div class="field">
-      <label>Category</label>
-      <select id="edit-room-category-id"></select>
+    <div class="room-edit-grid">
+      <div class="field"><label>Raw value (Mews space number)</label><input type="text" id="edit-room-code" disabled style="opacity:0.6;cursor:not-allowed"></div>
+      <div class="field"><label>Display name (for reports)</label><input type="text" id="edit-room-name"></div>
+      <div class="field"><label>Category</label><select id="edit-room-category-id"></select></div>
+      <div class="field"><label>Beds per room</label><input type="number" id="edit-room-beds" min="1" max="20"></div>
     </div>
-    <div class="field"><label>Beds per room</label><input type="number" id="edit-room-beds" min="1" max="20"></div>
-    <div class="field" id="edit-room-unassigned-field" style="display:none">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <input type="checkbox" id="edit-room-unassigned" style="width:auto">
-        <span>Habitación de asignación pendiente (<b>sin asignar</b>)</span>
-      </label>
-      <small id="edit-room-unassigned-hint" style="color:var(--text-muted)"></small>
+
+    <div class="room-edit-special">
+      <div class="field">
+        <label>Alias of</label>
+        <select id="edit-room-alias-of"><option value="">— Not an alias (normal room) —</option></select>
+        <small style="color:var(--text-muted)">Same physical room under another name. Leave empty for a normal room.</small>
+      </div>
+      <div class="field" id="edit-room-unassigned-field">
+        <label>Assignment</label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400">
+          <input type="checkbox" id="edit-room-unassigned" style="width:auto">
+          <span>Unassigned (pending space)</span>
+        </label>
+        <small id="edit-room-unassigned-hint" style="color:var(--text-muted)">Counts as an occupied night, not as inventory.</small>
+      </div>
     </div>
+
     <!-- Dynamic constant attributes -->
     <div id="edit-room-attrs-section"></div>
     <div class="modal-actions">
@@ -5762,23 +5771,34 @@
     document.getElementById('edit-room-name').value = r.display_name || r.display_name || '';
     document.getElementById('edit-room-beds').value = r.beds_per_room;
 
-    // Propuesta de 'sin asignar': si el raw value empieza por UNASSIGNED, el
-    // portal lo sugiere marcado, pero la decision final es del usuario.
+    // 'Alias of': habitaciones fisicas activas de la propiedad, excluyendo la
+    // propia y las que ya son alias (no se puede ser alias de un alias).
+    const aliasSel = document.getElementById('edit-room-alias-of');
+    const candidates = Object.values(window._rcalRoomMap || {}).filter(function(x) {
+      return x.id !== r.id && x.status === 'active' && !x.alias_of;
+    });
+    aliasSel.innerHTML = '<option value="">— Not an alias (normal room) —</option>' +
+      candidates.map(function(x) {
+        return '<option value="' + x.id + '"' + (r.alias_of === x.id ? ' selected' : '') + '>' +
+          escapeHtml(x.display_name || x.raw_value) + ' (' + escapeHtml(x.raw_value) + ')</option>';
+      }).join('');
+    aliasSel.value = r.alias_of || '';
+
+    // 'Sin asignar': se propone si el raw empieza por UNASSIGNED; decide el usuario.
     const looksUnassigned = /^UNASSIGNED/i.test((r.raw_value || r.room_code || '').trim());
-    const uField = document.getElementById('edit-room-unassigned-field');
     const uBox = document.getElementById('edit-room-unassigned');
-    const uHint = document.getElementById('edit-room-unassigned-hint');
-    // Mostrar el campo siempre que ya sea unassigned o lo parezca por el nombre.
-    if (looksUnassigned || r.is_unassigned) {
-      uField.style.display = '';
-      uBox.checked = r.is_unassigned === true || (r.is_unassigned == null && looksUnassigned);
-      uHint.textContent = looksUnassigned
-        ? 'El nombre empieza por UNASSIGNED: se propone marcarla. No contará como inventario ni disponibilidad, solo como noche ocupada.'
-        : 'No contará como inventario ni disponibilidad, solo como noche ocupada.';
-    } else {
-      uField.style.display = 'none';
-      uBox.checked = false;
-    }
+    uBox.checked = r.is_unassigned === true || (r.is_unassigned == null && looksUnassigned);
+
+    // Alias y sin asignar son excluyentes: marcar uno desactiva el otro.
+    const syncExclusive = function(changed) {
+      if (changed === 'alias' && aliasSel.value) uBox.checked = false;
+      if (changed === 'unassigned' && uBox.checked) aliasSel.value = '';
+      uBox.disabled = !!aliasSel.value;
+      aliasSel.disabled = uBox.checked;
+    };
+    aliasSel.onchange = function() { syncExclusive('alias'); };
+    uBox.onchange = function() { syncExclusive('unassigned'); };
+    syncExclusive();
 
     _editRoomAttrValues = Object.assign({}, rAttrs || {});
 
@@ -5861,34 +5881,27 @@
     const category_id = document.getElementById('edit-room-category-id').value || null;
     const beds_per_room = parseInt(document.getElementById('edit-room-beds').value) || 1;
     const is_unassigned = document.getElementById('edit-room-unassigned').checked;
+    const alias_of = document.getElementById('edit-room-alias-of').value || null;
 
     UI.hideAlert('edit-room-error');
     if (!display_name) { UI.showAlert('edit-room-error', 'Display name is required.'); return; }
 
-    // ALIAS conversion via Edit: renaming this row to the display of another
-    // ACTIVE room means declaring it the SAME physical room -> same flow as
-    // the add paths: explicit confirmation, then inactive + beds 0 + the
-    // physical room's category.
-    const editedRoom = window._rcalRoomMap?.[id];
-    const clashPhys = Object.values(window._rcalRoomMap || {}).find(function(r) {
-      return r.id !== id && r.status === 'active' &&
-        (r.display_name || '').trim().toLowerCase() === display_name.toLowerCase();
-    });
-    let asAlias = false;
-    if (clashPhys) {
-      asAlias = confirm('⚠ "' + display_name + '" already exists as an ACTIVE physical room ("' + clashPhys.raw_value + '").\n\n' +
-        'Saving "' + (editedRoom?.raw_value || '') + '" under that name converts it into an ALIAS of the SAME room: ' +
-        'it will map its sales onto "' + display_name + '" and will NOT count as a different physical room ' +
-        '(status becomes inactive, no own beds, category inherited).\n\nConfirm it is the same room?');
-      if (!asAlias) { return; }
-    }
+    // El estado de la habitacion se elige EXPLICITAMENTE en el editor:
+    //   - alias_of con valor -> ALIAS de esa habitacion (hereda categoria,
+    //     0 camas, status alias). Sus ventas se mapean sobre la fisica.
+    //   - is_unassigned -> noche sin espacio asignado (cuenta en ocupacion,
+    //     no en inventario).
+    //   - ninguno -> habitacion normal.
+    // Son excluyentes (la UI ya lo garantiza).
+    const asAlias = !!alias_of;
+    const aliasPhys = asAlias ? window._rcalRoomMap?.[alias_of] : null;
     UI.setLoading('btn-update-room', true, 'Save changes');
 
-    // Save core room fields (alias conversion forces the coherent shape)
     const roomFields = asAlias
-      ? { display_name, category_id: clashPhys.category_id || category_id, beds_per_room: 0, status: 'alias',
-          ...(window._roomsHasAliasCol !== false ? { alias_of: clashPhys.id } : {}) }
-      : { display_name, category_id, beds_per_room, is_unassigned,
+      ? { display_name, category_id: aliasPhys?.category_id || category_id, beds_per_room: 0, status: 'alias',
+          is_unassigned: false,
+          ...(window._roomsHasAliasCol !== false ? { alias_of: alias_of } : {}) }
+      : { display_name, category_id, beds_per_room, is_unassigned, status: 'active',
           ...(window._roomsHasAliasCol !== false ? { alias_of: null } : {}) };
     const { error } = await Rooms.update(id, roomFields);
     if (error) { UI.setLoading('btn-update-room', false, 'Save changes'); UI.showAlert('edit-room-error', error.message); return; }
