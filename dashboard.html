@@ -1712,6 +1712,13 @@
       <select id="edit-room-category-id"></select>
     </div>
     <div class="field"><label>Beds per room</label><input type="number" id="edit-room-beds" min="1" max="20"></div>
+    <div class="field" id="edit-room-unassigned-field" style="display:none">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="edit-room-unassigned" style="width:auto">
+        <span>Habitación de asignación pendiente (<b>sin asignar</b>)</span>
+      </label>
+      <small id="edit-room-unassigned-hint" style="color:var(--text-muted)"></small>
+    </div>
     <!-- Dynamic constant attributes -->
     <div id="edit-room-attrs-section"></div>
     <div class="modal-actions">
@@ -5492,6 +5499,12 @@
     });
   }
   const isAlias = function(r) { return aliasIds.has(r.id); };
+  // Una habitación de asignación pendiente: por el flag del master, o por el
+  // prefijo del raw value como respaldo si alguien la creó sin marcar.
+  const isUnassigned = function(r) {
+    return r.is_unassigned === true ||
+      /^UNASSIGNED/i.test((r.raw_value || r.room_code || '').trim());
+  };
   const ordered = [];
   rooms.filter(function(r) { return !isAlias(r); }).forEach(function(r) {
     ordered.push({ r: r, alias: false });
@@ -5530,14 +5543,21 @@
     // category_type is the room/dorm split, which is what a hostel actually
     // manages. Null means the category has not been classified yet.
     const catType = r.room_categories?.category_type || null;
-    return '<tr data-room-kind="physical" data-beds="' + (r.beds_per_room || 0) +
-           '" data-status="' + r.status + '" data-room-type="' + (catType || 'unset') + '">' +
-      '<td>' + UI.mono(r.raw_value || r.room_code) + '</td>' +
+    const unassigned = isUnassigned(r);
+    // Mismos colores que el chip room/dorm del master de categorías.
+    const typeChip = catType === 'room'
+      ? '<span style="font-size:0.7rem;font-weight:600;background:#dbeafe;color:#1d4ed8;padding:1px 8px;border-radius:10px">ROOM</span>'
+      : catType === 'dorm'
+        ? '<span style="font-size:0.7rem;font-weight:600;background:#f3e8ff;color:#7c3aed;padding:1px 8px;border-radius:10px">DORM</span>'
+        : '<span style="color:#b45309;font-size:0.78rem" title="La categoría no tiene tipo">sin tipo</span>';
+    return '<tr data-room-kind="' + (unassigned ? 'unassigned' : 'physical') + '" data-beds="' + (r.beds_per_room || 0) +
+           '" data-status="' + r.status + '" data-room-type="' + (catType || 'unset') + '"' +
+           (unassigned ? ' style="background:#fffbeb"' : '') + '>' +
+      '<td>' + UI.mono(r.raw_value || r.room_code) +
+        (unassigned ? ' <span style="font-size:0.68rem;font-weight:600;background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:10px;margin-left:4px">SIN ASIGNAR</span>' : '') + '</td>' +
       '<td>' + (r.display_name || '') + '</td>' +
       '<td>' + (r.room_categories?.display_name ?? '—') + '</td>' +
-      '<td>' + (catType
-        ? UI.badge(catType, catType === 'dorm' ? 'badge-api' : 'badge-user')
-        : '<span style="color:#b45309;font-size:0.78rem" title="The category has no type set">unset</span>') + '</td>' +
+      '<td>' + typeChip + '</td>' +
       '<td>' + r.beds_per_room + '</td>' +
       '<td>' + (attrPills || '<span style="color:var(--text-muted);font-size:0.8rem">—</span>') + '</td>' +
       '<td>' + UI.statusBadge(r.status === 'active') + '</td>' +
@@ -5560,12 +5580,13 @@
     const tbody = document.getElementById('rooms-tbody');
     if (!el || !tbody) return;
 
-    let units = 0, beds = 0, inactive = 0, aliases = 0, unset = 0;
+    let units = 0, beds = 0, inactive = 0, aliases = 0, unset = 0, unassigned = 0;
     const byType = { room: { n: 0, beds: 0 }, dorm: { n: 0, beds: 0 } };
     Array.from(tbody.rows).forEach(function(tr) {
       if (tr.style.display === 'none') return;
       const kind = tr.dataset.roomKind;
       if (kind === 'alias') { aliases++; return; }
+      if (kind === 'unassigned') { unassigned++; return; }
       if (kind !== 'physical') return;
       const b = parseInt(tr.dataset.beds, 10) || 0;
       units++; beds += b;
@@ -5590,6 +5611,7 @@
         (unset ? '<div style="color:#b45309">' + unset + ' without type</div>' : '') +
         (inactive ? '<div>' + inactive + ' inactive included</div>' : '') +
         (aliases ? '<div>' + aliases + ' alias' + (aliases > 1 ? 'es' : '') + ' not counted</div>' : '') +
+        (unassigned ? '<div>' + unassigned + ' unassigned not counted</div>' : '') +
       '</div>';
   }
 
@@ -5739,6 +5761,25 @@
     document.getElementById('edit-room-code').value = r.raw_value || r.room_code;
     document.getElementById('edit-room-name').value = r.display_name || r.display_name || '';
     document.getElementById('edit-room-beds').value = r.beds_per_room;
+
+    // Propuesta de 'sin asignar': si el raw value empieza por UNASSIGNED, el
+    // portal lo sugiere marcado, pero la decision final es del usuario.
+    const looksUnassigned = /^UNASSIGNED/i.test((r.raw_value || r.room_code || '').trim());
+    const uField = document.getElementById('edit-room-unassigned-field');
+    const uBox = document.getElementById('edit-room-unassigned');
+    const uHint = document.getElementById('edit-room-unassigned-hint');
+    // Mostrar el campo siempre que ya sea unassigned o lo parezca por el nombre.
+    if (looksUnassigned || r.is_unassigned) {
+      uField.style.display = '';
+      uBox.checked = r.is_unassigned === true || (r.is_unassigned == null && looksUnassigned);
+      uHint.textContent = looksUnassigned
+        ? 'El nombre empieza por UNASSIGNED: se propone marcarla. No contará como inventario ni disponibilidad, solo como noche ocupada.'
+        : 'No contará como inventario ni disponibilidad, solo como noche ocupada.';
+    } else {
+      uField.style.display = 'none';
+      uBox.checked = false;
+    }
+
     _editRoomAttrValues = Object.assign({}, rAttrs || {});
 
     const sel = document.getElementById('edit-room-category-id');
@@ -5819,6 +5860,7 @@
     const display_name = document.getElementById('edit-room-name').value.trim();
     const category_id = document.getElementById('edit-room-category-id').value || null;
     const beds_per_room = parseInt(document.getElementById('edit-room-beds').value) || 1;
+    const is_unassigned = document.getElementById('edit-room-unassigned').checked;
 
     UI.hideAlert('edit-room-error');
     if (!display_name) { UI.showAlert('edit-room-error', 'Display name is required.'); return; }
@@ -5846,7 +5888,7 @@
     const roomFields = asAlias
       ? { display_name, category_id: clashPhys.category_id || category_id, beds_per_room: 0, status: 'alias',
           ...(window._roomsHasAliasCol !== false ? { alias_of: clashPhys.id } : {}) }
-      : { display_name, category_id, beds_per_room,
+      : { display_name, category_id, beds_per_room, is_unassigned,
           ...(window._roomsHasAliasCol !== false ? { alias_of: null } : {}) };
     const { error } = await Rooms.update(id, roomFields);
     if (error) { UI.setLoading('btn-update-room', false, 'Save changes'); UI.showAlert('edit-room-error', error.message); return; }
