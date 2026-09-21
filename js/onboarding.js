@@ -45,10 +45,11 @@ const Onboarding = (() => {
     // Params.getAll already returns a {param_key: param_value} map in .data
     const params = paramsRes.data || {};
 
-    const [nSubtypes, nChannels, nRoomCats, nRooms, nCountries, nExtCats, nExtCatalog, nAvail, availMax, nAdmins] = await Promise.all([
+    const [nSubtypes, nChannels, nRoomCats, nRoomCatsNoType, nRooms, nCountries, nExtCats, nExtCatalog, nAvail, availMax, nAdmins] = await Promise.all([
       safeCount(sb.from('channel_subtypes').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status', 'active')),
       safeCount(sb.from('channels').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status', 'active')),
       safeCount(sb.from('room_categories').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status', 'active')),
+      safeCount(sb.from('room_categories').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status', 'active').is('category_type', null)),
       safeCount(sb.from('rooms').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status', 'active')),
       safeCount(sb.from('client_country_mapping').select('id', { count: 'exact', head: true }).eq('company_id', cid).not('country_code', 'is', null).eq('status', 'active')),
       safeCount(sb.from('extras_categories').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status', 'active')),
@@ -148,6 +149,16 @@ const Onboarding = (() => {
       detail: mastersChecks.map(([l, n]) => `${esc(l)}: <strong>${n ?? '?'}</strong>`).join(' · ')
         + '<div style="margin-top:2px;color:var(--text-muted)">Vacíos legítimos según PMS (no verificados aquí): booking purposes · segments · otas</div>' });
 
+    // Toda categoria debe declararse room o dorm: de ahi sale la unidad con la
+    // que se mide la ocupacion. Una categoria sin tipo queda fuera del calculo.
+    items.push({ fase: 'f3', goto: 'rooms',
+      status: nRoomCatsNoType === null ? null : ((nRoomCats || 0) > 0 && nRoomCatsNoType === 0),
+      label: 'Categorías clasificadas room/dorm',
+      detail: nRoomCatsNoType === null ? 'No verificable'
+        : nRoomCatsNoType === 0
+          ? `Las ${nRoomCats} categorías tienen tipo asignado`
+          : `⛔ ${nRoomCatsNoType} de ${nRoomCats} categorías sin room/dorm — la ocupación se calculará mal` });
+
     items.push({ fase: 'f3', goto: 'availability', status: (nAvail || 0) > 0,
       label: 'Availability calendar (denominador de ocupación)',
       detail: nAvail ? `${nAvail} filas · última fecha: ${esc(availMax || '?')}` : '⛔ VACÍO — la ocupación del informe saldrá en blanco' });
@@ -220,10 +231,6 @@ const Onboarding = (() => {
           : unpriced === 0 ? 'Todos los extras activos tienen precio'
           : `${unpriced} extra(s) activos sin precio → Extras → Edit (la Producción Estimada los ignora)` });
     }
-
-    items.push({ fase: 'f3', goto: 'settings', status: !!params['occupancy_mode'],
-      label: 'Occupancy mode configurado',
-      detail: params['occupancy_mode'] ? `<code>${esc(params['occupancy_mode'])}</code>` : 'Pendiente en Settings' });
 
     // Plan semantics (plan.js): base module "ventas" is implicit — every
     // company starts with it, no params needed. plan_status: none (normal,
