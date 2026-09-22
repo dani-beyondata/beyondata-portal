@@ -710,9 +710,9 @@ tbody td:first-child { font-weight: 500; }
 /* ── Reports section ── */
 .rep-group-label { font-size: 0.95rem; letter-spacing: 0.02em; color: var(--text-primary); font-weight: 700; margin: 0 0 0.9rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--border); }
 .rep-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-.rep-card { display: flex; align-items: flex-start; gap: 14px; padding: 18px 20px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; transition: box-shadow 0.15s, border-color 0.15s; }
+.rep-card { display: flex; align-items: flex-start; gap: 14px; padding: 18px 20px; background: #ffffff; border: 1px solid var(--border); border-radius: 14px; transition: box-shadow 0.15s, border-color 0.15s; }
 .rep-card:not(.rep-soon):hover { border-color: var(--brand); box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
-.rep-card.rep-soon { background: var(--surface-2); border-style: dashed; }
+.rep-card.rep-soon { background: #ffffff; border-style: dashed; }
 .rep-icon { font-size: 1.7rem; flex: 0 0 auto; line-height: 1; margin-top: 2px; }
 .rep-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .rep-title { font-weight: 600; font-size: 1rem; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
