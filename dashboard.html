@@ -170,17 +170,14 @@
         <div class="rep-card rep-soon" data-report="extras">
           <div class="rep-icon">✨</div>
           <div class="rep-body"><div class="rep-title">Extras <span class="rep-badge">Próximamente</span></div><div class="rep-desc">Análisis detallado de extras: categorías, afinidad, quién compra y oportunidad.</div></div>
-          <button class="btn btn-sm rep-btn" disabled>Próximamente</button>
         </div>
         <div class="rep-card rep-soon" data-report="occupancy">
           <div class="rep-icon">🛏️</div>
           <div class="rep-body"><div class="rep-title">Occupancy <span class="rep-badge">Próximamente</span></div><div class="rep-desc">Ocupación por tipo, espacios y camas, disponibilidad y geografía de la demanda.</div></div>
-          <button class="btn btn-sm rep-btn" disabled>Próximamente</button>
         </div>
         <div class="rep-card rep-soon" data-report="commercial">
           <div class="rep-icon">🌐</div>
           <div class="rep-body"><div class="rep-title">Comercial <span class="rep-badge">Próximamente</span></div><div class="rep-desc">Análisis de canales, segmentos, motivos de reserva y empresas.</div></div>
-          <button class="btn btn-sm rep-btn" disabled>Próximamente</button>
         </div>
       </div>
 
@@ -198,8 +195,6 @@
         <button type="button" class="btn btn-sm" id="pbi-zoom-in" title="Ampliar">+</button>
         <button type="button" class="btn btn-sm" id="pbi-zoom-fit" title="Ajustar al ancho disponible">Ajustar</button>
         <button type="button" class="btn btn-sm" id="pbi-fullscreen" title="Pantalla completa (Esc para salir)">⤢</button>
-        <span style="width:8px"></span>
-        <button type="button" class="btn btn-sm" id="pbi-export-xlsx" title="Descargar el informe de controlling en Excel (branding BeyonData)">📥 Excel</button>
       </div>
       <div class="alert error" id="pbi-export-error" style="margin:0 0 0.6rem"></div>
       <div id="pbi-container" class="pbi-container">
@@ -2296,7 +2291,7 @@
       btn.disabled = false; btn.textContent = original;
     }
   }
-  document.getElementById('pbi-export-xlsx').addEventListener('click', exportControllingXlsx);
+
 
   let pbiToolbarWired = false;
   function pbiWireToolbar(container) {
