@@ -54,7 +54,9 @@ const Reports = (() => {
 
   async function handle(report, btn) {
     const original = btn.textContent;
-    btn.disabled = true; btn.textContent = '⏳';
+    btn.disabled = true;
+    // El controlling consulta Power BI y puede tardar 15-40s: avisa de la espera.
+    btn.textContent = report === 'controlling' ? '⏳ Generando… (puede tardar)' : '⏳';
     try {
       if (GOLD_FILES[report]) await downloadGold(GOLD_FILES[report]);
       else if (report === 'masters') await MastersExport.exportAll(currentCompany.id, currentCompany.name);
