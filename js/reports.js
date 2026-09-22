@@ -2,7 +2,7 @@
 // Reuses what already exists: signed URLs for gold CSVs, the export-controlling
 // edge function, and MastersExport for the masters workbook.
 const Reports = (() => {
-  let sb, currentCompany, currentProfile;
+  let currentCompany, currentProfile;
 
   // gold files the client is allowed to pull, mapped to their bucket names
   const GOLD_FILES = {
