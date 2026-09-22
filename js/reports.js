@@ -70,10 +70,12 @@ const Reports = (() => {
 
   async function loadProperties() {
     const sel = document.getElementById('reports-property');
-    if (!sel) return;
-    const { data } = await sb.from('properties').select('property_name').eq('company_id', currentCompany.id).order('property_name');
+    if (!sel || !currentCompany) return;
+    const { data, error } = await sb.from('properties')
+      .select('property_name').eq('company_id', currentCompany.id).order('property_name');
+    if (error) { console.error('reports properties:', error); return; }
     sel.innerHTML = '<option value="">Todas (grupo)</option>' +
-      (data || []).map(p => `<option value="${p.property_name}">${p.property_name}</option>`).join('');
+      (data || []).map(pr => `<option value="${pr.property_name}">${pr.property_name}</option>`).join('');
   }
 
   function init(deps) {
@@ -81,7 +83,8 @@ const Reports = (() => {
     loadProperties();
     document.querySelectorAll('.rep-btn:not([disabled])').forEach(btn => {
       const report = btn.dataset.report;
-      if (!report) return;
+      if (!report || btn.dataset.wired) return;
+      btn.dataset.wired = '1';
       btn.addEventListener('click', () => handle(report, btn));
     });
   }
