@@ -316,6 +316,7 @@
         <button class="subtab active" onclick="showSubtab('company','details')" id="subtab-company-details">Details</button>
         <button class="subtab" onclick="showSubtab('company','properties')" id="subtab-company-properties">Properties</button>
         <button class="subtab" onclick="showSubtab('company','settings')" id="subtab-company-settings">Settings</button>
+        <button class="subtab" onclick="showSubtab('company','embedded')" id="subtab-company-embedded">Reports</button>
       </div>
       <div class="subpage active" id="subpage-company-details">
         <div class="table-wrap" style="max-width:520px">
@@ -337,41 +338,8 @@
           </div>
         </div>
       </div>
-
-      <div class="table-wrap" id="company-embed-card" style="max-width:760px;margin-top:1.25rem;display:none">
-        <div class="table-header"><h3>Power BI embed</h3></div>
-        <div style="padding:1rem 1.25rem 1.25rem">
-          <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 0.75rem">
-            What "Mi Dashboard" shows for this company. Paste the URL from Power BI Service → File → Embed report → Website or portal.
-            <b>Fit width</b>: frame height = width × ratio (ratio = page height ÷ width; 16:9 = 0.5625, tall pages 1.2–1.8).
-            <b>Fit height</b>: frame fills the window and the report scrolls inside (only if the report is set to fit-to-width).
-          </p>
-          <div class="alert error" id="embed-error"></div>
-          <div class="alert success" id="embed-success"></div>
-          <div class="field"><label>Embed URL</label><input type="text" id="embed-url" placeholder="https://app.powerbi.com/reportEmbed?reportId=…&autoAuth=true&ctid=…"></div>
-          <div style="display:flex;gap:1rem;flex-wrap:wrap">
-            <div class="field" style="flex:1 1 180px"><label>Fit</label>
-              <select id="embed-fit"><option value="width">Fit width (height by ratio)</option><option value="height">Fit height (scroll inside)</option></select>
-            </div>
-            <div class="field" style="flex:1 1 180px"><label>Ratio (height ÷ width)</label><input type="number" id="embed-ratio" step="0.01" min="0.2" max="8" placeholder="1.5"></div>
-          </div>
-          <div style="display:flex;gap:1rem;flex-wrap:wrap">
-            <div class="field" style="flex:1 1 220px"><label>Workspace id (export a Excel)</label><input type="text" id="embed-workspace" placeholder="GUID del workspace"></div>
-            <div class="field" style="flex:1 1 220px"><label>Dataset id (export a Excel)</label><input type="text" id="embed-dataset" placeholder="GUID del modelo semántico"></div>
-          </div>
-          <div style="margin-top:0.5rem;display:flex;gap:0.6rem;align-items:center">
-            <button class="btn btn-primary" id="btn-save-embed">Save embed</button>
-            <span style="font-size:0.78rem;color:var(--text-muted)">Empty URL = use the built-in fallback map (if any) or show the placeholder.</span>
-          </div>
-        </div>
       </div>
-
-      <div class="table-wrap" id="company-pbi-card" style="max-width:760px;margin-top:1.25rem;display:none">
-        <div class="table-header"><h3>Report template parameters</h3></div>
-        <div style="padding:1rem 1.25rem 1.25rem" id="company-pbi-body"></div>
-      </div>
-      </div>
-      <div class="subpage" id="subpage-company-properties">
+<div class="subpage" id="subpage-company-properties">
         <div class="section-header">
         <h2>Properties</h2>
         <p>Hotels and properties for this company.</p>
@@ -409,6 +377,40 @@
           <span style="font-size:0.78rem;color:var(--text-muted)">Read by reports and pipelines at run time</span>
         </div>
         <div id="params-list"></div>
+      </div>
+      </div>
+          <div class="subpage" id="subpage-company-embedded">
+        <div class="table-wrap" id="company-embed-card" style="max-width:760px;margin-top:1.25rem;display:none">
+        <div class="table-header"><h3>Power BI embed</h3></div>
+        <div style="padding:1rem 1.25rem 1.25rem">
+          <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 0.75rem">
+            What "Mi Dashboard" shows for this company. Paste the URL from Power BI Service → File → Embed report → Website or portal.
+            <b>Fit width</b>: frame height = width × ratio (ratio = page height ÷ width; 16:9 = 0.5625, tall pages 1.2–1.8).
+            <b>Fit height</b>: frame fills the window and the report scrolls inside (only if the report is set to fit-to-width).
+          </p>
+          <div class="alert error" id="embed-error"></div>
+          <div class="alert success" id="embed-success"></div>
+          <div class="field"><label>Embed URL</label><input type="text" id="embed-url" placeholder="https://app.powerbi.com/reportEmbed?reportId=…&autoAuth=true&ctid=…"></div>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap">
+            <div class="field" style="flex:1 1 180px"><label>Fit</label>
+              <select id="embed-fit"><option value="width">Fit width (height by ratio)</option><option value="height">Fit height (scroll inside)</option></select>
+            </div>
+            <div class="field" style="flex:1 1 180px"><label>Ratio (height ÷ width)</label><input type="number" id="embed-ratio" step="0.01" min="0.2" max="8" placeholder="1.5"></div>
+          </div>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap">
+            <div class="field" style="flex:1 1 220px"><label>Workspace id (export a Excel)</label><input type="text" id="embed-workspace" placeholder="GUID del workspace"></div>
+            <div class="field" style="flex:1 1 220px"><label>Dataset id (export a Excel)</label><input type="text" id="embed-dataset" placeholder="GUID del modelo semántico"></div>
+          </div>
+          <div style="margin-top:0.5rem;display:flex;gap:0.6rem;align-items:center">
+            <button class="btn btn-primary" id="btn-save-embed">Save embed</button>
+            <span style="font-size:0.78rem;color:var(--text-muted)">Empty URL = use the built-in fallback map (if any) or show the placeholder.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap" id="company-pbi-card" style="max-width:760px;margin-top:1.25rem;display:none">
+        <div class="table-header"><h3>Report template parameters</h3></div>
+        <div style="padding:1rem 1.25rem 1.25rem" id="company-pbi-body"></div>
       </div>
       </div>
     </div>
@@ -3397,6 +3399,7 @@
       if (tab === 'details')    loadCompany();
       if (tab === 'properties') loadProperties();
       if (tab === 'settings')   loadSettings();
+      if (tab === 'embedded')   { loadEmbedCard(); renderPbiCard(); }
     }
     if (section === 'extras') {
       if (tab === 'categories') loadExtrasCategories();
@@ -6359,8 +6362,6 @@
     document.getElementById('company-active').value = currentCompany.active ? 'true' : 'false';
     UI.hideAlert('company-error');
     UI.hideAlert('company-success');
-    loadEmbedCard();
-    renderPbiCard();
   }
 
   // Power BI connection card (system admin): the exact values the report
