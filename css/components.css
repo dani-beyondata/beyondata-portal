@@ -706,3 +706,15 @@ tbody td:first-child { font-weight: 500; }
 .room-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem; }
 .room-edit-special { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem;
   margin-top: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+
+/* ── Reports section ── */
+.rep-group-label { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin: 0 0 0.5rem; }
+.rep-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.75rem; }
+.rep-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; }
+.rep-card.rep-soon { opacity: 0.7; }
+.rep-icon { font-size: 1.6rem; flex: 0 0 auto; }
+.rep-body { flex: 1 1 auto; min-width: 0; }
+.rep-title { font-weight: 600; font-size: 0.95rem; color: var(--text-primary); }
+.rep-desc { font-size: 0.8rem; color: var(--text-muted); line-height: 1.35; margin-top: 2px; }
+.rep-btn { flex: 0 0 auto; white-space: nowrap; }
+.rep-badge { font-size: 0.62rem; font-weight: 600; background: #eef1f5; color: #6d7683; padding: 1px 7px; border-radius: 999px; margin-left: 4px; vertical-align: middle; }
