@@ -43,8 +43,6 @@
       <div class="nav-item" data-section="my_dashboard"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></span>Dashboard</div>
       <div class="nav-item" data-section="reports"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg></span>Reports</div>
       <div class="nav-item" data-section="my_plan"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>Mi Plan</div>
-      <div class="nav-item" data-section="properties"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01"/><path d="M9 12v.01"/><path d="M9 15v.01"/><path d="M9 18v.01"/></svg></span>Properties</div>
-      <div class="nav-item" data-section="settings"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Settings</div>
     </div>
     <div class="nav-section">
       <div class="nav-section-label">Catalogs</div>
@@ -285,48 +283,10 @@
     </div>
 
     <!-- PROPERTIES -->
-    <div class="section" id="section-properties">
-      <div class="section-header">
-        <h2>Properties</h2>
-        <p>Hotels and properties for this company.</p>
-      </div>
-      <div class="action-bar">
-        <h3 id="prop-count"></h3>
-        <button class="btn btn-primary" id="btn-add-property">+ Add property</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th>Property ID</th><th>Name</th><th>City</th><th>Country</th>
-            <th class="num">Rooms</th><th class="num">Beds</th><th>Source</th><th>Status</th><th></th>
-          </tr></thead>
-          <tbody id="properties-tbody"></tbody>
-        </table>
-      </div>
-    </div>
+    
 
     <!-- SETTINGS -->
-    <div class="section" id="section-settings">
-      <div class="section-header">
-        <h2>Settings</h2>
-        <p>Company parameters and configuration.</p>
-      </div>
-      <div class="table-wrap">
-        <div class="table-header">
-          <h3>Data source</h3>
-          <span style="font-size:0.78rem;color:var(--text-muted)">Part of the company record — not a parameter</span>
-        </div>
-        <div id="pms-list"></div>
-      </div>
-
-      <div class="table-wrap" style="margin-top:1.25rem">
-        <div class="table-header">
-          <h3>Company parameters</h3>
-          <span style="font-size:0.78rem;color:var(--text-muted)">Read by reports and pipelines at run time</span>
-        </div>
-        <div id="params-list"></div>
-      </div>
-    </div>
+    
 
     <!-- ONBOARDING (system admin) -->
     <div class="section" id="section-onboarding">
@@ -347,12 +307,18 @@
     </div>
 
     <!-- COMPANY -->
-    <div class="section" id="section-company">
+        <div class="section" id="section-company">
       <div class="section-header">
         <h2>Company</h2>
-        <p>Edit company details.</p>
+        <p>Datos de la empresa, propiedades y configuración.</p>
       </div>
-      <div class="table-wrap" style="max-width:520px">
+      <div class="subtabs" id="company-subtabs">
+        <button class="subtab active" onclick="showSubtab('company','details')" id="subtab-company-details">Details</button>
+        <button class="subtab" onclick="showSubtab('company','properties')" id="subtab-company-properties">Properties</button>
+        <button class="subtab" onclick="showSubtab('company','settings')" id="subtab-company-settings">Settings</button>
+      </div>
+      <div class="subpage active" id="subpage-company-details">
+        <div class="table-wrap" style="max-width:520px">
         <div class="table-header"><h3>Details</h3></div>
         <div style="padding:1.25rem">
           <div class="alert error" id="company-error"></div>
@@ -403,6 +369,47 @@
       <div class="table-wrap" id="company-pbi-card" style="max-width:760px;margin-top:1.25rem;display:none">
         <div class="table-header"><h3>Report template parameters</h3></div>
         <div style="padding:1rem 1.25rem 1.25rem" id="company-pbi-body"></div>
+      </div>
+      </div>
+      <div class="subpage" id="subpage-company-properties">
+        <div class="section-header">
+        <h2>Properties</h2>
+        <p>Hotels and properties for this company.</p>
+      </div>
+      <div class="action-bar">
+        <h3 id="prop-count"></h3>
+        <button class="btn btn-primary" id="btn-add-property">+ Add property</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Property ID</th><th>Name</th><th>City</th><th>Country</th>
+            <th class="num">Rooms</th><th class="num">Beds</th><th>Source</th><th>Status</th><th></th>
+          </tr></thead>
+          <tbody id="properties-tbody"></tbody>
+        </table>
+      </div>
+      </div>
+      <div class="subpage" id="subpage-company-settings">
+        <div class="section-header">
+        <h2>Settings</h2>
+        <p>Company parameters and configuration.</p>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <h3>Data source</h3>
+          <span style="font-size:0.78rem;color:var(--text-muted)">Part of the company record — not a parameter</span>
+        </div>
+        <div id="pms-list"></div>
+      </div>
+
+      <div class="table-wrap" style="margin-top:1.25rem">
+        <div class="table-header">
+          <h3>Company parameters</h3>
+          <span style="font-size:0.78rem;color:var(--text-muted)">Read by reports and pipelines at run time</span>
+        </div>
+        <div id="params-list"></div>
+      </div>
       </div>
     </div>
 
@@ -2143,7 +2150,7 @@
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
       hashSet({ section: s, property: null });
-      const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, plan_requests: loadPlanRequests, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
+      const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, plan_requests: loadPlanRequests, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
       loaders[s]?.();
     });
   });
@@ -3385,6 +3392,11 @@
     }
     if (section === 'markets') {
       if (tab === 'client-mapping') loadClientCountryMapping();
+    }
+    if (section === 'company') {
+      if (tab === 'details')    loadCompany();
+      if (tab === 'properties') loadProperties();
+      if (tab === 'settings')   loadSettings();
     }
     if (section === 'extras') {
       if (tab === 'categories') loadExtrasCategories();
@@ -6411,7 +6423,10 @@
   });
 
   // ── NAV HELPER ────────────────────────────────────────────────────
-  function navTo(section) {
+  function navTo(section, subtab) {
+    // Properties y Settings pasaron a ser subtabs dentro de Company.
+    if (section === 'properties') { subtab = 'properties'; section = 'company'; }
+    else if (section === 'settings') { subtab = 'settings'; section = 'company'; }
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     const navItem = document.querySelector(`.nav-item[data-section="${section}"]`);
@@ -6419,7 +6434,8 @@
     const sectionEl = document.getElementById(`section-${section}`);
     if (sectionEl) sectionEl.classList.add('active');
     hashSet({ section: section });
-    const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, plan_requests: loadPlanRequests, properties: loadProperties, settings: loadSettings, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, pipeline: PipelineAdmin.load, onboarding: initOnboarding, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
+    if (section === 'company' && subtab) { showSubtab('company', subtab); }
+    const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, plan_requests: loadPlanRequests, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, pipeline: PipelineAdmin.load, onboarding: initOnboarding, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
     loaders[section]?.();
     window.scrollTo(0, 0);
   }
