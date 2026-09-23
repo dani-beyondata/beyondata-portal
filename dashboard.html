@@ -2060,18 +2060,18 @@
         if (badge && data && data.length) { badge.textContent = data.length; badge.style.display = 'inline-flex'; }
       }).catch(() => {});
     }
+    // Un usuario que no es admin SOLO ve el Dashboard. Se ocultan todos los
+    // nav-items (y sus separadores de seccion) salvo my_dashboard. Logica
+    // invertida a proposito: las secciones nuevas quedan ocultas por defecto
+    // para el cliente sin tener que acordarse de anadirlas aqui.
     if (currentProfile.role !== 'system_admin') {
-      const navPipeline = document.getElementById('nav-pipeline');
-      if (navPipeline) navPipeline.style.display = 'none';
-      const navOnboarding = document.getElementById('nav-onboarding');
-      if (navOnboarding) navOnboarding.style.display = 'none';
-      // Data Upload es de uso interno (carga de raw + gold): solo system_admin.
-      const navDataUpload = document.getElementById('nav-data-upload');
-      if (navDataUpload) navDataUpload.style.display = 'none';
-      // Reports: los informes analiticos aun estan en preparacion, asi que la
-      // seccion es solo para admin hasta que este madura para clientes.
-      const navReports = document.getElementById('nav-reports');
-      if (navReports) navReports.style.display = 'none';
+      document.querySelectorAll('.nav-item').forEach(function(el) {
+        if (el.dataset.section !== 'my_dashboard') el.style.display = 'none';
+      });
+      // Ocultar tambien las etiquetas de grupo del menu (General, Admin, etc.)
+      document.querySelectorAll('.nav-section-label').forEach(function(el) {
+        el.style.display = 'none';
+      });
     }
 
     document.getElementById('company-pill').textContent = currentCompany.name;
@@ -2086,10 +2086,10 @@
     const savedSection = savedHash.section;
     const savedProp    = savedHash.property;
 
-    // Secciones solo-admin: si un no-admin las fuerza por hash, se ignoran.
-    const adminOnlySections = ['reports', 'data_upload', 'pipeline', 'onboarding'];
+    // Un no-admin solo puede estar en el Dashboard: cualquier otra seccion
+    // forzada por hash se ignora y cae al aterrizaje por defecto.
     const savedSectionSafe =
-      (adminOnlySections.includes(savedSection) && currentProfile.role !== 'system_admin')
+      (currentProfile.role !== 'system_admin' && savedSection !== 'my_dashboard')
         ? null : savedSection;
     if (savedSectionSafe && document.getElementById('section-' + savedSectionSafe)) {
       document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -2120,7 +2120,18 @@
         }
       }
     } else {
-      loadOverview();
+      // Aterrizaje por defecto: el cliente cae en su Dashboard; el admin en Overview.
+      if (currentProfile.role !== 'system_admin') {
+        const dashNav = document.querySelector('.nav-item[data-section="my_dashboard"]');
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        document.querySelectorAll('.section').forEach(x => x.classList.remove('active'));
+        if (dashNav) dashNav.classList.add('active');
+        document.getElementById('section-my_dashboard').classList.add('active');
+        hashSet({ section: 'my_dashboard' });
+        loadMyDashboard();
+      } else {
+        loadOverview();
+      }
     }
   }
 
