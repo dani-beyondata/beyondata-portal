@@ -719,5 +719,8 @@ tbody td:first-child { font-weight: 500; }
 .rep-desc { font-size: 0.83rem; color: var(--text-muted); line-height: 1.4; margin-top: 4px; }
 .rep-card select { margin-top: 10px; }
 .rep-btn { flex: 0 0 auto; white-space: nowrap; align-self: center; }
-.rep-badge { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: var(--fill-primary, #3D65A8); color: #fff; padding: 2px 8px; border-radius: 999px; }
+.rep-badge { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: var(--fill-primary, var(--brand, #3D65A8)); color: var(--brand-on, #fff); padding: 2px 8px; border-radius: 999px; }
 .rep-card.rep-soon .rep-badge { background: #9aa0a8; }
+
+/* Branding tab — derived-colour chips */
+.branding-chip { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; color: var(--text); }

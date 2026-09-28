@@ -2,7 +2,7 @@
 
 /* Top bar */
 .topbar {
-  background: #1e3a5f;
+  background: var(--topbar-bg, #1e3a5f);
   border-bottom: none;
   padding: 0 1.5rem;
   height: var(--topbar-h);

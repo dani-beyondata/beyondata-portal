@@ -317,6 +317,7 @@
         <button class="subtab" onclick="showSubtab('company','properties')" id="subtab-company-properties">Properties</button>
         <button class="subtab" onclick="showSubtab('company','settings')" id="subtab-company-settings">Settings</button>
         <button class="subtab" onclick="showSubtab('company','embedded')" id="subtab-company-embedded">Reports</button>
+        <button class="subtab" onclick="showSubtab('company','branding')" id="subtab-company-branding">Branding</button>
       </div>
       <div class="subpage active" id="subpage-company-details">
         <div class="table-wrap" style="max-width:520px">
@@ -412,6 +413,91 @@
         <div class="table-header"><h3>Report template parameters</h3></div>
         <div style="padding:1rem 1.25rem 1.25rem" id="company-pbi-body"></div>
       </div>
+      </div>
+
+      <!-- BRANDING (white-label colours) -->
+      <div class="subpage" id="subpage-company-branding">
+        <div class="section-header">
+          <h2>Branding</h2>
+          <p>Colores corporativos del cliente. Tú das 2 colores; el resto de la paleta se calcula solo. Los usuarios de esta company verán estos colores; tú, como admin, sigues viendo el azul BeyonData.</p>
+        </div>
+
+        <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:flex-start">
+
+          <!-- Controls -->
+          <div class="table-wrap" style="flex:1 1 320px;max-width:420px">
+            <div class="table-header"><h3>Colores</h3></div>
+            <div style="padding:1.25rem">
+              <div class="alert error" id="branding-error"></div>
+              <div class="alert success" id="branding-success"></div>
+
+              <div class="field">
+                <label>Color primario / acento</label>
+                <div style="display:flex;gap:0.6rem;align-items:center">
+                  <input type="color" id="branding-primary" value="#3D65A8" style="width:48px;height:38px;padding:2px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer">
+                  <input type="text" id="branding-primary-hex" value="#3D65A8" maxlength="7" style="flex:1;text-transform:uppercase" placeholder="#00F3A3">
+                </div>
+              </div>
+
+              <div class="field">
+                <label>Color oscuro / cabecera</label>
+                <div style="display:flex;gap:0.6rem;align-items:center">
+                  <input type="color" id="branding-dark" value="#1e3a5f" style="width:48px;height:38px;padding:2px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer">
+                  <input type="text" id="branding-dark-hex" value="#1E3A5F" maxlength="7" style="flex:1;text-transform:uppercase" placeholder="#000000">
+                </div>
+              </div>
+
+              <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+                <div style="font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.5rem">Derivados automáticos</div>
+                <div style="display:flex;flex-direction:column;gap:0.4rem;font-size:0.8rem">
+                  <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-muted)">Tinte claro</span><code id="bd-light" class="branding-chip">—</code></div>
+                  <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-muted)">Variante oscura</span><code id="bd-dark" class="branding-chip">—</code></div>
+                  <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-muted)">Texto sobre primario</span><code id="bd-on" class="branding-chip">—</code></div>
+                  <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-muted)">Cabecera</span><code id="bd-topbar" class="branding-chip">—</code></div>
+                </div>
+              </div>
+
+              <div style="margin-top:1.1rem;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap">
+                <button class="btn btn-primary" id="btn-save-branding">Guardar colores</button>
+                <button class="btn" id="btn-clear-branding" style="background:var(--bg);border:1px solid var(--border)">Usar azul BeyonData</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live preview -->
+          <div class="table-wrap" style="flex:1 1 340px;max-width:480px">
+            <div class="table-header"><h3>Vista previa</h3></div>
+            <div style="padding:1.25rem">
+              <div id="branding-preview" style="border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">
+                <!-- mini topbar -->
+                <div style="background:var(--topbar-bg);color:var(--topbar-on);padding:0.7rem 1rem;display:flex;align-items:center;justify-content:space-between">
+                  <span style="font-weight:700;font-size:0.9rem;letter-spacing:0.02em">Portal</span>
+                  <span style="font-size:0.72rem;background:rgba(255,255,255,0.15);padding:2px 10px;border-radius:999px">Company</span>
+                </div>
+                <div style="padding:1.1rem;background:var(--white)">
+                  <!-- active nav row -->
+                  <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.9rem">
+                    <span style="width:3px;height:16px;background:var(--brand);border-radius:2px"></span>
+                    <span style="color:var(--brand);font-weight:600;font-size:0.85rem">Menú activo</span>
+                  </div>
+                  <!-- button + badge -->
+                  <div style="display:flex;gap:0.6rem;align-items:center;margin-bottom:0.9rem;flex-wrap:wrap">
+                    <span class="btn btn-primary" style="cursor:default">Botón primario</span>
+                    <span style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;background:var(--brand-light);color:var(--brand-dark);padding:3px 10px;border-radius:999px">Badge</span>
+                  </div>
+                  <!-- table with hover row -->
+                  <div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;font-size:0.8rem">
+                    <div style="padding:0.5rem 0.75rem;border-bottom:1px solid var(--border)">Fila normal</div>
+                    <div style="padding:0.5rem 0.75rem;background:var(--brand-light)">Fila resaltada</div>
+                  </div>
+                  <!-- link -->
+                  <div style="margin-top:0.8rem"><a href="#" onclick="return false" style="color:var(--brand);font-weight:600;font-size:0.82rem;text-decoration:none">Un enlace de ejemplo →</a></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
 
@@ -1010,7 +1096,7 @@
       .du-count-badge { font-size:0.75rem; background:var(--brand-light,#eef3fb); color:var(--brand,#3D65A8); padding:0.15rem 0.6rem; border-radius:20px; font-weight:600; }
 
       /* Welcome hero */
-      .welcome-hero { position:relative; border-radius:20px; overflow:hidden; padding:2.4rem 2.6rem; background:linear-gradient(135deg,#1e3a5f 0%,#2d4d78 55%,#3D65A8 100%); box-shadow:0 8px 24px rgba(30,58,95,0.18); }
+      .welcome-hero { position:relative; border-radius:20px; overflow:hidden; padding:2.4rem 2.6rem; background:linear-gradient(135deg,var(--hero-start,#1e3a5f) 0%,var(--brand-dark,#2d4d78) 55%,var(--hero-end,#3D65A8) 100%); box-shadow:0 8px 24px rgba(30,58,95,0.18); }
       .welcome-hero-bg { position:absolute; inset:0; background:radial-gradient(circle at 85% 20%, rgba(96,165,250,0.35) 0%, transparent 45%), radial-gradient(circle at 110% 120%, rgba(96,165,250,0.25) 0%, transparent 40%); pointer-events:none; }
       .welcome-hero-content { position:relative; z-index:1; }
       .welcome-brand { font-family:'Segoe UI',Arial,sans-serif; font-size:1.5rem; font-weight:800; letter-spacing:1px; margin-bottom:1.1rem; }
@@ -1977,6 +2063,7 @@
 <script src="js/auth.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/companies.js"></script>
+<script src="js/branding.js"></script>
 <script src="js/properties.js"></script>
 <script src="js/channels.js"></script>
 <script src="js/channel_subtypes.js"></script>
@@ -2050,6 +2137,10 @@
 
     if (!currentCompany) { window.location.href = 'login.html'; return; }
 
+    // White-label: a non-admin user sees their company's colours; admin keeps
+    // the default BeyonData blue. No-op if the company has no brand set.
+    Branding.applyForCompany(currentCompany, currentProfile);
+
     // Hide admin nav for plain users
     if (currentProfile.role === 'company_user') {
       document.getElementById('nav-admin').style.display = 'none';
@@ -2101,7 +2192,7 @@
         channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes,
         markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms,
         availability: initAvailabilitySection, countries: loadCountries, pipeline: PipelineAdmin.load, onboarding: initOnboarding,
-        users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init, reports: () => Reports.init({ sb, currentCompany, currentProfile }) };
+        users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init, reports: () => Reports.init({ sb, currentCompany, currentProfile }), branding: loadBranding };
       const loader = loaders[savedSectionSafe];
       if (loader) {
         await loader();
@@ -3420,6 +3511,7 @@
       if (tab === 'properties') loadProperties();
       if (tab === 'settings')   loadSettings();
       if (tab === 'embedded')   { loadEmbedCard(); renderPbiCard(); }
+      if (tab === 'branding')   loadBranding();
     }
     if (section === 'extras') {
       if (tab === 'categories') loadExtrasCategories();
@@ -6382,6 +6474,83 @@
     document.getElementById('company-active').value = currentCompany.active ? 'true' : 'false';
     UI.hideAlert('company-error');
     UI.hideAlert('company-success');
+  }
+
+  // ── BRANDING (white-label colours) ────────────────────────────────
+  let _brandingWired = false;
+
+  function brandingSyncPair(colorId, hexId, val) {
+    if (!val) return;
+    document.getElementById(colorId).value = val.toLowerCase();
+    document.getElementById(hexId).value   = val.toUpperCase();
+  }
+
+  function brandingRefreshPreview() {
+    const primary = document.getElementById('branding-primary-hex').value.trim();
+    const dark    = document.getElementById('branding-dark-hex').value.trim();
+    const pal = Branding.derive(primary, dark);
+    if (!pal) return;
+    Branding.apply(pal, document.getElementById('branding-preview'));
+    document.getElementById('bd-light').textContent  = pal.brandLight.toUpperCase();
+    document.getElementById('bd-dark').textContent   = pal.brandDark.toUpperCase();
+    document.getElementById('bd-on').textContent     = (pal.brandOn.toLowerCase() === '#ffffff') ? 'blanco' : 'negro';
+    document.getElementById('bd-topbar').textContent = pal.topbarBg.toUpperCase();
+  }
+
+  function wireBrandingOnce() {
+    if (_brandingWired) return;
+    _brandingWired = true;
+    const p  = document.getElementById('branding-primary');
+    const ph = document.getElementById('branding-primary-hex');
+    const d  = document.getElementById('branding-dark');
+    const dh = document.getElementById('branding-dark-hex');
+    p.addEventListener('input', () => { ph.value = p.value.toUpperCase(); brandingRefreshPreview(); });
+    d.addEventListener('input', () => { dh.value = d.value.toUpperCase(); brandingRefreshPreview(); });
+    ph.addEventListener('input', () => { const rgb = Branding.hexToRgb(ph.value); if (rgb) p.value = Branding.rgbToHex(rgb.r, rgb.g, rgb.b); brandingRefreshPreview(); });
+    dh.addEventListener('input', () => { const rgb = Branding.hexToRgb(dh.value); if (rgb) d.value = Branding.rgbToHex(rgb.r, rgb.g, rgb.b); brandingRefreshPreview(); });
+    document.getElementById('btn-save-branding').addEventListener('click', saveBranding);
+    document.getElementById('btn-clear-branding').addEventListener('click', clearBranding);
+  }
+
+  function loadBranding() {
+    UI.hideAlert('branding-error');
+    UI.hideAlert('branding-success');
+    brandingSyncPair('branding-primary', 'branding-primary-hex', currentCompany.brand_primary || '#3D65A8');
+    brandingSyncPair('branding-dark',    'branding-dark-hex',    currentCompany.brand_dark    || '#1e3a5f');
+    brandingRefreshPreview();
+    wireBrandingOnce();
+  }
+
+  async function saveBranding() {
+    UI.hideAlert('branding-error');
+    UI.hideAlert('branding-success');
+    const primary = document.getElementById('branding-primary-hex').value.trim();
+    const dark    = document.getElementById('branding-dark-hex').value.trim();
+    if (!Branding.hexToRgb(primary)) { UI.showAlert('branding-error', 'El color primario no es un HEX válido (ej. #00F3A3).'); return; }
+    if (dark && !Branding.hexToRgb(dark)) { UI.showAlert('branding-error', 'El color oscuro no es un HEX válido.'); return; }
+    UI.setLoading('btn-save-branding', true, 'Guardar colores');
+    const { data, error } = await Companies.update(currentCompany.id, {
+      brand_primary: primary.toUpperCase(),
+      brand_dark:    dark ? dark.toUpperCase() : null
+    });
+    UI.setLoading('btn-save-branding', false, 'Guardar colores');
+    if (error) { UI.showAlert('branding-error', error.message); return; }
+    currentCompany = { ...currentCompany, ...data };
+    UI.showAlert('branding-success', 'Colores guardados. Los usuarios de esta company los verán al entrar; tú, como admin, sigues viendo el azul BeyonData.');
+  }
+
+  async function clearBranding() {
+    UI.hideAlert('branding-error');
+    UI.hideAlert('branding-success');
+    UI.setLoading('btn-clear-branding', true, 'Usar azul BeyonData');
+    const { data, error } = await Companies.update(currentCompany.id, { brand_primary: null, brand_dark: null });
+    UI.setLoading('btn-clear-branding', false, 'Usar azul BeyonData');
+    if (error) { UI.showAlert('branding-error', error.message); return; }
+    currentCompany = { ...currentCompany, ...data };
+    brandingSyncPair('branding-primary', 'branding-primary-hex', '#3D65A8');
+    brandingSyncPair('branding-dark',    'branding-dark-hex',    '#1e3a5f');
+    brandingRefreshPreview();
+    UI.showAlert('branding-success', 'Vuelto al azul BeyonData por defecto.');
   }
 
   // Power BI connection card (system admin): the exact values the report

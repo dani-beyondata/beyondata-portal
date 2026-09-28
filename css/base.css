@@ -6,6 +6,12 @@
   --brand:        #3D65A8;
   --brand-dark:   #2a4d87;
   --brand-light:  #dce8f7;
+  /* white-label derived tokens (overridden per-company by js/branding.js) */
+  --brand-on:     #ffffff;   /* readable text on a --brand fill */
+  --topbar-bg:    #1e3a5f;   /* header bar background */
+  --topbar-on:    #ffffff;   /* text/logo on the header bar */
+  --hero-start:   #1e3a5f;   /* welcome-hero gradient start */
+  --hero-end:     #3D65A8;   /* welcome-hero gradient end */
   --text:         #111827;
   --text-muted:   #6b7280;
   --border:       #d1d9e4;
@@ -94,7 +100,7 @@ code, .mono {
 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.btn-primary   { background: var(--brand); color: white; }
+.btn-primary   { background: var(--brand); color: var(--brand-on, white); }
 .btn-primary:hover { background: var(--brand-dark); }
 
 .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
