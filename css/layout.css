@@ -50,17 +50,31 @@
 
 .company-pill {
   font-size: 0.78rem;
-  background: rgba(255,255,255,0.12);
-  color: rgba(255,255,255,0.85);
+  background: var(--topbar-ctrl-bg, rgba(255,255,255,0.12));
+  color: var(--topbar-on-soft, rgba(255,255,255,0.85));
   padding: 0.2rem 0.75rem;
   border-radius: 20px;
   font-weight: 500;
-  border: 1px solid rgba(255,255,255,0.18);
+  border: 1px solid var(--topbar-ctrl-border, rgba(255,255,255,0.18));
 }
 
 .user-label {
   font-size: 0.82rem;
-  color: rgba(255,255,255,0.65);
+  color: var(--topbar-on-soft, rgba(255,255,255,0.65));
+}
+
+/* When a company brand is applied, the BeyonData wordmark switches to a single
+   readable colour so it stays legible on a bright header (the white+blue
+   split-D is only for the default BeyonData navy bar). */
+.has-brand .brand-name .logo-beyon,
+.has-brand .brand-name .logo-ata {
+  color: var(--topbar-on) !important;
+  -webkit-text-fill-color: var(--topbar-on) !important;
+}
+.has-brand .brand-name .logo-d {
+  background: none;
+  color: var(--topbar-on);
+  -webkit-text-fill-color: var(--topbar-on);
 }
 
 .role-pill {

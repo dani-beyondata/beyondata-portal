@@ -64,13 +64,18 @@ const Branding = (() => {
     const d = hexToRgb(darkHex) || darken(p, 0.20);
     const light = mixWhite(p, 0.88);
     const heroStart = darken(d, 0.15);
+    // When the header colour is bright, its text/controls must be dark, not white.
+    const headerBright = textOn(d) === '#111827';
     return {
       brand:        rgbToHex(p.r, p.g, p.b),
       brandLight:   rgbToHex(light.r, light.g, light.b),
       brandDark:    rgbToHex(d.r, d.g, d.b),
       brandOn:      textOn(p),                       // text on a --brand fill
       topbarBg:     rgbToHex(d.r, d.g, d.b),         // header bar = dark colour
-      topbarOn:     textOn(d),
+      topbarOn:     textOn(d),                       // main header text/logo
+      topbarOnSoft:     headerBright ? 'rgba(0,0,0,0.72)'  : 'rgba(255,255,255,0.85)',
+      topbarCtrlBg:     headerBright ? 'rgba(0,0,0,0.06)'  : 'rgba(255,255,255,0.12)',
+      topbarCtrlBorder: headerBright ? 'rgba(0,0,0,0.18)'  : 'rgba(255,255,255,0.20)',
       heroStart:    rgbToHex(heroStart.r, heroStart.g, heroStart.b),
       heroEnd:      rgbToHex(p.r, p.g, p.b)
     };
@@ -86,6 +91,9 @@ const Branding = (() => {
     t.setProperty('--brand-on',     pal.brandOn);
     t.setProperty('--topbar-bg',    pal.topbarBg);
     t.setProperty('--topbar-on',    pal.topbarOn);
+    t.setProperty('--topbar-on-soft',     pal.topbarOnSoft);
+    t.setProperty('--topbar-ctrl-bg',     pal.topbarCtrlBg);
+    t.setProperty('--topbar-ctrl-border', pal.topbarCtrlBorder);
     t.setProperty('--hero-start',   pal.heroStart);
     t.setProperty('--hero-end',     pal.heroEnd);
   }
@@ -94,7 +102,8 @@ const Branding = (() => {
   function clear(el) {
     const t = (el || document.documentElement).style;
     ['--brand', '--brand-light', '--brand-dark', '--brand-on',
-     '--topbar-bg', '--topbar-on', '--hero-start', '--hero-end']
+     '--topbar-bg', '--topbar-on', '--topbar-on-soft', '--topbar-ctrl-bg',
+     '--topbar-ctrl-border', '--hero-start', '--hero-end']
       .forEach(v => t.removeProperty(v));
   }
 
@@ -108,6 +117,7 @@ const Branding = (() => {
     const pal = derive(company.brand_primary, company.brand_dark);
     if (!pal) return false;
     apply(pal, document.documentElement);
+    if (document.body) document.body.classList.add('has-brand');
     return true;
   }
 
