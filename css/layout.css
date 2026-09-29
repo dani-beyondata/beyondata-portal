@@ -260,14 +260,13 @@ body.sb-collapsed .nav-item .nav-badge { position: absolute; top: 4px; right: 6p
   -webkit-text-fill-color: #1a1d24;
 }
 .login-brand .logo-d {
-  background: linear-gradient(135deg, #1a1d24 50%, #60a5fa 50%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #3D65A8 !important;
+  -webkit-text-fill-color: #3D65A8;
+  background: none;
 }
 .login-brand .logo-ata {
-  color: #60a5fa !important;
-  -webkit-text-fill-color: #60a5fa;
+  color: #3D65A8 !important;
+  -webkit-text-fill-color: #3D65A8;
 }
 
 .login-brand .brand-sub {
