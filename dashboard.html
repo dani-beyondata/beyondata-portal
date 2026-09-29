@@ -187,7 +187,7 @@
         <button type="button" class="btn btn-sm" id="pbi-zoom-out" title="Reducir">−</button>
         <span class="pbi-zoom-label" id="pbi-zoom-label">100%</span>
         <button type="button" class="btn btn-sm" id="pbi-zoom-in" title="Ampliar">+</button>
-        <button type="button" class="btn btn-sm" id="pbi-zoom-fit" title="Ajustar al ancho disponible">Ajustar</button>
+        <button type="button" class="btn btn-sm" id="pbi-zoom-fit" title="Ajustar el report al ancho · Ctrl+0 (Cmd+0) restablece el zoom del navegador">Ajustar</button>
         <button type="button" class="btn btn-sm" id="pbi-fullscreen" title="Pantalla completa (Esc para salir)">⤢</button>
       </div>
       <div class="alert error" id="pbi-export-error" style="margin:0 0 0.6rem"></div>
@@ -2430,7 +2430,7 @@
     const setZoom = z => { pbiZoom = Math.min(3, Math.max(0.4, z)); if (f()) pbiSizeIframe(container, f(), false); };
     document.getElementById('pbi-zoom-in').addEventListener('click', () => setZoom(pbiZoom * 1.15));
     document.getElementById('pbi-zoom-out').addEventListener('click', () => setZoom(pbiZoom / 1.15));
-    document.getElementById('pbi-zoom-fit').addEventListener('click', () => { pbiZoom = 1; if (f()) pbiSizeIframe(container, f(), true); });
+    document.getElementById('pbi-zoom-fit').addEventListener('click', () => { pbiZoom = 1; container.scrollTop = 0; container.scrollLeft = 0; if (f()) pbiSizeIframe(container, f(), true); });
     document.getElementById('pbi-fullscreen').addEventListener('click', () => {
       if (document.fullscreenElement) document.exitFullscreen();
       else if (container.requestFullscreen) container.requestFullscreen();
