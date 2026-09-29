@@ -1476,6 +1476,23 @@
           <tbody id="users-tbody"></tbody>
         </table>
       </div>
+
+      <!-- Deactivated users (collapsed) -->
+      <div id="users-inactive-wrap" style="margin-top:1.25rem;display:none">
+        <button type="button" onclick="toggleInactiveUsers()"
+          style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:0.6rem 0.9rem;cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--text-muted)">
+          <span>Desactivados (<span id="users-inactive-count">0</span>)</span>
+          <span id="users-inactive-caret">▸</span>
+        </button>
+        <div class="table-wrap" id="users-inactive-body" style="display:none;margin-top:0.5rem">
+          <table>
+            <thead><tr>
+              <th>Name</th><th>Role</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="users-inactive-tbody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -3294,18 +3311,8 @@
   });
 
   // ── USERS ─────────────────────────────────────────────────────────
-  async function loadUsers() {
-    UI.tableLoading('users-tbody', 4);
-    const { data, error } = await Users.getByCompany(currentCompany.id);
-
-    if (error || !data?.length) {
-      UI.tableEmpty('users-tbody', 4, 'No users yet.');
-      document.getElementById('users-count').textContent = '0 users';
-      return;
-    }
-
-    document.getElementById('users-count').textContent = `${data.length} users`;
-    document.getElementById('users-tbody').innerHTML = data.map(u => `
+  function userRow(u) {
+    return `
       <tr>
         <td>${u.full_name || '—'}</td>
         <td>${UI.roleBadge(u.role)}</td>
@@ -3315,8 +3322,48 @@
             ${u.active ? 'Deactivate' : 'Activate'}
           </button>
         </td>
-      </tr>
-    `).join('');
+      </tr>`;
+  }
+
+  function toggleInactiveUsers() {
+    const body  = document.getElementById('users-inactive-body');
+    const caret = document.getElementById('users-inactive-caret');
+    const open  = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    caret.textContent  = open ? '▸' : '▾';
+  }
+
+  async function loadUsers() {
+    UI.tableLoading('users-tbody', 4);
+    const inactiveWrap = document.getElementById('users-inactive-wrap');
+    const { data, error } = await Users.getByCompany(currentCompany.id);
+
+    if (error || !data?.length) {
+      UI.tableEmpty('users-tbody', 4, 'No users yet.');
+      document.getElementById('users-count').textContent = '0 users';
+      if (inactiveWrap) inactiveWrap.style.display = 'none';
+      return;
+    }
+
+    const active   = data.filter(u => u.active);
+    const inactive = data.filter(u => !u.active);
+
+    document.getElementById('users-count').textContent =
+      `${active.length} ${active.length === 1 ? 'user' : 'users'}`;
+
+    if (active.length) {
+      document.getElementById('users-tbody').innerHTML = active.map(userRow).join('');
+    } else {
+      UI.tableEmpty('users-tbody', 4, 'No active users.');
+    }
+
+    if (inactive.length) {
+      document.getElementById('users-inactive-count').textContent = inactive.length;
+      document.getElementById('users-inactive-tbody').innerHTML = inactive.map(userRow).join('');
+      inactiveWrap.style.display = 'block';
+    } else if (inactiveWrap) {
+      inactiveWrap.style.display = 'none';
+    }
   }
 
   async function toggleUser(id, active) {
