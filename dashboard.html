@@ -2121,6 +2121,13 @@
     currentProfile = await Auth.getProfile(session.user.id);
     if (!currentProfile) { window.location.href = 'login.html'; return; }
 
+    // Soft-delete: un usuario desactivado (no-admin) no puede entrar al portal.
+    if (currentProfile.role !== 'system_admin' && currentProfile.active === false) {
+      alert('Tu acceso al portal está desactivado. Contacta con tu administrador.');
+      await Auth.logout();
+      return;
+    }
+
     isAdmin = ['system_admin','company_admin'].includes(currentProfile.role);
 
     // Resolve company
@@ -3304,7 +3311,7 @@
         <td>${UI.roleBadge(u.role)}</td>
         <td>${UI.statusBadge(u.active)}</td>
         <td>
-          <button class="btn btn-secondary btn-sm" onclick="toggleUser('${u.id}',${u.active})">
+          <button class="btn btn-sm ${u.active ? 'btn-danger' : 'btn-secondary'}" onclick="toggleUser('${u.id}',${u.active})">
             ${u.active ? 'Deactivate' : 'Activate'}
           </button>
         </td>
@@ -3313,6 +3320,7 @@
   }
 
   async function toggleUser(id, active) {
+    if (active && !confirm('¿Desactivar este usuario? Perderá el acceso al portal (reversible).')) return;
     await Users.toggleActive(id, active);
     loadUsers();
   }
