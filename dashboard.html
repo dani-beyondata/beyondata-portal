@@ -1662,7 +1662,7 @@
     <div class="alert success" id="user-success"></div>
     <div class="field"><label>Full name</label><input type="text" id="invite-name" placeholder="Ana García"></div>
     <div class="field"><label>Email</label><input type="email" id="invite-email" placeholder="ana@hotel.com"></div>
-    <div class="field"><label>Password</label><input type="password" id="invite-password" placeholder="Temporary password"></div>
+    <div class="field"><label>Password</label><input type="password" id="invite-password" placeholder="Contraseña (mín. 8)"></div>
     <div class="field">
       <label>Role</label>
       <select id="invite-role">
@@ -3318,7 +3318,8 @@
         <td>${UI.roleBadge(u.role)}</td>
         <td>${UI.statusBadge(u.active)}</td>
         <td>
-          <button class="btn btn-sm ${u.active ? 'btn-danger' : 'btn-secondary'}" onclick="toggleUser('${u.id}',${u.active})">
+          <button class="btn btn-sm btn-secondary" onclick="resetUserPassword('${u.id}')">Reset password</button>
+          <button class="btn btn-sm ${u.active ? 'btn-danger' : 'btn-secondary'}" onclick="toggleUser('${u.id}',${u.active})" style="margin-left:4px">
             ${u.active ? 'Deactivate' : 'Activate'}
           </button>
         </td>
@@ -3370,6 +3371,30 @@
     if (active && !confirm('¿Desactivar este usuario? Perderá el acceso al portal (reversible).')) return;
     await Users.toggleActive(id, active);
     loadUsers();
+  }
+
+  async function resetUserPassword(id) {
+    const pw = prompt('Nueva contraseña para este usuario (mín. 8 caracteres):');
+    if (pw === null) return;                     // cancelado
+    if (pw.length < 8) { alert('La contraseña debe tener al menos 8 caracteres.'); return; }
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { alert('Tu sesión ha expirado, vuelve a entrar.'); return; }
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-set-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ user_id: id, password: pw })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { alert('Error: ' + (j.error || r.status)); return; }
+      alert('Contraseña del portal actualizada.\n\nRecuerda ponerla también en Microsoft (Power BI) para que sea consistente.');
+    } catch (e) {
+      alert('Error de red: ' + e.message);
+    }
   }
 
   document.getElementById('btn-invite-user').addEventListener('click', () => UI.openModal('modal-user'));
