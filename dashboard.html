@@ -6867,7 +6867,7 @@
   });
 
   document.getElementById('btn-signout').addEventListener('click', () => Auth.logout());
-  document.getElementById('topbar-brand').addEventListener('click', () => navTo('overview'));
+  document.getElementById('topbar-brand').addEventListener('click', () => navTo((currentProfile && currentProfile.role === 'system_admin') ? 'overview' : 'my_dashboard'));
   document.getElementById('btn-switch').addEventListener('click', () => { window.location.href = 'company-select.html'; });
 
   init();
