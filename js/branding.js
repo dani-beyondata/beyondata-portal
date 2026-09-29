@@ -128,23 +128,29 @@ const Branding = (() => {
     if (!company.brand_logo_url) return false;
     const el = document.getElementById('topbar-brand');
     if (!el) return false;
+    // Left: just the client logo (it already contains the client's name).
     el.innerHTML = '';
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;align-items:center;gap:11px';
     const img = document.createElement('img');
     img.src = company.brand_logo_url;
     img.alt = company.name || 'logo';
-    img.style.cssText = 'height:34px;max-width:190px;object-fit:contain;display:block';
-    wrap.appendChild(img);
-    const firma = document.createElement('span');
-    firma.style.cssText = 'display:flex;flex-direction:column;line-height:1.05;white-space:nowrap';
-    firma.innerHTML =
-      '<span style="font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:var(--topbar-on-soft)">powered by</span>' +
-      '<span style="font-size:12px;font-weight:800;letter-spacing:0.2px">' +
-        '<span style="color:var(--topbar-on)">BEYON</span><span style="color:#60a5fa">DATA</span>' +
-      '</span>';
-    wrap.appendChild(firma);
-    el.appendChild(wrap);
+    img.style.cssText = 'height:36px;max-width:210px;object-fit:contain;display:block';
+    el.appendChild(img);
+    // The company-name pill is redundant with the logo → hide it.
+    const pill = document.getElementById('company-pill');
+    if (pill) pill.style.display = 'none';
+    // Right: a small "powered by BEYONDATA" mark (once).
+    const right = document.querySelector('.topbar-right');
+    if (right && !document.getElementById('powered-by-bd')) {
+      const pb = document.createElement('span');
+      pb.id = 'powered-by-bd';
+      pb.style.cssText = 'display:inline-flex;align-items:baseline;gap:5px;margin-right:14px;white-space:nowrap';
+      pb.innerHTML =
+        '<span style="font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--topbar-on-soft)">powered by</span>' +
+        '<span style="font-size:12px;font-weight:800;letter-spacing:0.2px">' +
+          '<span style="color:var(--topbar-on)">BEYON</span><span style="color:#60a5fa">DATA</span>' +
+        '</span>';
+      right.insertBefore(pb, right.firstChild);
+    }
     return true;
   }
 
