@@ -6605,6 +6605,7 @@
   }
 
   async function clearBranding() {
+    if (!confirm('¿Volver al azul BeyonData por defecto? Se descartarán los colores de esta company.')) return;
     UI.hideAlert('branding-error');
     UI.hideAlert('branding-success');
     UI.setLoading('btn-clear-branding', true, 'Usar azul BeyonData');
