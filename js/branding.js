@@ -121,5 +121,21 @@ const Branding = (() => {
     return true;
   }
 
-  return { hexToRgb, rgbToHex, textOn, luminance, derive, apply, clear, applyForCompany };
+  // Replace the "BEYONDATA" wordmark in the topbar with the company's logo,
+  // for a non-admin user of a branded company. Admin keeps the wordmark.
+  function applyLogo(company, profile) {
+    if (!company || !profile || profile.role === 'system_admin') return false;
+    if (!company.brand_logo_url) return false;
+    const el = document.getElementById('topbar-brand');
+    if (!el) return false;
+    const img = document.createElement('img');
+    img.src = company.brand_logo_url;
+    img.alt = company.name || 'logo';
+    img.style.cssText = 'height:34px;max-width:210px;object-fit:contain;display:block';
+    el.innerHTML = '';
+    el.appendChild(img);
+    return true;
+  }
+
+  return { hexToRgb, rgbToHex, textOn, luminance, derive, apply, clear, applyForCompany, applyLogo };
 })();

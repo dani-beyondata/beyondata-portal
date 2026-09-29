@@ -457,6 +457,17 @@
                 <button class="btn btn-primary" id="btn-save-branding">Guardar colores</button>
                 <button class="btn" id="btn-clear-branding" style="background:var(--bg);border:1px solid var(--border)">Usar azul BeyonData</button>
               </div>
+
+              <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+                <div style="font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.6rem">Logo del cliente</div>
+                <div id="branding-logo-preview" style="display:none;align-items:center;gap:0.75rem;margin-bottom:0.7rem">
+                  <img id="branding-logo-img" alt="logo" style="height:40px;max-width:180px;object-fit:contain;border:1px solid var(--border);border-radius:6px;background:#fff;padding:3px">
+                  <button class="btn btn-sm btn-danger" id="btn-remove-logo" type="button">Quitar logo</button>
+                </div>
+                <input type="file" id="branding-logo-file" accept="image/png,image/svg+xml,image/jpeg" style="font-size:0.8rem">
+                <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.4rem">PNG o SVG (fondo transparente recomendado). Sustituye a "BEYONDATA" en la barra superior de los usuarios de esta company.</div>
+                <div style="margin-top:0.7rem"><button class="btn btn-primary btn-sm" id="btn-upload-logo" type="button">Subir y guardar logo</button></div>
+              </div>
             </div>
           </div>
 
@@ -2160,6 +2171,7 @@
     // White-label: a non-admin user sees their company's colours; admin keeps
     // the default BeyonData blue. No-op if the company has no brand set.
     Branding.applyForCompany(currentCompany, currentProfile);
+    Branding.applyLogo(currentCompany, currentProfile);
 
     // Hide admin nav for plain users
     if (currentProfile.role === 'company_user') {
@@ -6575,6 +6587,47 @@
     dh.addEventListener('input', () => { const rgb = Branding.hexToRgb(dh.value); if (rgb) d.value = Branding.rgbToHex(rgb.r, rgb.g, rgb.b); brandingRefreshPreview(); });
     document.getElementById('btn-save-branding').addEventListener('click', saveBranding);
     document.getElementById('btn-clear-branding').addEventListener('click', clearBranding);
+    document.getElementById('btn-upload-logo').addEventListener('click', uploadLogo);
+    document.getElementById('btn-remove-logo').addEventListener('click', removeLogo);
+  }
+
+  function showLogoPreview(url) {
+    const wrap = document.getElementById('branding-logo-preview');
+    const img  = document.getElementById('branding-logo-img');
+    if (url) { img.src = url; wrap.style.display = 'flex'; }
+    else { img.removeAttribute('src'); wrap.style.display = 'none'; }
+  }
+
+  async function uploadLogo() {
+    UI.hideAlert('branding-error');
+    UI.hideAlert('branding-success');
+    const file = document.getElementById('branding-logo-file').files[0];
+    if (!file) { UI.showAlert('branding-error', 'Elige un archivo de imagen primero.'); return; }
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const path = `${currentCompany.id}/logo-${Date.now()}.${ext}`;
+    UI.setLoading('btn-upload-logo', true, 'Subir y guardar logo');
+    const up = await sb.storage.from('branding').upload(path, file, { upsert: true, cacheControl: '3600' });
+    if (up.error) { UI.setLoading('btn-upload-logo', false, 'Subir y guardar logo'); UI.showAlert('branding-error', 'Error subiendo el logo: ' + up.error.message); return; }
+    const { data: pub } = sb.storage.from('branding').getPublicUrl(path);
+    const url = pub.publicUrl;
+    const { data, error } = await Companies.update(currentCompany.id, { brand_logo_url: url });
+    UI.setLoading('btn-upload-logo', false, 'Subir y guardar logo');
+    if (error) { UI.showAlert('branding-error', error.message); return; }
+    currentCompany = { ...currentCompany, ...data };
+    showLogoPreview(url);
+    document.getElementById('branding-logo-file').value = '';
+    UI.showAlert('branding-success', 'Logo guardado. Los usuarios de esta company lo verán en la barra superior.');
+  }
+
+  async function removeLogo() {
+    if (!confirm('¿Quitar el logo de esta company? Volverá a mostrarse "BEYONDATA".')) return;
+    UI.hideAlert('branding-error');
+    UI.hideAlert('branding-success');
+    const { data, error } = await Companies.update(currentCompany.id, { brand_logo_url: null });
+    if (error) { UI.showAlert('branding-error', error.message); return; }
+    currentCompany = { ...currentCompany, ...data };
+    showLogoPreview(null);
+    UI.showAlert('branding-success', 'Logo quitado.');
   }
 
   function loadBranding() {
@@ -6583,6 +6636,7 @@
     brandingSyncPair('branding-primary', 'branding-primary-hex', currentCompany.brand_primary || '#3D65A8');
     brandingSyncPair('branding-dark',    'branding-dark-hex',    currentCompany.brand_dark    || '#1e3a5f');
     brandingRefreshPreview();
+    showLogoPreview(currentCompany.brand_logo_url);
     wireBrandingOnce();
   }
 
