@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/modals.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 </head>
 <body>
 
@@ -464,9 +465,8 @@
                   <img id="branding-logo-img" alt="logo" style="height:40px;max-width:180px;object-fit:contain;border:1px solid var(--border);border-radius:6px;background:#fff;padding:3px">
                   <button class="btn btn-sm btn-danger" id="btn-remove-logo" type="button">Quitar logo</button>
                 </div>
-                <input type="file" id="branding-logo-file" accept="image/png,image/svg+xml,image/jpeg" style="font-size:0.8rem">
-                <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.4rem">PNG o SVG (fondo transparente recomendado). Sustituye a "BEYONDATA" en la barra superior de los usuarios de esta company.</div>
-                <div style="margin-top:0.7rem"><button class="btn btn-primary btn-sm" id="btn-upload-logo" type="button">Subir y guardar logo</button></div>
+                <input type="file" id="branding-logo-file" accept="image/png,image/jpeg" style="font-size:0.8rem">
+                <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.4rem">Elige una imagen (PNG/JPG). Se abrirá un recortador para encuadrarla a la forma estándar (la misma que usa Power BI). Sustituye a "BEYONDATA" en la barra superior de los usuarios de esta company.</div>
               </div>
             </div>
           </div>
@@ -2080,6 +2080,26 @@
   </div>
 </div>
 
+<!-- Modal: crop logo -->
+<div class="modal-overlay" id="modal-logo-crop">
+  <div class="modal modal-wide">
+    <h3>Encuadrar logo</h3>
+    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0">Ajusta el encuadre a la forma estándar (la misma proporción que Power BI). Arrastra la imagen y usa +/− para acercar o alejar. Lo que quede fuera de la imagen será transparente.</p>
+    <div style="background:#f4f6fb;border:1px solid var(--border);border-radius:8px;overflow:hidden;max-height:56vh">
+      <img id="crop-img" style="max-width:100%;display:block">
+    </div>
+    <div style="display:flex;gap:0.5rem;margin-top:0.6rem;align-items:center">
+      <button class="btn btn-sm btn-secondary" type="button" id="crop-zoom-out">−</button>
+      <button class="btn btn-sm btn-secondary" type="button" id="crop-zoom-in">+</button>
+      <button class="btn btn-sm btn-secondary" type="button" id="crop-reset">Reset</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeLogoCropper()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-crop-save">Guardar logo</button>
+    </div>
+  </div>
+</div>
+
 <!-- JS: libs first, then modules, then page logic -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
@@ -2088,6 +2108,7 @@
 <script src="js/ui.js"></script>
 <script src="js/companies.js"></script>
 <script src="js/branding.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <script src="js/properties.js"></script>
 <script src="js/channels.js"></script>
 <script src="js/channel_subtypes.js"></script>
@@ -6587,8 +6608,15 @@
     dh.addEventListener('input', () => { const rgb = Branding.hexToRgb(dh.value); if (rgb) d.value = Branding.rgbToHex(rgb.r, rgb.g, rgb.b); brandingRefreshPreview(); });
     document.getElementById('btn-save-branding').addEventListener('click', saveBranding);
     document.getElementById('btn-clear-branding').addEventListener('click', clearBranding);
-    document.getElementById('btn-upload-logo').addEventListener('click', uploadLogo);
     document.getElementById('btn-remove-logo').addEventListener('click', removeLogo);
+    document.getElementById('branding-logo-file').addEventListener('change', function () {
+      const f = this.files[0];
+      if (f) openLogoCropper(f);
+    });
+    document.getElementById('btn-crop-save').addEventListener('click', saveCroppedLogo);
+    document.getElementById('crop-zoom-in').addEventListener('click', () => { if (_cropper) _cropper.zoom(0.1); });
+    document.getElementById('crop-zoom-out').addEventListener('click', () => { if (_cropper) _cropper.zoom(-0.1); });
+    document.getElementById('crop-reset').addEventListener('click', () => { if (_cropper) _cropper.reset(); });
   }
 
   function showLogoPreview(url) {
@@ -6598,26 +6626,64 @@
     else { img.removeAttribute('src'); wrap.style.display = 'none'; }
   }
 
-  async function uploadLogo() {
+  // ── Logo cropper (Cropper.js) ─────────────────────────────────────
+  let _cropper = null;
+  let _cropObjUrl = null;
+  const LOGO_ASPECT = 80 / 63;   // misma proporción que el visual de Power BI
+
+  function openLogoCropper(file) {
+    if (_cropObjUrl) URL.revokeObjectURL(_cropObjUrl);
+    _cropObjUrl = URL.createObjectURL(file);
+    const img = document.getElementById('crop-img');
+    img.src = _cropObjUrl;
+    UI.openModal('modal-logo-crop');
+    if (_cropper) { _cropper.destroy(); _cropper = null; }
+    img.onload = function () {
+      _cropper = new Cropper(img, {
+        aspectRatio: LOGO_ASPECT,
+        viewMode: 0,
+        dragMode: 'move',
+        autoCropArea: 1,
+        cropBoxMovable: false,
+        cropBoxResizable: false,
+        toggleDragModeOnDblclick: false,
+        background: true
+      });
+    };
+  }
+
+  function closeLogoCropper() {
+    if (_cropper) { _cropper.destroy(); _cropper = null; }
+    if (_cropObjUrl) { URL.revokeObjectURL(_cropObjUrl); _cropObjUrl = null; }
+    document.getElementById('branding-logo-file').value = '';
+    UI.closeModal('modal-logo-crop');
+  }
+
+  function saveCroppedLogo() {
+    if (!_cropper) return;
+    const canvas = _cropper.getCroppedCanvas({ width: 400, height: 315, imageSmoothingQuality: 'high' });
+    if (!canvas) { UI.showAlert('branding-error', 'No se pudo generar la imagen.'); return; }
+    canvas.toBlob(function (blob) {
+      if (!blob) { UI.showAlert('branding-error', 'No se pudo generar la imagen.'); return; }
+      closeLogoCropper();
+      uploadLogoBlob(blob);
+    }, 'image/png');
+  }
+
+  async function uploadLogoBlob(blob) {
     UI.hideAlert('branding-error');
     UI.hideAlert('branding-success');
-    const file = document.getElementById('branding-logo-file').files[0];
-    if (!file) { UI.showAlert('branding-error', 'Elige un archivo de imagen primero.'); return; }
     const slug = (currentCompany.slug || currentCompany.id).toLowerCase().replace(/[^a-z0-9._-]/g, '-');
-    // Fixed filename so the URL is predictable from the slug (Power BI builds it too).
-    const path = `${slug}/logo.png`;
-    UI.setLoading('btn-upload-logo', true, 'Subir y guardar logo');
-    const up = await sb.storage.from('branding').upload(path, file, { upsert: true, cacheControl: '3600', contentType: file.type || 'image/png' });
-    if (up.error) { UI.setLoading('btn-upload-logo', false, 'Subir y guardar logo'); UI.showAlert('branding-error', 'Error subiendo el logo: ' + up.error.message); return; }
+    const path = `${slug}/logo.png`;   // fixed name → predictable URL (portal + Power BI)
+    const up = await sb.storage.from('branding').upload(path, blob, { upsert: true, cacheControl: '3600', contentType: 'image/png' });
+    if (up.error) { UI.showAlert('branding-error', 'Error subiendo el logo: ' + up.error.message); return; }
     const { data: pub } = sb.storage.from('branding').getPublicUrl(path);
     const url = pub.publicUrl + '?v=' + Date.now();   // cache-bust for the portal; PBI uses the base URL
     const { data, error } = await Companies.update(currentCompany.id, { brand_logo_url: url });
-    UI.setLoading('btn-upload-logo', false, 'Subir y guardar logo');
     if (error) { UI.showAlert('branding-error', error.message); return; }
     currentCompany = { ...currentCompany, ...data };
     showLogoPreview(url);
-    document.getElementById('branding-logo-file').value = '';
-    UI.showAlert('branding-success', 'Logo guardado. Los usuarios de esta company lo verán en la barra superior.');
+    UI.showAlert('branding-success', 'Logo recortado y guardado. Se actualiza en el portal y en Power BI (mismo archivo).');
   }
 
   async function removeLogo() {
