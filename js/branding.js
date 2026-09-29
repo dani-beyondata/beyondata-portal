@@ -128,12 +128,23 @@ const Branding = (() => {
     if (!company.brand_logo_url) return false;
     const el = document.getElementById('topbar-brand');
     if (!el) return false;
+    el.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;align-items:center;gap:11px';
     const img = document.createElement('img');
     img.src = company.brand_logo_url;
     img.alt = company.name || 'logo';
-    img.style.cssText = 'height:34px;max-width:210px;object-fit:contain;display:block';
-    el.innerHTML = '';
-    el.appendChild(img);
+    img.style.cssText = 'height:34px;max-width:190px;object-fit:contain;display:block';
+    wrap.appendChild(img);
+    const firma = document.createElement('span');
+    firma.style.cssText = 'display:flex;flex-direction:column;line-height:1.05;white-space:nowrap';
+    firma.innerHTML =
+      '<span style="font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:var(--topbar-on-soft)">powered by</span>' +
+      '<span style="font-size:12px;font-weight:800;letter-spacing:0.2px">' +
+        '<span style="color:var(--topbar-on)">BEYON</span><span style="color:#60a5fa">DATA</span>' +
+      '</span>';
+    wrap.appendChild(firma);
+    el.appendChild(wrap);
     return true;
   }
 

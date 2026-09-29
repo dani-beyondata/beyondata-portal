@@ -6603,14 +6603,14 @@
     UI.hideAlert('branding-success');
     const file = document.getElementById('branding-logo-file').files[0];
     if (!file) { UI.showAlert('branding-error', 'Elige un archivo de imagen primero.'); return; }
-    const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
     const slug = (currentCompany.slug || currentCompany.id).toLowerCase().replace(/[^a-z0-9._-]/g, '-');
-    const path = `${slug}/logo-${Date.now()}.${ext}`;
+    // Fixed filename so the URL is predictable from the slug (Power BI builds it too).
+    const path = `${slug}/logo.png`;
     UI.setLoading('btn-upload-logo', true, 'Subir y guardar logo');
-    const up = await sb.storage.from('branding').upload(path, file, { upsert: true, cacheControl: '3600' });
+    const up = await sb.storage.from('branding').upload(path, file, { upsert: true, cacheControl: '3600', contentType: file.type || 'image/png' });
     if (up.error) { UI.setLoading('btn-upload-logo', false, 'Subir y guardar logo'); UI.showAlert('branding-error', 'Error subiendo el logo: ' + up.error.message); return; }
     const { data: pub } = sb.storage.from('branding').getPublicUrl(path);
-    const url = pub.publicUrl;
+    const url = pub.publicUrl + '?v=' + Date.now();   // cache-bust for the portal; PBI uses the base URL
     const { data, error } = await Companies.update(currentCompany.id, { brand_logo_url: url });
     UI.setLoading('btn-upload-logo', false, 'Subir y guardar logo');
     if (error) { UI.showAlert('branding-error', error.message); return; }
