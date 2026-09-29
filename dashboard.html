@@ -6604,7 +6604,8 @@
     const file = document.getElementById('branding-logo-file').files[0];
     if (!file) { UI.showAlert('branding-error', 'Elige un archivo de imagen primero.'); return; }
     const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const path = `${currentCompany.id}/logo-${Date.now()}.${ext}`;
+    const slug = (currentCompany.slug || currentCompany.id).toLowerCase().replace(/[^a-z0-9._-]/g, '-');
+    const path = `${slug}/logo-${Date.now()}.${ext}`;
     UI.setLoading('btn-upload-logo', true, 'Subir y guardar logo');
     const up = await sb.storage.from('branding').upload(path, file, { upsert: true, cacheControl: '3600' });
     if (up.error) { UI.setLoading('btn-upload-logo', false, 'Subir y guardar logo'); UI.showAlert('branding-error', 'Error subiendo el logo: ' + up.error.message); return; }
