@@ -2241,11 +2241,7 @@
       const navItem = document.querySelector('.nav-item[data-section="' + savedSectionSafe + '"]');
       if (navItem) navItem.classList.add('active');
       document.getElementById('section-' + savedSectionSafe).classList.add('active');
-      const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, plan_requests: loadPlanRequests, properties: loadProperties, settings: loadSettings,
-        channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes,
-        markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms,
-        availability: initAvailabilitySection, countries: loadCountries, pipeline: PipelineAdmin.load, onboarding: initOnboarding,
-        users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init, reports: () => Reports.init({ sb, currentCompany, currentProfile }), branding: loadBranding };
+      const loaders = getSectionLoaders();
       const loader = loaders[savedSectionSafe];
       if (loader) {
         await loader();
@@ -2316,7 +2312,7 @@
       const s = item.dataset.section;
       document.getElementById(`section-${s}`).classList.add('active');
       hashSet({ section: s, property: null });
-      const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, plan_requests: loadPlanRequests, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
+      const loaders = getSectionLoaders();
       loaders[s]?.();
     });
   });
@@ -6780,6 +6776,25 @@
   });
 
   // ── NAV HELPER ────────────────────────────────────────────────────
+  // Single source of truth for every section's loader. Used by the sidebar
+  // click handler, navTo(), and the initial hash-routing on boot — keeping one
+  // map avoids the three drifting out of sync (which left reports/pipeline/
+  // onboarding/branding not loading until an F5).
+  function getSectionLoaders() {
+    return {
+      overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan,
+      plan_requests: loadPlanRequests, properties: loadProperties, settings: loadSettings,
+      channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes,
+      markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms,
+      availability: initAvailabilitySection, countries: loadCountries,
+      pipeline: PipelineAdmin.load, onboarding: initOnboarding,
+      users: loadUsers, company: loadCompany, masters_setup: initMastersSetup,
+      data_upload: DataUpload.init,
+      reports: () => Reports.init({ sb, currentCompany, currentProfile }),
+      branding: loadBranding
+    };
+  }
+
   function navTo(section, subtab) {
     // Properties y Settings pasaron a ser subtabs dentro de Company.
     if (section === 'properties') { subtab = 'properties'; section = 'company'; }
@@ -6792,7 +6807,7 @@
     if (sectionEl) sectionEl.classList.add('active');
     hashSet({ section: section });
     if (section === 'company' && subtab) { showSubtab('company', subtab); }
-    const loaders = { overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan, plan_requests: loadPlanRequests, channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes, markets: loadMarkets, extras: loadExtrasCategories, rooms: loadRooms, availability: initAvailabilitySection, countries: loadCountries, pipeline: PipelineAdmin.load, onboarding: initOnboarding, users: loadUsers, company: loadCompany, masters_setup: initMastersSetup, data_upload: DataUpload.init };
+    const loaders = getSectionLoaders();
     loaders[section]?.();
     window.scrollTo(0, 0);
   }
