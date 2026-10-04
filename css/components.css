@@ -503,16 +503,22 @@ tbody td:first-child { font-weight: 500; }
 }
 
 .day-rooms-input {
-  width: 36px;
+  width: 52px;
   border: 1px solid transparent;
   border-radius: 4px;
-  padding: 1px 3px;
+  padding: 1px 4px;
   font-size: 0.72rem;
   font-family: 'DM Mono', monospace;
   text-align: center;
   background: transparent;
   color: var(--text-muted);
   cursor: text;
+  -moz-appearance: textfield;
+}
+.day-rooms-input::-webkit-outer-spin-button,
+.day-rooms-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .day-rooms-input:focus {
