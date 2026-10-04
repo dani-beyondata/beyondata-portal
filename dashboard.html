@@ -80,13 +80,11 @@
       <div class="welcome-hero">
         <div class="welcome-hero-bg"></div>
         <div class="welcome-hero-content">
-          <div class="welcome-brand">
-            <span class="wb-beyon">BEYON</span><span class="wb-d">D</span><span class="wb-ata">ATA</span>
-          </div>
-          <div class="welcome-greeting" id="welcome-greeting">Bienvenido</div>
-          <div class="welcome-sub" id="welcome-sub">Panel de control</div>
+          <div class="welcome-eyebrow">Panel de control</div>
+          <div class="welcome-greeting" id="welcome-title">—</div>
           <div class="welcome-date" id="welcome-date"></div>
         </div>
+        <div class="welcome-logo" id="welcome-logo"></div>
       </div>
 
       <div class="section-header" style="margin-top:1.75rem">
@@ -1102,7 +1100,10 @@
       .du-count-badge { font-size:0.75rem; background:var(--brand-light,#eef3fb); color:var(--brand,#3D65A8); padding:0.15rem 0.6rem; border-radius:20px; font-weight:600; }
 
       /* Welcome hero */
-      .welcome-hero { position:relative; border-radius:20px; overflow:hidden; padding:2.4rem 2.6rem; background:linear-gradient(135deg,var(--hero-start,#1e3a5f) 0%,var(--brand-dark,#2d4d78) 55%,var(--hero-end,#3D65A8) 100%); box-shadow:0 8px 24px rgba(30,58,95,0.18); }
+      .welcome-hero { position:relative; display:flex; align-items:center; justify-content:space-between; gap:1.5rem; border-radius:20px; overflow:hidden; padding:2.4rem 2.6rem; background:linear-gradient(135deg,var(--hero-start,#1e3a5f) 0%,var(--brand-dark,#2d4d78) 55%,var(--hero-end,#3D65A8) 100%); box-shadow:0 8px 24px rgba(30,58,95,0.18); }
+      .welcome-eyebrow { position:relative; z-index:1; font-size:0.72rem; font-weight:600; letter-spacing:2.5px; text-transform:uppercase; color:rgba(255,255,255,0.72); margin-bottom:0.55rem; }
+      .welcome-logo { position:relative; z-index:1; flex-shrink:0; }
+      .welcome-logo img { height:56px; max-width:210px; object-fit:contain; background:#fff; border-radius:12px; padding:9px 14px; box-shadow:0 6px 18px rgba(0,0,0,0.16); }
       .welcome-hero-bg { position:absolute; inset:0; background:radial-gradient(circle at 85% 20%, rgba(96,165,250,0.35) 0%, transparent 45%), radial-gradient(circle at 110% 120%, rgba(96,165,250,0.25) 0%, transparent 40%); pointer-events:none; }
       .welcome-hero-content { position:relative; z-index:1; }
       .welcome-brand { font-family:'Segoe UI',Arial,sans-serif; font-size:1.5rem; font-weight:800; letter-spacing:1px; margin-bottom:1.1rem; }
@@ -1112,7 +1113,7 @@
       .welcome-greeting { font-size:2rem; font-weight:700; color:#ffffff; line-height:1.15; }
       .welcome-sub { font-size:1rem; color:rgba(255,255,255,0.82); margin-top:0.35rem; }
       .welcome-date { font-size:0.8rem; color:rgba(255,255,255,0.6); margin-top:0.9rem; text-transform:capitalize; }
-      @media (max-width:640px){ .welcome-hero{ padding:1.8rem 1.6rem; } .welcome-greeting{ font-size:1.5rem; } }
+      @media (max-width:640px){ .welcome-hero{ padding:1.8rem 1.6rem; } .welcome-greeting{ font-size:1.5rem; } .welcome-logo{ display:none; } }
 
       /* Overview group labels with decorative line */
       .ov-group-label { display:flex; align-items:center; gap:0.75rem; font-family:'DM Mono',monospace; font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:0.85rem; font-weight:500; }
@@ -2802,23 +2803,19 @@
 
   // ── OVERVIEW ──────────────────────────────────────────────────────
   async function loadOverview() {
-    document.getElementById('overview-title').textContent = currentCompany.name;
+    document.getElementById('overview-title').textContent = 'Resumen';
 
-    // Welcome hero: time-based greeting + company + date
-    const hour = new Date().getHours();
-    const greet = hour < 6 ? 'Buenas noches'
-                : hour < 13 ? 'Buenos días'
-                : hour < 20 ? 'Buenas tardes'
-                : 'Buenas noches';
-    const firstName = (currentProfile && currentProfile.full_name)
-        ? currentProfile.full_name.split(' ')[0] : '';
-    document.getElementById('welcome-greeting').textContent =
-        greet + (firstName ? ', ' + firstName : '');
-    document.getElementById('welcome-sub').textContent =
-        'Panel de control · ' + currentCompany.name;
+    // Welcome hero: company name + date + logo (no personal greeting)
+    document.getElementById('welcome-title').textContent = currentCompany.name;
     document.getElementById('welcome-date').textContent =
         new Date().toLocaleDateString('es-ES',
             { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+    const wlogo = document.getElementById('welcome-logo');
+    if (wlogo) {
+      wlogo.innerHTML = currentCompany.brand_logo_url
+        ? `<img src="${currentCompany.brand_logo_url}" alt="${currentCompany.name}">`
+        : '';
+    }
 
     const cid = currentCompany.id;
 
