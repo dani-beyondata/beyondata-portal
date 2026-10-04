@@ -114,10 +114,18 @@
 
     (data || []).forEach(c => {
       const propCount = c.properties?.[0]?.count ?? 0;
+      const initial = c.name.charAt(0).toUpperCase();
+      const badge = c.brand_logo_url
+        ? `<div class="company-initial" style="background:#fff;padding:4px">
+             <img src="${c.brand_logo_url}" alt="${c.name}"
+                  style="width:100%;height:100%;object-fit:contain"
+                  onerror="this.parentNode.style.background='';this.parentNode.style.padding='';this.parentNode.textContent='${initial}'">
+           </div>`
+        : `<div class="company-initial">${initial}</div>`;
       const card = document.createElement('div');
       card.className = 'company-card';
       card.innerHTML = `
-        <div class="company-initial">${c.name.charAt(0).toUpperCase()}</div>
+        ${badge}
         <div class="company-card-name">${c.name}</div>
         <div class="company-card-slug">${c.slug}</div>
         <div class="company-card-meta">
