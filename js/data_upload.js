@@ -124,7 +124,8 @@ const DataUpload = (() => {
         ],
         littlehotelier: [
           { entity: 'reservations', reads_from_entity: null },
-          { entity: 'nights',       reads_from_entity: 'reservations' },
+          { entity: 'nights',       reads_from_entity: null },  // own revenue-breakdown upload
+          { entity: 'extras',       reads_from_entity: null },
         ],
       };
       jobs = catalog[currentPms()] || catalog.mews;
