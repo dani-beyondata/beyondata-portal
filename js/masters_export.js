@@ -33,12 +33,13 @@ const MastersExport = (() => {
         INK = 'FF31507D', INK_P = 'FF7C4700';
 
   // Per-sheet explanation shown in the banner (row 1). Keyed by sheet name;
-  // pending sheets fall back to EXPLAIN_PENDING.
+  // pending sheets fall back to EXPLAIN_PENDING. A caller may override the text
+  // (the Rooms sheet appends a computed capacity summary).
   const EXPLAIN = {
-    'Channels':
-      "Booking channels as received from your PMS. 'Raw value (PMS)' is exactly what the PMS sends — do not change it. 'Display Name (PowerBI)' is the label shown in your reports and is safe to edit, as are the rate type and average commission. Type/subtype group the channel in reports. Only active channels are shown.",
     'Channel Types':
       "Catalogue of channel types and subtypes used to group channels in the reports. Reference list — only active items are shown.",
+    'Channels':
+      "Booking channels as received from your PMS. 'Raw value (PMS)' is exactly what the PMS sends — do not change it. 'Display Name (PowerBI)' is the label shown in your reports and is safe to edit, as are the rate type and average commission. Type/subtype group the channel in reports. Only active channels are shown.",
     'OTAs':
       "Travel-agency (OTA) name mapping. 'Raw value (PMS)' must match what the PMS sends; edit only 'Display Name (PowerBI)', the label shown in reports. Only active items are shown.",
     'Segments':
@@ -48,11 +49,11 @@ const MastersExport = (() => {
     'Corporations':
       "Corporate-account mapping. 'Raw value (PMS)' must match the PMS; edit only 'Display Name (PowerBI)'. Only active items are shown.",
     'Room Categories':
-      "Room-category mapping. 'Raw value (PMS)' must match the PMS; edit only 'Display Name (PowerBI)'. Only active items are shown.",
-    'Rooms':
-      "One row per room. 'Room code' must match the PMS and should not be changed; the room name, category and bed count are editable. Only active rooms are shown.",
+      "Room-category mapping. 'Raw value (PMS)' must match the PMS; edit only 'Display Name (PowerBI)'. 'Room / Dorm' marks each category as a private room or a shared dorm — this drives the capacity and occupancy figures, so it must be correct. Only active items are shown.",
     'Room Attributes':
-      "Catalogue of room attributes (features used to describe rooms). Reference list — only active items are shown.",
+      "Catalogue of room attributes (features used to describe rooms, e.g. floor, bed type, shared/private). Reference list — only active items are shown. The attributes actually assigned to each room are shown in the 'Rooms' sheet.",
+    'Rooms':
+      "One row per room. 'Room code' must match the PMS (do not change it); the room name, category and bed count are editable. 'Room / Dorm' comes from the category. 'Alias of' means this row is the SAME physical room as another one, registered under a second PMS name: it maps that name's sales onto the real room and adds no extra beds. 'Attributes' lists the features assigned to the room (empty if none). Active and alias rooms are shown.",
     'Extras Categories':
       "Categories and subcategories for extras. Subcategories are listed directly under their parent category. Only active items are shown.",
     'Extras':
@@ -85,7 +86,8 @@ const MastersExport = (() => {
   const thin = () => ({ style: 'thin', color: { argb: BORDER } });
 
   // ── One worksheet ───────────────────────────────────────────
-  function buildSheet(wb, name, columns, rows, pending) {
+  function buildSheet(wb, name, columns, rows, pending, explainText) {
+    const text = explainText || explainFor(name);
     const safe = name.substring(0, 31);
     const ws = wb.addWorksheet(safe, {
       views: [{ state: 'frozen', ySplit: 2, showGridLines: false }],
@@ -93,14 +95,14 @@ const MastersExport = (() => {
     });
     const n = Math.max(1, columns.length);
 
-    // Row 1 — explanation banner (merged across all columns)
+    // Row 1 — explanation banner (merged across all columns), height adaptive
     ws.mergeCells(1, 1, 1, n);
     const banner = ws.getCell(1, 1);
-    banner.value = explainFor(name);
+    banner.value = text;
     banner.alignment = { wrapText: true, vertical: 'middle', horizontal: 'left' };
     banner.font = { italic: true, size: 10, color: { argb: pending ? INK_P : INK } };
     banner.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: pending ? BANNER_P : BANNER } };
-    ws.getRow(1).height = 42;
+    ws.getRow(1).height = Math.min(140, 28 + Math.ceil(text.length / 95) * 14);
 
     // Row 2 — header
     const hdr = ws.getRow(2);
@@ -141,7 +143,8 @@ const MastersExport = (() => {
     const used = new Set();
     // mapRow is passed (not an already-mapped array) so an empty master still
     // produces its real headers: calling mapRow({}) yields the column list.
-    function addSheet(name, rows, mapRow) {
+    // explainText optionally overrides the banner (e.g. Rooms capacity summary).
+    function addSheet(name, rows, mapRow, explainText) {
       const columns = mapRow
         ? Object.keys(mapRow({}))
         : (rows.length ? Object.keys(rows[0]) : ['Raw value (PMS)', 'Display Name (PowerBI)']);
@@ -150,7 +153,7 @@ const MastersExport = (() => {
       let k = 2;
       while (used.has(sheetName)) sheetName = (name.substring(0, 28) + ' ' + k++).substring(0, 31);
       used.add(sheetName);
-      buildSheet(wb, sheetName, columns, mapped, name.startsWith('PENDING'));
+      buildSheet(wb, sheetName, columns, mapped, name.startsWith('PENDING'), explainText);
     }
 
     // A failed read is recorded and aborts the whole export before writing,
@@ -160,6 +163,18 @@ const MastersExport = (() => {
       const { data, error } = await query;
       if (error) { failures.push(sheetName + ': ' + error.message); return []; }
       return data || [];
+    }
+
+    // ── Channel Types & Subtypes (first) ──────────────────────
+    {
+      const data = await q('Channel Types', sb.from('channel_subtypes')
+        .select('type_name, subtype_name, status')
+        .eq('company_id', companyId).eq('status', 'active')
+        .order('type_name').order('subtype_name'));
+      addSheet('Channel Types', data, r => ({
+        'Type':    r.type_name || '',
+        'Subtype': r.subtype_name || '',
+      }));
     }
 
     // ── Channels (type/subtype first, then the channel identity) ──
@@ -175,18 +190,6 @@ const MastersExport = (() => {
         'Display Name (PowerBI)': r.display_name || '',
         'Rate type':              r.rate_type || 'gross',
         'Avg commission %':       r.avg_cost_pct != null ? (r.avg_cost_pct * 100).toFixed(1) + '%' : '',
-      }));
-    }
-
-    // ── Channel Types & Subtypes ──────────────────────────────
-    {
-      const data = await q('Channel Types', sb.from('channel_subtypes')
-        .select('type_name, subtype_name, status')
-        .eq('company_id', companyId).eq('status', 'active')
-        .order('type_name').order('subtype_name'));
-      addSheet('Channel Types', data, r => ({
-        'Type':    r.type_name || '',
-        'Subtype': r.subtype_name || '',
       }));
     }
 
@@ -238,34 +241,20 @@ const MastersExport = (() => {
       }));
     }
 
-    // ── Room Categories ───────────────────────────────────────
+    // ── Room Categories (with Room/Dorm classification) ───────
     {
       const data = await q('Room Categories', sb.from('room_categories')
-        .select('raw_value, display_name, status')
+        .select('raw_value, display_name, category_type, status')
         .eq('company_id', companyId).eq('status', 'active')
         .order('display_name'));
       addSheet('Room Categories', data, r => ({
         'Raw value (PMS)':        r.raw_value || '',
         'Display Name (PowerBI)': r.display_name || '',
+        'Room / Dorm':            cap1(r.category_type),
       }));
     }
 
-    // ── Rooms ─────────────────────────────────────────────────
-    {
-      const data = await q('Rooms', sb.from('rooms')
-        .select('property_id, raw_value, display_name, beds_per_room, status, category_id, room_categories(display_name, raw_value)')
-        .eq('company_id', companyId).eq('status', 'active')
-        .order('property_id').order('raw_value'));
-      addSheet('Rooms', data, r => ({
-        'Property':  r.property_id || '',
-        'Room code': r.raw_value || '',
-        'Room name': r.display_name || '',
-        'Category':  r.room_categories?.display_name || r.room_categories?.raw_value || '',
-        'Beds':      r.beds_per_room ?? '',
-      }));
-    }
-
-    // ── Room Attributes ───────────────────────────────────────
+    // ── Room Attributes (before Rooms) ────────────────────────
     {
       const data = await q('Room Attributes', sb.from('room_attribute_types')
         .select('attribute_code, attribute_name, description, attribute_type, is_variable, status')
@@ -278,6 +267,52 @@ const MastersExport = (() => {
         'Type':           r.attribute_type || '',
         'Variable':       r.is_variable ? 'Yes' : 'No',
       }));
+    }
+
+    // ── Rooms (alias + per-room attributes + capacity summary) ──
+    {
+      const rooms = await q('Rooms', sb.from('rooms')
+        .select('id, property_id, raw_value, display_name, beds_per_room, status, alias_of, category_id, ' +
+                'room_categories(display_name, raw_value, category_type), ' +
+                'room_attributes(value, room_attribute_types(attribute_name))')
+        .eq('company_id', companyId)
+        .in('status', ['active', 'alias'])
+        .order('property_id').order('raw_value'));
+
+      const nameById = new Map(rooms.map(r => [r.id, r.display_name || r.raw_value || '']));
+
+      // Capacity summary (active, non-alias) grouped by room/dorm — same rule the
+      // portal uses: each room record is a sellable unit, beds = sum(beds_per_room).
+      let u = 0, b = 0, nr = 0, rb = 0, nd = 0, db = 0;
+      rooms.forEach(r => {
+        if (r.status !== 'active' || r.alias_of) return;
+        const beds = r.beds_per_room || 0; u++; b += beds;
+        const t = (r.room_categories?.category_type || '').toLowerCase();
+        if (t === 'dorm') { nd++; db += beds; }
+        else if (t === 'room') { nr++; rb += beds; }
+      });
+      const cap = `Capacity: ${u} units · ${b} beds   —   ${nr} rooms (${rb} beds) · ${nd} dorms (${db} beds).`;
+
+      addSheet('Rooms', rooms, r => {
+        const attrs = (r.room_attributes || []).map(a => {
+          const nm = (a.room_attribute_types?.attribute_name || '').trim();
+          const v  = (a.value == null ? '' : String(a.value)).trim();
+          if (!nm) return null;
+          if (v === '' || v.toLowerCase() === 'true') return nm;   // boolean/flag → name only
+          if (v.toLowerCase() === 'false') return null;            // not set → skip
+          return nm + ': ' + v;                                    // valued attribute → name: value
+        }).filter(Boolean).sort();
+        return {
+          'Property':    r.property_id || '',
+          'Room code':   r.raw_value || '',
+          'Room name':   r.display_name || '',
+          'Category':    r.room_categories?.display_name || r.room_categories?.raw_value || '',
+          'Room / Dorm': cap1(r.room_categories?.category_type),
+          'Beds':        r.beds_per_room ?? '',
+          'Alias of':    r.alias_of ? (nameById.get(r.alias_of) || '(unknown)') : '',
+          'Attributes':  attrs.join(' · '),
+        };
+      }, EXPLAIN['Rooms'] + '\n\n' + cap);
     }
 
     // ── Extras Categories ─────────────────────────────────────
@@ -368,6 +403,12 @@ const MastersExport = (() => {
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+
+  // Capitalize a short classifier like "room"/"dorm" for display.
+  function cap1(s) {
+    s = (s || '').trim();
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
   }
 
   return { exportAll };
