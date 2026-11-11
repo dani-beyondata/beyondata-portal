@@ -20,6 +20,22 @@ const MastersImport = (() => {
     return [0, 0.04, 0.10, 0.21].some(a => Math.abs(a - v) < 1e-9) ? v : null;
   }
 
+  // The export writes an explanation banner in row 1 and the real column header
+  // in row 2. Detect the header row (the first with >=2 non-empty cells) so both
+  // the new banner format and any older header-on-row-1 file parse correctly.
+  function sheetRows(sheet) {
+    const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    let headerIdx = 0;
+    for (let i = 0; i < aoa.length; i++) {
+      const nonEmpty = (aoa[i] || []).filter(c => String(c).trim() !== '').length;
+      if (nonEmpty >= 2) { headerIdx = i; break; }
+    }
+    return XLSX.utils.sheet_to_json(sheet, { defval: '', range: headerIdx });
+  }
+
+  // The export renamed the display-name column; accept both spellings.
+  const dispName = r => String(r['Display Name (PowerBI)'] || r['Display name'] || '').trim();
+
   // Shared by both extras sheets. declaredRoots / declaredSubs hold the names
   // the workbook itself is about to create, so the Extras sheet can reference a
   // category that only exists in the Extras Categories sheet of the same file.
@@ -43,7 +59,7 @@ const MastersImport = (() => {
     const declaredSubs  = new Set();
     const sheet = workbook && workbook.Sheets['Extras Categories'];
     if (sheet) {
-      XLSX.utils.sheet_to_json(sheet, { defval: '' }).forEach(r => {
+      sheetRows(sheet).forEach(r => {
         const name   = String(r['Category name'] || '').trim();
         const parent = String(r['Parent category'] || '').trim();
         if (!name) return;
@@ -62,7 +78,7 @@ const MastersImport = (() => {
       key: r => (r['Raw value (PMS)'] || '').trim(),
       keyColumn: 'raw_value',
       toFields: r => ({
-        display_name:    (r['Display name'] || '').trim() || (r['Raw value (PMS)'] || '').trim(),
+        display_name:    dispName(r) || (r['Raw value (PMS)'] || '').trim(),
         channel_type:    (r['Type'] || '').trim() || 'indirect',
         channel_subtype: (r['Subtype'] || '').trim() || 'ota',
         rate_type:       ((r['Rate type'] || 'gross').trim().toLowerCase() === 'net') ? 'net' : 'gross',
@@ -85,7 +101,7 @@ const MastersImport = (() => {
       key: r => (r['Raw value (PMS)'] || '').trim(),
       keyColumn: 'raw_value',
       toFields: r => ({
-        display_name: (r['Display name'] || '').trim() || (r['Raw value (PMS)'] || '').trim(),
+        display_name: dispName(r) || (r['Raw value (PMS)'] || '').trim(),
         status:       (r['Status'] || 'active').trim().toLowerCase() === 'inactive' ? 'inactive' : 'active',
       }),
     },
@@ -94,7 +110,7 @@ const MastersImport = (() => {
       key: r => (r['Raw value (PMS)'] || '').trim(),
       keyColumn: 'raw_value',
       toFields: r => ({
-        display_name: (r['Display name'] || '').trim() || (r['Raw value (PMS)'] || '').trim(),
+        display_name: dispName(r) || (r['Raw value (PMS)'] || '').trim(),
         status:       (r['Status'] || 'active').trim().toLowerCase() === 'inactive' ? 'inactive' : 'active',
       }),
     },
@@ -103,7 +119,16 @@ const MastersImport = (() => {
       key: r => (r['Raw value (PMS)'] || '').trim(),
       keyColumn: 'raw_value',
       toFields: r => ({
-        display_name: (r['Display name'] || '').trim() || (r['Raw value (PMS)'] || '').trim(),
+        display_name: dispName(r) || (r['Raw value (PMS)'] || '').trim(),
+        status:       (r['Status'] || 'active').trim().toLowerCase() === 'inactive' ? 'inactive' : 'active',
+      }),
+    },
+    'Corporations': {
+      table: 'corporations',
+      key: r => (r['Raw value (PMS)'] || '').trim(),
+      keyColumn: 'raw_value',
+      toFields: r => ({
+        display_name: dispName(r) || (r['Raw value (PMS)'] || '').trim(),
         status:       (r['Status'] || 'active').trim().toLowerCase() === 'inactive' ? 'inactive' : 'active',
       }),
     },
@@ -112,8 +137,11 @@ const MastersImport = (() => {
       key: r => (r['Raw value (PMS)'] || '').trim(),
       keyColumn: 'raw_value',
       toFields: r => ({
-        display_name: (r['Display name'] || '').trim() || (r['Raw value (PMS)'] || '').trim(),
+        display_name: dispName(r) || (r['Raw value (PMS)'] || '').trim(),
         status:       (r['Status'] || 'active').trim().toLowerCase() === 'inactive' ? 'inactive' : 'active',
+        // 'Room / Dorm' drives occupancy; only written back when a valid value is present.
+        ...(['room', 'dorm'].includes(String(r['Room / Dorm'] || '').trim().toLowerCase())
+              ? { category_type: String(r['Room / Dorm']).trim().toLowerCase() } : {}),
       }),
     },
     'Rooms': {
@@ -198,7 +226,7 @@ const MastersImport = (() => {
         return { fields: out };
       },
       toFields: r => ({
-        display_name:     (r['Display name'] || '').trim() || (r['Raw value (PMS)'] || '').trim(),
+        display_name:     dispName(r) || (r['Raw value (PMS)'] || '').trim(),
         unit_price_gross: r['Unit price (gross)'] === '' || r['Unit price (gross)'] == null
                             ? null : parseFloat(String(r['Unit price (gross)']).replace(',', '.')),
         vat_rate:         parseVat(r['VAT %']),
@@ -238,7 +266,7 @@ const MastersImport = (() => {
     const plan = [];
     for (const [sheetName, cfg] of Object.entries(SHEETS)) {
       if (!workbook.SheetNames.includes(sheetName)) continue;
-      const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+      const rows = sheetRows(workbook.Sheets[sheetName]);
       const isValid = cfg.rowIsValid || (r => !!cfg.key(r));
       const validRows = rows.filter(isValid);
       if (!validRows.length) continue;
