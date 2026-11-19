@@ -242,10 +242,8 @@
 <div id="boot"><div class="spin"></div><div>Arrancando el BI…</div></div>
 
 <header>
-  <h1>BeyonData · SQL Playground <span style="opacity:.6">Portal · BI</span></h1>
-  <span class="sub">multipágina · lienzo libre · modelo de relaciones · DuckDB+ECharts</span>
   <div class="tools">
-    <span id="bd-conn" style="align-self:center;font-size:12px;font-weight:600;color:#888;margin-right:8px" title="estado de sesion">● comprobando…</span>
+    <span id="bd-conn" style="align-self:center;font-size:12px;font-weight:600;color:#bfe0d7;margin-right:8px" title="estado de sesion">● comprobando…</span>
     <button class="hdr" onclick="addMenu()">＋ Añadir</button>
     <button class="hdr" onclick="undo()" title="Deshacer (Ctrl+Z)">↶</button>
     <button class="hdr" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)">↷</button>
@@ -268,14 +266,14 @@
   const pill=()=>document.getElementById('bd-conn');
   function set(txt,col){ const p=pill(); if(p){ p.textContent=txt; if(col)p.style.color=col; } }
   try{
-    if(typeof window.supabase==='undefined' || typeof SUPABASE_URL==='undefined'){ set('● sin Supabase','#b4322a'); return; }
+    if(typeof window.supabase==='undefined' || typeof SUPABASE_URL==='undefined'){ set('● sin Supabase','#ffb4ab'); return; }
     window.sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const { data:{ session } } = await window.sbClient.auth.getSession();
-    if(!session){ set('● sin sesion (abre dentro del portal)','#b4322a'); return; }
+    if(!session){ set('● sin sesion (abre dentro del portal)','#ffb4ab'); return; }
     let label=session.user.email, role='';
     try{ const { data:p } = await window.sbClient.from('profiles').select('full_name,role').eq('id',session.user.id).single(); if(p){ label=p.full_name||label; role=p.role||''; } }catch(e){}
-    const el=pill(); if(el){ el.textContent='● '+label+(role?' · '+role:''); el.style.color='#0F6E63'; el.title='Sesion heredada del portal (same-origin). q() la usara en el paso 4.'; }
-  }catch(e){ set('● error de sesion','#b4322a'); console.warn('BI supabase bootstrap:', e); }
+    const el=pill(); if(el){ el.textContent='● '+label+(role?' · '+role:''); el.style.color='#eafbf4'; el.title='Sesion heredada del portal (same-origin). q() la usara en el paso 4.'; }
+  }catch(e){ set('● error de sesion','#ffb4ab'); console.warn('BI supabase bootstrap:', e); }
 })();
 </script>
 
