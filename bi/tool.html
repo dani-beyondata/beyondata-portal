@@ -572,7 +572,7 @@ function paramRefHTML(v){ const ps=getParams(); if(!ps.length)return ""; const u
 
 /* ─ DuckDB ─ */
 let db,conn,echarts;
-async function q(sql){ sql=subParams(sql); const res=await conn.query(sql); const names=res.schema.fields.map(f=>f.name); return res.toArray().map(row=>{const o={};for(const k of names){let v=row[k];o[k]=typeof v==="bigint"?Number(v):v;}return o;}); }
+async function q(sql){ sql=subParams(sql); if(!window.sbClient) throw new Error("Sin sesion de Supabase (abre el BI dentro del portal)"); const { data, error } = await window.sbClient.rpc("bi_run_sql",{ q: sql }); if(error) throw new Error(error.message); return Array.isArray(data) ? data : (data==null ? [] : [data]); }
 async function initDuckDB(duckdb){ let bundle=LIBS.mode==="local"?await duckdb.selectBundle(LIBS.bundles):await duckdb.selectBundle(duckdb.getJsDelivrBundles());
   const abs=u=>u?new URL(u,location.href).href:u; const wurl=URL.createObjectURL(new Blob([`importScripts("${abs(bundle.mainWorker)}");`],{type:"text/javascript"})); const worker=new Worker(wurl);
   db=new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING),worker); await db.instantiate(abs(bundle.mainModule),abs(bundle.pthreadWorker)); URL.revokeObjectURL(wurl); conn=await db.connect(); }
@@ -2534,9 +2534,9 @@ window.openModel=()=>openDrawer("Tablas y filtros",`<div class="hint">No hay rel
   <pre style="background:#0f1e22;color:#d6e2e4;padding:10px 12px;border-radius:8px;font-family:Consolas,monospace;font-size:12px;white-space:pre;overflow:auto">${esc(ctePrefix()||"(sin filtros activos)")}</pre>
   <div class="hint" style="margin-top:10px">Columnas por tabla:</div>
   <table class="dt"><thead><tr><th>Tabla</th><th>Columnas</th></tr></thead><tbody>${Object.keys(tableCols).map(t=>`<tr><td><b>${t}</b></td><td>${(tableCols[t]||[]).map(c=>`<code>${c}</code>`).join(" ")}</td></tr>`).join("")}</tbody></table>`);
-window.openData=async()=>{ openDrawer("Datos · tablas",`<div id="dt_tables">cargando…</div><div id="dt_detail"></div>`); const tbls=await q("SELECT table_name FROM information_schema.tables WHERE table_schema='main' ORDER BY table_name"); const counts={};
+window.openData=async()=>{ openDrawer("Datos · tablas",`<div id="dt_tables">cargando…</div><div id="dt_detail"></div>`); const tbls=await q("SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name"); const counts={};
   for(const t of tbls)counts[t.table_name]=(await q(`SELECT COUNT(*) c FROM ${t.table_name}`))[0].c; $("dt_tables").innerHTML=tbls.map(t=>`<span class="tbl-pill" onclick="showTable('${t.table_name}')">${t.table_name} <b style="color:var(--teal)">${counts[t.table_name].toLocaleString("es-ES")}</b></span>`).join(""); };
-window.showTable=async name=>{ const cols=await q(`SELECT column_name FROM information_schema.columns WHERE table_schema='main' AND table_name='${name}' ORDER BY ordinal_position`); const rows=await q(`SELECT * FROM ${name} LIMIT 10`); const c=rows.length?Object.keys(rows[0]):cols.map(x=>x.column_name);
+window.showTable=async name=>{ const cols=await q(`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='${name}' ORDER BY ordinal_position`); const rows=await q(`SELECT * FROM ${name} LIMIT 10`); const c=rows.length?Object.keys(rows[0]):cols.map(x=>x.column_name);
   $("dt_detail").innerHTML=`<div style="margin-top:12px"><b>${name}</b> · ${cols.map(x=>`<code>${x.column_name}</code>`).join(" · ")}</div><div class="qprev" style="margin-top:8px;max-height:300px"><table class="dt"><thead><tr>${c.map(x=>`<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${c.map(x=>`<td>${esc(r[x])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`; };
 window.openHelp=()=>openDrawer("Ayuda",`
   <div class="hint">Lienzo libre: <b>arrastra</b> por la franja superior de cada card para moverla (Shift = recto); <b>redimensiona</b> por ◣ — se alinea y <b>iguala tamaños</b> con las guías rosas. ＋ Añadir pone gráficos o slicers (con desplegables de tabla/columna).</div>
@@ -2548,7 +2548,7 @@ window.resetDash=()=>{ if(!confirm("¿Restaurar por defecto? (borra todas las p�
 let EXP_READY=false;
 window.openExplorer=async()=>{ $("explorer").classList.add("open"); if(!EXP_READY){ await buildExplorer(); EXP_READY=true; } };
 window.closeExplorer=()=>$("explorer").classList.remove("open");
-async function buildExplorer(){ let names=[]; try{ const tbls=await q("SELECT table_name FROM information_schema.tables WHERE table_schema='main' ORDER BY table_name"); names=tbls.map(t=>t.table_name); }catch(e){}
+async function buildExplorer(){ let names=[]; try{ const tbls=await q("SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name"); names=tbls.map(t=>t.table_name); }catch(e){}
   $("exp_body").innerHTML=`
     <div class="hint">Explora las tablas y <b>prueba SQL libre</b> sobre los datos fake (sin filtros). Ideal para ver qué valores existen en una columna antes de escribir la query del visual.</div>
     <div><label>Tablas (clic = ver 50 filas)</label><div id="exp_tbls">${names.map(n=>`<span class="tbl-pill" onclick="expPeek('${n}')">${n}</span>`).join("")}</div></div>
@@ -2576,7 +2576,7 @@ function makeResizer(handleId,panelId,side){ const h=$(handleId),p=$(panelId); i
 /* ─ Arranque ─ */
 async function boot(){
   await loadScript(LIBS.echarts); echarts=window.echarts;
-  const duckdb=await import(LIBS.duckdb_module); await initDuckDB(duckdb); await seedTables(); DASH=loadDash(); ensureParams(); await buildSlicerOpts();
+  /* Portal: sin DuckDB — q() consulta Postgres via RPC bi_run_sql (RLS del usuario). */ DASH=loadDash(); ensureParams(); await buildSlicerOpts();
   window.addEventListener("resize",()=>{for(const id in charts)charts[id].resize();});
   try{ const dw=localStorage.getItem("drawer_w"); if(dw)$("drawer").style.width=dw; const ew=localStorage.getItem("explorer_w"); if(ew)$("explorer").style.width=ew; }catch(e){}
   makeResizer("d_resize","drawer","right"); makeResizer("exp_resize","explorer","left");
@@ -2588,7 +2588,7 @@ async function boot(){
     else if(SEL.size&&k.indexOf("arrow")===0){ e.preventDefault(); const s=e.shiftKey?10:1; selNudge(k==="arrowleft"?-s:k==="arrowright"?s:0, k==="arrowup"?-s:k==="arrowdown"?s:0); } });
   seedHist(); renderTabs(); layoutStage(); paintPanel(); await refreshAll(); $("boot").style.display="none"; window.__ready=true;
 }
-boot().catch(e=>{ $("boot").innerHTML="<div style='color:#b4322a;max-width:520px;text-align:center'>No se pudo arrancar: "+esc(e.message)+"<br><br>Server local: <code>python serve.py</code> → http://localhost:8099</div>"; window.__booterr=e.message; });
+boot().catch(e=>{ $("boot").innerHTML="<div style='color:#b4322a;max-width:520px;text-align:center'>No se pudo arrancar: "+esc(e.message)+"</div>"; window.__booterr=e.message; });
 </script>
 </body>
 </html>
