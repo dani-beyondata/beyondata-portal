@@ -43,6 +43,7 @@
       <div class="nav-item active" data-section="overview"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>Overview</div>
       <div class="nav-item" data-section="my_dashboard"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></span>Dashboard</div>
       <div class="nav-item" data-section="reports" id="nav-reports"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg></span>Reports</div>
+      <div class="nav-item" data-section="bi" id="nav-bi"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="12" y="6" width="3" height="11"/><rect x="17" y="13" width="3" height="4"/></svg></span>BI</div>
       <div class="nav-item" data-section="my_plan"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>Mi Plan</div>
     </div>
     <div class="nav-section">
@@ -180,6 +181,9 @@
       <div class="alert error" id="reports-error" style="display:none;margin-top:1rem"></div>
     </div>
 
+    <div class="section" id="section-bi">
+      <iframe id="bi-frame" title="BeyonData BI" style="width:100%;height:calc(100vh - 150px);min-height:540px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;display:block" src="about:blank" data-src="bi/tool.html"></iframe>
+    </div>
     <div class="section" id="section-my_dashboard">
       <div class="pbi-toolbar" id="pbi-toolbar" style="display:none">
         <button type="button" class="btn btn-sm" id="pbi-zoom-out" title="Reducir">−</button>
@@ -6780,8 +6784,15 @@
   // click handler, navTo(), and the initial hash-routing on boot — keeping one
   // map avoids the three drifting out of sync (which left reports/pipeline/
   // onboarding/branding not loading until an F5).
+  // BI: carga perezosa del iframe la primera vez que se abre la seccion.
+  function loadBI() {
+    const f = document.getElementById('bi-frame');
+    if (f && f.dataset.src && !f.dataset.loaded) { f.src = f.dataset.src; f.dataset.loaded = '1'; }
+  }
+
   function getSectionLoaders() {
     return {
+      bi: loadBI,
       overview: loadOverview, my_dashboard: loadMyDashboard, my_plan: loadMyPlan,
       plan_requests: loadPlanRequests, properties: loadProperties, settings: loadSettings,
       channels: loadChannelSubtypes, segments: loadSegments, purposes: loadPurposes,
