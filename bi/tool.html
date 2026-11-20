@@ -1822,22 +1822,31 @@ function applyGroupOther(rows,cfg,dimKey,valKey){
   return keep; }
 /* vuelve a pintar los visuales asociados a un filtro de resultado */
 function rfRerender(rf){ for(const tv of CP().visuals){ if(Array.isArray(tv.rfilters)&&tv.rfilters.some(b=>b.rf===rf.id))renderVisual(tv); } }
-function renderResultFilter(v){ const el=$("body_"+v.id); if(!el)return; const opts=v.options||[]; const sel=new Set(v.selected||[]); const isList=v.disp==="list";
+function renderResultFilter(v){ const el=$("body_"+v.id); if(!el)return; const opts=v.options||[]; const single=v.mode==="single"; const isList=v.disp==="list";
+  let sel=new Set(v.selected||[]);
+  if(single){ // modo única: siempre exactamente un valor (default al 1º si está vacío/ inválido)
+    const cur=(v.selected&&v.selected[0]); const valid=opts.some(o=>o.value===cur);
+    sel=new Set([valid?cur:(opts[0]&&opts[0].value)]); }
   const item=(label,on,click)=>isList?`<div class="mgrow${on?' on':''}" onclick="${click}">${label}</div>`:`<span class="pill ${on?'on':''}" onclick="${click}">${label}</span>`;
   let body=(isList?`<div class="mglist">`:`<div class="pills">`);
-  body+=item("Todos",sel.size===0,`rfAll('${v.id}')`);
-  body+=opts.map(o=>item(esc(o.label||o.value),sel.has(o.value),`rfTog('${v.id}','${esc(String(o.value))}')`)).join("");
+  const showAll=!single && v.showAll!==false;   // "Todos" solo en multi y si no se ha ocultado
+  if(showAll)body+=item("Todos",sel.size===0,`rfAll('${v.id}')`);
+  body+=opts.map(o=>item(esc(o.label||o.value),sel.has(o.value),single?`rfPick('${v.id}','${esc(String(o.value))}')`:`rfTog('${v.id}','${esc(String(o.value))}')`)).join("");
   body+=`</div>`;
   el.innerHTML=`<div class="slcard"><div class="sl-l">▭ ${esc(v.label||'Ver')}</div>${body}</div>`; }
 window.rfTog=(id,val)=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=new Set(v.selected||[]); s.has(val)?s.delete(val):s.add(val); v.selected=[...s]; saveDash(); renderResultFilter(v); rfRerender(v); };
+window.rfPick=(id,val)=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; v.selected=[val]; saveDash(); renderResultFilter(v); rfRerender(v); };
 window.rfAll=id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; v.selected=[]; saveDash(); renderResultFilter(v); rfRerender(v); };
 function fmtResultFilter(v){ const opts=v.options||[];
   return `<div class="row"><div><label>Etiqueta</label><input id="e_rflabel" type="text" value="${esc(v.label||'Ver')}"></div><div><label>Mostrar como</label><select id="e_rfdisp"><option value="chips" ${v.disp!=="list"?"selected":""}>Chips</option><option value="list" ${v.disp==="list"?"selected":""}>Listado</option></select></div></div>
+  <div class="row"><div><label>Selección</label><select id="e_rfmode"><option value="multi" ${v.mode!=="single"?"selected":""}>Múltiple</option><option value="single" ${v.mode==="single"?"selected":""}>Única</option></select></div><div><label>Mostrar «Todos»</label><select id="e_rfall"><option value="1" ${v.showAll!==false?"selected":""}>sí</option><option value="0" ${v.showAll===false?"selected":""}>no</option></select></div></div>
   <div style="margin-top:8px"><label>Opciones (un valor por línea · multi-select)</label><textarea id="e_rfopts" style="min-height:96px;width:100%">${esc(opts.map(o=>(o.label&&o.label!==o.value)?`${o.value} | ${o.label}`:o.value).join("\n"))}</textarea>
   <div class="hint">Cada línea = un valor para <code>WHERE columna IN (…)</code>. Opcional <code>valor | etiqueta</code>. En cada gráfico asociado eliges qué <b>columna del resultado</b> filtra (editor del gráfico → “Filtros de resultado”). Selección vacía = se muestran todas.</div></div>`; }
 function readResultFilter(v){ if($("e_rflabel"))v.label=$("e_rflabel").value; if($("e_rfdisp"))v.disp=$("e_rfdisp").value;
+  if($("e_rfmode"))v.mode=$("e_rfmode").value; if($("e_rfall"))v.showAll=$("e_rfall").value==="1";
   if($("e_rfopts"))v.options=$("e_rfopts").value.split("\n").map(s=>s.trim()).filter(Boolean).map(l=>{ const p=l.split("|").map(x=>x.trim()); return {value:p[0],label:p[1]||p[0]}; });
-  if(!Array.isArray(v.selected))v.selected=[]; }
+  if(!Array.isArray(v.selected))v.selected=[];
+  if(v.mode==="single"){ const ok=v.options&&v.options.some(o=>o.value===(v.selected[0])); v.selected=[ok?v.selected[0]:(v.options&&v.options[0]&&v.options[0].value)].filter(x=>x!=null); } }
 /* binding (Nivel 4) que se muestra en el editor de un gráfico/tabla/html */
 function rfBindHTML(v){ const rfs=CP().visuals.filter(x=>x.type==="resultfilter"); if(!rfs.length)return ""; const binds=v.rfilters||[];
   const rows=rfs.map(rf=>{ const b=binds.find(x=>x.rf===rf.id);
