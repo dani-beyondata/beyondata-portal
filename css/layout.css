@@ -291,3 +291,6 @@ body.sb-collapsed .nav-item .nav-badge { position: absolute; top: 4px; right: 6p
 .page-header { margin-bottom: 2rem; }
 .page-header h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; }
 .page-header p  { color: var(--text-muted); margin-top: 0.3rem; font-size: 0.9rem; }
+
+/* BI: embed a sangre completa (sin padding del contenido cuando la seccion BI esta activa) */
+.content:has(#section-bi.active) { padding: 0; }
