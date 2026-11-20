@@ -2202,10 +2202,19 @@ async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),
   let pager=""; if(ps>0&&total>ps){ const pages=Math.ceil(total/ps); pager=`<div class="tbl-pager">${page>0?`<button class="sm" onclick="tblPage('${v.id}',${page-1})">‹</button>`:""}<span>${page+1} / ${pages} · ${total} filas</span>${page<pages-1?`<button class="sm" onclick="tblPage('${v.id}',${page+1})">›</button>`:""}</div>`; }
   el.innerHTML=tableFxCSS(v.id,buildFx(v))+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}"><table class="dt"><thead>${head}</thead><tbody>${body}${totals}</tbody></table></div>${pager}`; }
 window.tblDetect=async id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; try{ const rows=await q(applyWhere(v.sql)); if(!rows.length){alert("La query no devuelve filas.");return;} const cols=Object.keys(rows[0]); const num=cols.filter(c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number")); const sk=Object.assign({},v.cols||{}); num.forEach(c=>{ if(!sk[c])sk[c]={fmt:v.fmt||"num"}; }); $("e_cols").value=JSON.stringify(sk,null,2); }catch(e){ alert("No pude detectar columnas: "+e.message); } };
+/* Orden interactivo de matriz (cliente, por sesión): filas por columna, columnas por fila, reset.
+   Tri-estado: desc → asc → sin orden (vuelve al orden del SQL / colOrd). */
+const MX_STATE={};
+window.mxSortRows=(id,by)=>{ const st=MX_STATE[id]=MX_STATE[id]||{}; const c=st.rowSort; if(c&&c.by===by){ if(c.dir==="desc")c.dir="asc"; else st.rowSort=null; } else st.rowSort={by,dir:"desc"}; const v=CP().visuals.find(x=>x.id===id); if(v)renderMatrix(v); };
+window.mxSortCols=(id,by)=>{ const st=MX_STATE[id]=MX_STATE[id]||{}; const c=st.colSort; if(c&&c.by===by){ if(c.dir==="desc")c.dir="asc"; else st.colSort=null; } else st.colSort={by,dir:"desc"}; const v=CP().visuals.find(x=>x.id===id); if(v)renderMatrix(v); };
+window.mxReset=id=>{ const st=MX_STATE[id]=MX_STATE[id]||{}; st.rowSort=null; st.colSort=null; const v=CP().visuals.find(x=>x.id===id); if(v)renderMatrix(v); };
 async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
   let rowvals=[...new Set(rows.map(r=>r.row))]; let colvals=[...new Set(rows.map(r=>r.col))]; if('colOrd'in rows[0]){const om={};rows.forEach(r=>om[r.col]=r.colOrd);colvals.sort((a,b)=>om[a]-om[b]);}
   const cell={}; rows.forEach(r=>cell[r.row+"||"+r.col]=+r.v||0); const colTot={},rowTot={}; let grand=0; rowvals.forEach(r=>rowTot[r]=0); colvals.forEach(c=>colTot[c]=0); rows.forEach(r=>{rowTot[r.row]+=(+r.v||0);colTot[r.col]+=(+r.v||0);grand+=(+r.v||0);});
-  if(v.sortRows==="desc")rowvals.sort((a,b)=>rowTot[b]-rowTot[a]); else if(v.sortRows==="asc")rowvals.sort((a,b)=>rowTot[a]-rowTot[b]);
+  const st=MX_STATE[v.id]=MX_STATE[v.id]||{}; const clickable=v.sortable!==false;
+  if(clickable&&st.colSort&&st.colSort.by){ const by=st.colSort.by,d=st.colSort.dir==="asc"?1:-1; const kf=by==="__total__"?(c=>colTot[c]):(c=>{const k=by+"||"+c;return (k in cell)?cell[k]:-Infinity;}); colvals.sort((a,b)=>{const x=kf(a),y=kf(b);return (x>y?1:x<y?-1:0)*d;}); }
+  if(clickable&&st.rowSort&&st.rowSort.by){ const by=st.rowSort.by,d=st.rowSort.dir==="asc"?1:-1; const kf=by==="__total__"?(rw=>rowTot[rw]):(rw=>{const k=rw+"||"+by;return (k in cell)?cell[k]:-Infinity;}); rowvals.sort((a,b)=>{const x=kf(a),y=kf(b);return (x>y?1:x<y?-1:0)*d;}); }
+  else if(v.sortRows==="desc")rowvals.sort((a,b)=>rowTot[b]-rowTot[a]); else if(v.sortRows==="asc")rowvals.sort((a,b)=>rowTot[a]-rowTot[b]);
   const pct=v.pct||"none"; const cfmt=pct!=="none"?"pct":v.fmt;
   const disp=(rw,c)=>{ const key=rw+"||"+c; if(!(key in cell))return null; const raw=cell[key]; if(pct==="row")return rowTot[rw]?raw/rowTot[rw]:0; if(pct==="col")return colTot[c]?raw/colTot[c]:0; if(pct==="total")return grand?raw/grand:0; return raw; };
   let mn=Infinity,mx=-Infinity; rowvals.forEach(rw=>colvals.forEach(c=>{const d=disp(rw,c); if(d!=null){if(d<mn)mn=d;if(d>mx)mx=d;}})); if(!isFinite(mn)){mn=0;mx=1;}
@@ -2213,9 +2222,16 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v))
     if(v.heat)style+=condStyle(d,mn,mx,v.heat);
     if(v.bar)inner=condBar(inner,d,mn,mx,v.bar);
     return `<td class="num" style="${style}">${inner}</td>`; };
-  let h=`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}"><table class="dt mx"><thead><tr><th></th>`+colvals.map(c=>`<th class="num">${esc(c)}</th>`).join("")+`<th class="num tot">Total</th></tr></thead><tbody>`;
-  rowvals.forEach(rw=>{h+=`<tr><td>${esc(rw)}</td>`+colvals.map(c=>cellHTML(rw,c)).join("")+`<td class="num tot">${fmtCell(rowTot[rw],v.fmt)}</td></tr>`;});
-  h+=`<tr class="tot"><td>Total</td>`+colvals.map(c=>`<td class="num">${fmtCell(colTot[c],v.fmt)}</td>`).join("")+`<td class="num">${fmtCell(grand,v.fmt)}</td></tr></tbody></table></div>`; el.innerHTML=tableFxCSS(v.id,buildFx(v))+h; }
+  const arrR=by=>(st.rowSort&&st.rowSort.by===by)?(st.rowSort.dir==="asc"?" ▲":" ▼"):""; const arrC=by=>(st.colSort&&st.colSort.by===by)?(st.colSort.dir==="asc"?" ▲":" ▼"):""; const cp=s=>esc(String(s));
+  const active=st.rowSort||st.colSort;
+  const corner=(clickable&&active)?`<th style="cursor:pointer;text-align:center" title="Restablecer orden" onclick="mxReset('${v.id}')">↺</th>`:`<th></th>`;
+  const thCol=c=>clickable?`<th class="num" style="cursor:pointer" title="Ordenar filas por esta columna" onclick="mxSortRows('${v.id}','${cp(c)}')">${esc(c)}${arrR(c)}</th>`:`<th class="num">${esc(c)}</th>`;
+  const thTot=clickable?`<th class="num tot" style="cursor:pointer" title="Ordenar filas por el total" onclick="mxSortRows('${v.id}','__total__')">Total${arrR("__total__")}</th>`:`<th class="num tot">Total</th>`;
+  const tdRow=rw=>clickable?`<td style="cursor:pointer" title="Ordenar columnas por esta fila" onclick="mxSortCols('${v.id}','${cp(rw)}')">${esc(rw)}${arrC(rw)}</td>`:`<td>${esc(rw)}</td>`;
+  const tdTot=clickable?`<td style="cursor:pointer" title="Ordenar columnas por el total" onclick="mxSortCols('${v.id}','__total__')">Total${arrC("__total__")}</td>`:`<td>Total</td>`;
+  let h=`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}"><table class="dt mx"><thead><tr>${corner}`+colvals.map(thCol).join("")+thTot+`</tr></thead><tbody>`;
+  rowvals.forEach(rw=>{h+=`<tr>${tdRow(rw)}`+colvals.map(c=>cellHTML(rw,c)).join("")+`<td class="num tot">${fmtCell(rowTot[rw],v.fmt)}</td></tr>`;});
+  h+=`<tr class="tot">${tdTot}`+colvals.map(c=>`<td class="num">${fmtCell(colTot[c],v.fmt)}</td>`).join("")+`<td class="num">${fmtCell(grand,v.fmt)}</td></tr></tbody></table></div>`; el.innerHTML=tableFxCSS(v.id,buildFx(v))+h; }
 
 async function refreshAll(){ for(const v of CP().visuals){await renderVisual(v);} }
 
