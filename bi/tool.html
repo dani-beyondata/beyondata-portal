@@ -1791,7 +1791,8 @@ function renderMetricGroup(v){ const el=$("body_"+v.id); if(!el)return; const ch
     : `<div class="pills">`+chips.map(c=>`<span class="pill ${c.id===sel?'on':''}" onclick="pickMetric('${v.id}','${esc(c.id)}')">${esc(c.label)}</span>`).join("")+`</div>`;
   el.innerHTML=`<div class="slcard"><div class="sl-l">◧ ${esc(v.label||'Métrica')}</div>${body}</div>`; }
 window.pickMetric=(gid,cid)=>{ const g=CP().visuals.find(x=>x.id===gid); if(!g)return; g.selected=cid; saveDash(); renderMetricGroup(g);
-  const tg=new Set(g.targets||[]); for(const tv of CP().visuals){ if(tg.has(tv.id)||tv.group===gid) renderVisual(tv); } };
+  const chip=(g.chips||[]).find(c=>c.id===cid); const fmt=chip&&chip.fmt;   // Opción 1: el chip arrastra su formato
+  const tg=new Set(g.targets||[]); for(const tv of CP().visuals){ if(tg.has(tv.id)||tv.group===gid){ if(fmt)tv.fmt=fmt; renderVisual(tv); } } };
 function metricGroupOf(v){ return v.group?CP().visuals.find(x=>x.type==="metricgroup"&&x.id===v.group):null; }
 function effSQL(v){ const g=metricGroupOf(v); if(g){ const sel=g.selected||((g.chips||[])[0]&&g.chips[0].id); const s=(v.metricSQL||{})[sel]; if(s!=null&&String(s).trim()!=="") return s; } return v.sql; }
 /* Nivel 4 · Filtro de resultado: envuelve el SQL del visual en SELECT * FROM (...) WHERE col IN (...).
@@ -2358,15 +2359,15 @@ function renderText(v){ const el=$("body_"+v.id); if(!el)return; el.style.backgr
 const slug=s=>String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"")||"m";
 function fmtMetricGroup(v){ const chips=v.chips||[]; const targetable=CP().visuals.filter(x=>VIS[x.type]&&VIS[x.type].needsRows);
   return `<div class="row"><div><label>Etiqueta del grupo</label><input id="e_mglabel" type="text" value="${esc(v.label||'Métrica')}"></div><div><label>Mostrar como</label><select id="e_mgdisp"><option value="chips" ${v.disp!=="list"?"selected":""}>Chips</option><option value="list" ${v.disp==="list"?"selected":""}>Listado</option></select></div></div>
-  <div style="margin-top:8px"><label>Opciones (un nombre por línea · single-select)</label>
-    <textarea id="e_mgchips" style="min-height:96px;width:100%">${esc(chips.map(c=>c.label).join("\n"))}</textarea>
-    <div class="hint">Cada línea = un chip. La SQL de cada chip se define <b>dentro de cada gráfico</b> asociado (editor del gráfico → “Grupo de métrica”).</div></div>
+  <div style="margin-top:8px"><label>Opciones (un chip por línea · single-select)</label>
+    <textarea id="e_mgchips" style="min-height:96px;width:100%">${esc(chips.map(c=>c.fmt?`${c.label} | ${c.fmt}`:c.label).join("\n"))}</textarea>
+    <div class="hint">Cada línea = un chip. Opcional <code>etiqueta | formato</code> (<code>money·int·pct·num·ratio·dec</code>): al elegir ese chip, el visual usa ese formato. La SQL de cada chip se define <b>dentro de cada gráfico</b> asociado (editor del gráfico → “Grupo de métrica”).</div></div>
   <div style="margin-top:8px"><label>Gráficos asociados</label>
     <div class="optbox">${targetable.length?targetable.map(x=>`<label class="fxrow2"><input type="checkbox" class="e_mgtgt" value="${x.id}" ${(v.targets||[]).includes(x.id)?"checked":""}> ${esc(x.title||x.id)} <span class="hint" style="font-weight:400">(${x.type})</span></label>`).join(""):`<div class="hint">No hay gráficos en esta página todavía.</div>`}</div>
     <div class="hint">Al cambiar de chip, estos gráficos recargan su SQL. También puedes asociarlos desde el editor de cada gráfico.</div></div>`; }
 function readMetricGroup(v){ if($("e_mglabel"))v.label=$("e_mglabel").value; if($("e_mgdisp"))v.disp=$("e_mgdisp").value;
   if($("e_mgchips")){ const lines=$("e_mgchips").value.split("\n").map(s=>s.trim()).filter(Boolean); const prev=v.chips||[]; const used={};
-    v.chips=lines.map(lab=>{ const ex=prev.find(c=>c.label===lab); let id=ex?ex.id:slug(lab); while(used[id])id+="_"; used[id]=1; return {id,label:lab}; }); }
+    v.chips=lines.map(line=>{ const p=line.split("|").map(x=>x.trim()); const lab=p[0]; const fmt=p[1]||null; const ex=prev.find(c=>c.label===lab); let id=ex?ex.id:slug(lab); while(used[id])id+="_"; used[id]=1; const c={id,label:lab}; if(fmt)c.fmt=fmt; return c; }); }
   if(!v.chips||!v.chips.length)v.chips=[{id:"m1",label:"Métrica 1"}];
   if(!v.selected||!v.chips.some(c=>c.id===v.selected))v.selected=v.chips[0].id;
   const boxes=document.querySelectorAll(".e_mgtgt"); if(boxes.length)v.targets=[...boxes].filter(b=>b.checked).map(b=>b.value); }
