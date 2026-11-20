@@ -2123,7 +2123,7 @@ function renderChart(v,rows){ const ch=charts[v.id]; if(!rows.length){ch.clear()
     const scale=resolveScale(v.colorScale); let data; if(scale&&!baseLine){const mn=Math.min(...arr),mx=Math.max(...arr);data=arr.map(val=>({value:val,itemStyle:{color:lerpColor(scale.from,scale.to,(val-mn)/((mx-mn)||1))}}));}else data=arr;
     series=[{type:baseLine?"line":"bar",smooth:baseLine,areaStyle:v.type==="area"?{opacity:.18}:undefined,itemStyle:{color:v.color||"#0F6E63",borderRadius:baseLine?0:(horiz?[0,4,4,0]:[4,4,0,0])},lineStyle:{color:v.color||"#0F6E63",width:2},barWidth:v.barWidth||"58%",barCategoryGap:v.barCategoryGap,label:dataLabel(v,horiz,fmt),data}]; }
   const catAxis={type:"category",data:cats,axisTick:{show:false}},valAxis={type:"value",max:v.stack100?1:undefined,axisLabel:{formatter:x=>fmtAxis(x,fmt)}};
-  ch.setOption({grid:{left:horiz?90:54,right:16,top:(hasSeries&&legend)?34:14,bottom:28},tooltip:{trigger:"axis",valueFormatter:x=>fmtValue(x,fmt)},legend:legend?{top:4,type:"scroll",textStyle:{fontSize:11}}:undefined,xAxis:horiz?valAxis:catAxis,yAxis:horiz?catAxis:valAxis,series},true);
+  ch.setOption({grid:{left:horiz?90:54,right:16,top:(hasSeries&&legend)?34:14,bottom:28},tooltip:{trigger:"axis",valueFormatter:x=>fmtValue(x,fmt)},legend:legend?{top:4,type:"scroll",textStyle:{fontSize:11,width:140,overflow:"truncate"},tooltip:{show:true}}:undefined,xAxis:horiz?valAxis:catAxis,yAxis:horiz?catAxis:valAxis,series},true);
   ch.off("click"); applyEch(v); ch.resize(); }
 function dataLabel(v,horiz,fmt){ const dl=v.dataLabels||"none"; if(dl==="none")return{show:false}; return {show:true,position:dl==="inside"?"inside":(horiz?"right":"top"),fontSize:10,fontWeight:700,color:dl==="inside"?"#fff":"#444",formatter:p=>fmtValue(p.value,fmt||v.fmt)}; }
 const PIE_PAL=["#0F6E63","#2563eb","#E0A800","#A0453D","#56B14E","#7C3AED","#0A4A43","#D1770B","#1B7F9E","#B23A6F"];
@@ -2135,7 +2135,7 @@ function pieColors(v,rows,YC){ const n=rows.length,vals=rows.map(r=>+r[YC]); con
 function renderPie(v,rows){ const ch=charts[v.id]; const XC=v.x2||"k",YC=v.y2||"v"; rows=applyGroupOther(rows,v.group,XC,YC); const total=rows.reduce((a,b)=>a+(+b[YC]),0);
   const cols=pieColors(v,rows,YC); const data=rows.map((r,i)=>({name:r[XC],value:+r[YC],itemStyle:{color:cols[i]}})); const donut=v.type==="donut";
   const showCenter=donut&&(v.centerLabel!==false), showSlice=v.sliceLabels!==false;
-  ch.setOption({tooltip:{trigger:"item",formatter:"{b}: {c} ({d}%)"},legend:{orient:"vertical",right:4,top:"center",textStyle:{fontSize:11}},title:showCenter?{text:fmtValue(total,v.fmt||"money"),subtext:v.centerText||"Total",left:"34%",top:"44%",textAlign:"center",textStyle:{fontSize:16,fontWeight:800,color:"#0A4A43"},subtextStyle:{fontSize:10,color:"#6B7A82"}}:undefined,
+  ch.setOption({tooltip:{trigger:"item",formatter:"{b}: {c} ({d}%)"},legend:{type:"scroll",orient:"vertical",right:4,top:"center",textStyle:{fontSize:11,width:150,overflow:"truncate"},tooltip:{show:true}},title:showCenter?{text:fmtValue(total,v.fmt||"money"),subtext:v.centerText||"Total",left:"34%",top:"44%",textAlign:"center",textStyle:{fontSize:16,fontWeight:800,color:"#0A4A43"},subtextStyle:{fontSize:10,color:"#6B7A82"}}:undefined,
     series:[{type:"pie",radius:donut?["52%","74%"]:["0%","72%"],center:["34%","50%"],label:{show:showSlice,formatter:"{d}%",fontSize:11,fontWeight:700},labelLine:{show:showSlice,length:6,length2:6},data}]},true);
   ch.off("click"); applyEch(v); ch.resize(); }
 let _worldMapP=null;
