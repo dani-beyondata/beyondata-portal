@@ -2599,7 +2599,9 @@ async function boot(){
     else if((e.ctrlKey||e.metaKey)&&k==="a"){ e.preventDefault(); selAll(); }
     else if(k==="escape"){ selClear(); }
     else if(SEL.size&&k.indexOf("arrow")===0){ e.preventDefault(); const s=e.shiftKey?10:1; selNudge(k==="arrowleft"?-s:k==="arrowright"?s:0, k==="arrowup"?-s:k==="arrowdown"?s:0); } });
-  seedHist(); renderTabs(); layoutStage(); paintPanel(); await refreshAll(); $("boot").style.display="none"; window.__ready=true;
+  // El tool aparece YA; los visuales se rellenan por su cuenta (cada uno con su carga/error).
+  // Así el arranque no se bloquea esperando a que rendericen todas las queries en serie.
+  seedHist(); renderTabs(); layoutStage(); paintPanel(); $("boot").style.display="none"; window.__ready=true; refreshAll();
 }
 boot().catch(e=>{ $("boot").innerHTML="<div style='color:#b4322a;max-width:520px;text-align:center'>No se pudo arrancar: "+esc(e.message)+"</div>"; window.__booterr=e.message; });
 </script>
