@@ -2166,7 +2166,7 @@ function sparkCell(val){ const nums=String(val).split(/[,\s;|]+/).map(Number).fi
   return `<svg width="${w}" height="${h}" style="vertical-align:middle"><polyline points="${pts}" fill="none" stroke="#0F6E63" stroke-width="1.5"/></svg>`; }
 window.tblSort=(id,col)=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; if(s.sortCol===col)s.sortDir=s.sortDir==="asc"?"desc":"asc"; else{s.sortCol=col;s.sortDir="desc";} s.page=0; renderTable(v); };
 window.tblPage=(id,p)=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; (TBL_STATE[id]=TBL_STATE[id]||{}).page=p; renderTable(v); };
-async function renderTable(v){ const rows=await q(applyRF(applyWhere(v.sql),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
+async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
   const cols=Object.keys(rows[0]); const isNum=c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number");
   const cfg=v.cols||{}; const st=TBL_STATE[v.id]=TBL_STATE[v.id]||{};
   let data=rows.slice();
@@ -2192,7 +2192,7 @@ async function renderTable(v){ const rows=await q(applyRF(applyWhere(v.sql),v));
   let pager=""; if(ps>0&&total>ps){ const pages=Math.ceil(total/ps); pager=`<div class="tbl-pager">${page>0?`<button class="sm" onclick="tblPage('${v.id}',${page-1})">‹</button>`:""}<span>${page+1} / ${pages} · ${total} filas</span>${page<pages-1?`<button class="sm" onclick="tblPage('${v.id}',${page+1})">›</button>`:""}</div>`; }
   el.innerHTML=tableFxCSS(v.id,buildFx(v))+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}"><table class="dt"><thead>${head}</thead><tbody>${body}${totals}</tbody></table></div>${pager}`; }
 window.tblDetect=async id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; try{ const rows=await q(applyWhere(v.sql)); if(!rows.length){alert("La query no devuelve filas.");return;} const cols=Object.keys(rows[0]); const num=cols.filter(c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number")); const sk=Object.assign({},v.cols||{}); num.forEach(c=>{ if(!sk[c])sk[c]={fmt:v.fmt||"num"}; }); $("e_cols").value=JSON.stringify(sk,null,2); }catch(e){ alert("No pude detectar columnas: "+e.message); } };
-async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(v.sql),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
+async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
   let rowvals=[...new Set(rows.map(r=>r.row))]; let colvals=[...new Set(rows.map(r=>r.col))]; if('colOrd'in rows[0]){const om={};rows.forEach(r=>om[r.col]=r.colOrd);colvals.sort((a,b)=>om[a]-om[b]);}
   const cell={}; rows.forEach(r=>cell[r.row+"||"+r.col]=+r.v||0); const colTot={},rowTot={}; let grand=0; rowvals.forEach(r=>rowTot[r]=0); colvals.forEach(c=>colTot[c]=0); rows.forEach(r=>{rowTot[r.row]+=(+r.v||0);colTot[r.col]+=(+r.v||0);grand+=(+r.v||0);});
   if(v.sortRows==="desc")rowvals.sort((a,b)=>rowTot[b]-rowTot[a]); else if(v.sortRows==="asc")rowvals.sort((a,b)=>rowTot[a]-rowTot[b]);
