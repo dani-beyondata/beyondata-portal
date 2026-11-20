@@ -478,7 +478,7 @@ function predOf(f){ const c=f.column;
    Sin relaciones ni semi-joins: para cruzar tablas, escribe el JOIN en tu SQL. */
 function cteDefs(){ const ids=new Set(CP().visuals.map(v=>v.id)); const byTable={};
   for(const key in FILTERS){ if(!ids.has(key))continue; const f=FILTERS[key]; if(!fActive(f))continue; if(!(tableCols[f.table]||[]).includes(f.column))continue; const p=predOf(f); if(p)(byTable[f.table]=byTable[f.table]||[]).push(p); }
-  return Object.keys(tableCols).map(t=>{ const preds=(byTable[t]&&byTable[t].length)?byTable[t].join(" AND "):"1=1"; return {table:t,where:preds,def:`${t} AS (SELECT * FROM main.${t} WHERE ${preds})`}; }); }
+  return Object.keys(tableCols).map(t=>{ const preds=(byTable[t]&&byTable[t].length)?byTable[t].join(" AND "):"1=1"; return {table:t,where:preds,def:`${t} AS NOT MATERIALIZED (SELECT * FROM public.${t} WHERE ${preds})`}; }); }
 function ctePrefix(){ const d=cteDefs(); return d.length?("WITH\n  "+d.map(x=>x.def).join(",\n  ")+"\n"):""; }
 /* Nivel 1 (solo display, read-only): los CTEs que los slicers de la página inyectan.
    Un bloque por tabla con slicer; el 1º lleva "with", los demás ",". Orden = aparición en el SQL. */
@@ -493,13 +493,13 @@ function cteDisplay(v){
   const pos=t=>{ const m=sql.search(new RegExp("\\b"+t.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b")); return m<0?1e9:m; };
   const sorted=tables.slice().sort((a,b)=>pos(a)-pos(b)||a.localeCompare(b));
   const lines=sorted.map((t,i)=>{ const preds=(byTable[t]&&byTable[t].length)?byTable[t].join(" AND "):null;
-    const body=preds?`select * from ${t} where ${preds}`:`select * from ${t}`;
+    const body=preds?`select * from public.${t} where ${preds}`:`select * from public.${t}`;
     return (i===0?"with ":", ")+`${t} as (${body})`; });
   return {tables:sorted,lines,used:sorted.filter(t=>pos(t)<1e9)};
 }
 const _reEsc=s=>String(s).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
 function sqlRefUnq(sql,t){ return new RegExp("(?:from|join|,)\\s+"+_reEsc(t)+"\\b","i").test(sql); }   // FROM tabla (CTE filtrado)
-function sqlRefMain(sql,t){ return new RegExp("\\bmain\\."+_reEsc(t)+"\\b","i").test(sql); }            // FROM main.tabla (bypass)
+function sqlRefMain(sql,t){ return new RegExp("\\bpublic\\."+_reEsc(t)+"\\b","i").test(sql); }            // FROM public.tabla (bypass)
 /* B5: nº de visuales de la página que un slicer de la tabla t realmente filtra (usan FROM t) */
 function slicerAffects(t){ return CP().visuals.filter(x=>x.type!=="slicer"&&sqlRefUnq(String(x.sql||x.html||""),t)); }
 function cteBlockHTML(v){ const d=cteDisplay(v); if(!d)return "";
@@ -510,10 +510,10 @@ function cteBlockHTML(v){ const d=cteDisplay(v); if(!d)return "";
   for(const t of d.tables){ if(!active.has(t))continue; if(sqlRefUnq(sql,t))continue; if(sqlRefMain(sql,t)){bypassed.push(t);continue;} missing.push(t); }
   let warn="";
   if(missing.length)warn+=`<div class="cte-warn">⚠ Slicer(s) activo(s) que <b>no filtran este visual</b> (su tabla no aparece en el SQL): <b>${esc(missing.join(", "))}</b>. ¿Falta un <code>JOIN</code> / <code>FROM</code>?</div>`;
-  if(bypassed.length)warn+=`<div class="cte-note">ℹ Ignoras a propósito el filtro de <b>${esc(bypassed.join(", "))}</b> (usas <code>main.</code>).</div>`;
+  if(bypassed.length)warn+=`<div class="cte-note">ℹ Ignoras a propósito el filtro de <b>${esc(bypassed.join(", "))}</b> (usas <code>public.</code>).</div>`;
   return `<div style="margin-bottom:10px"><label>Filtros aplicados (automático)</label>`
     +`<pre class="sqlro">${hlSQL(d.lines.join("\n"))}</pre>${warn}`
-    +`<div class="hint">Lo inyectan los <b>slicers de la página</b> (no editable). Tu SQL hace <code>FROM tabla</code> y ya sale filtrado; para ignorar un filtro, escribe <code>FROM main.tabla</code>.</div></div>`; }
+    +`<div class="hint">Lo inyectan los <b>slicers de la página</b> (no editable). Tu SQL hace <code>FROM tabla</code> y ya sale filtrado; para ignorar un filtro, escribe <code>FROM public.tabla</code>.</div></div>`; }
 function applyWhere(sql,year){ let s=String(sql||"").replace(/\{\{filters:\w+(?::\w+)?\}\}/g,"1=1").replaceAll("$YEAR",year==null?"2026":year);
   const defs=cteDefs(); if(!defs.length)return s;
   const head="WITH\n  "+defs.map(x=>x.def).join(",\n  "); const body=s.replace(/^\s+/,"");
@@ -2571,10 +2571,23 @@ function makeResizer(handleId,panelId,side){ const h=$(handleId),p=$(panelId); i
     const up=()=>{ h.classList.remove("drag"); window.removeEventListener("pointermove",mv); window.removeEventListener("pointerup",up); try{localStorage.setItem(panelId+"_w",p.style.width);}catch(e){} };
     window.addEventListener("pointermove",mv); window.addEventListener("pointerup",up); }; }
 
+/* Motor de filtros (Postgres): puebla tableCols con las tablas base reales (sin internas),
+   para que los slicers/result-filters envuelvan cada tabla en un CTE `tabla AS (SELECT * FROM public.tabla WHERE ...)`.
+   FROM tabla => filtrado · FROM public.tabla => sin filtro (bypass). */
+const TABLECOLS_EXCLUDE=['pipeline_entity_catalog','pipeline_events','pipeline_jobs','pipeline_runs','pms_catalog','module_required_params','profiles','client_params','companies'];
+async function loadTableCols(){
+  try{
+    const notin=TABLECOLS_EXCLUDE.map(x=>`'${x}'`).join(",");
+    const rows=await q(`select c.table_name tn, c.column_name cn from information_schema.columns c join information_schema.tables t on t.table_schema=c.table_schema and t.table_name=c.table_name where c.table_schema='public' and t.table_type='BASE TABLE' and c.table_name not in (${notin}) order by c.table_name, c.ordinal_position`);
+    const tc={}; for(const r of rows){ (tc[r.tn]=tc[r.tn]||[]).push(r.cn); }
+    if(Object.keys(tc).length) tableCols=tc;
+  }catch(e){ console.warn("loadTableCols:", e.message); }
+}
+
 /* ─ Arranque ─ */
 async function boot(){
   await loadScript(LIBS.echarts); echarts=window.echarts;
-  /* Portal: sin DuckDB — q() consulta Postgres via RPC bi_run_sql (RLS del usuario). */ DASH=loadDash(); ensureParams(); await buildSlicerOpts();
+  /* Portal: sin DuckDB — q() consulta Postgres via RPC bi_run_sql (RLS del usuario). */ DASH=loadDash(); ensureParams(); await loadTableCols(); await buildSlicerOpts();
   window.addEventListener("resize",()=>{for(const id in charts)charts[id].resize();});
   try{ const dw=localStorage.getItem("drawer_w"); if(dw)$("drawer").style.width=dw; const ew=localStorage.getItem("explorer_w"); if(ew)$("explorer").style.width=ew; }catch(e){}
   makeResizer("d_resize","drawer","right"); makeResizer("exp_resize","explorer","left");
