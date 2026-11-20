@@ -253,6 +253,7 @@
     <button class="hdr" onclick="openModel()">🔗 Modelo</button>
     <button class="hdr" onclick="editCanvas()" title="color de fondo del lienzo de esta página">🎨 Lienzo</button>
     <button class="hdr" onclick="openJSON()">{ } Config</button>
+    <button class="hdr" onclick="openPageJSON()">{ } Página</button>
     <button class="hdr" onclick="openHelp()">? Ayuda</button>
     <button class="hdr" onclick="resetDash()">↺ Reset</button>
   </div>
@@ -2555,6 +2556,16 @@ window.dupVisual=id=>{ const v=CP().visuals.find(x=>x.id===id); const c=JSON.par
 /* ─ Config / Modelo / Datos / Ayuda ─ */
 window.openJSON=()=>openDrawer("Config JSON",`<div class="hint">El documento completo: <code>pages[]</code> (cada página con su <code>panel</code> y sus <code>visuals</code>) + <code>active</code>.</div><textarea id="j_cfg" style="min-height:62vh;font-family:Consolas,monospace;font-size:12.5px">${esc(JSON.stringify(DASH,null,2))}</textarea><div style="display:flex;gap:8px"><button class="primary" onclick="applyJSON()">Aplicar</button><button onclick="closeDrawer()">Cancelar</button></div><div class="hint" id="j_err" style="color:#b4322a"></div>`);
 window.applyJSON=async()=>{ try{ const d=JSON.parse($("j_cfg").value); let doc; if(d.pages)doc=d; else if(d.visuals)doc={pages:[{id:"pg_main",name:"Página 1",panel:d.panel||{collapsed:false,orient:"horizontal"},visuals:d.visuals}],active:0}; else throw new Error("falta 'pages' o 'visuals'"); DASH=doc; ensureParams(); if(DASH.active==null||DASH.active>=DASH.pages.length)DASH.active=0; saveDash(); disposeCharts(); await buildSlicerOpts(); renderTabs(); layoutStage(); paintPanel(); await refreshAll(); closeDrawer(); }catch(e){ $("j_err").textContent="JSON inválido: "+e.message; } };
+/* JSON de UNA sola página: export (pre-relleno) + import que reemplaza SOLO esa
+   página por su id (fallback: la activa), sin tocar las demás páginas ni los params. */
+window.openPageJSON=()=>openDrawer("JSON de esta página",`<div class="hint">Solo <b>esta página</b> (<code>${esc(CP().name)}</code>): su <code>panel</code> y sus <code>visuals</code>. Al aplicar, reemplaza la página con el mismo <code>id</code> (o la activa si no existe) y deja intactas las demás páginas y los parámetros.</div><textarea id="jp_cfg" style="min-height:62vh;font-family:Consolas,monospace;font-size:12.5px">${esc(JSON.stringify(CP(),null,2))}</textarea><div style="display:flex;gap:8px"><button class="primary" onclick="applyPageJSON()">Aplicar a esta página</button><button onclick="closeDrawer()">Cancelar</button></div><div class="hint" id="jp_err" style="color:#b4322a"></div>`);
+window.applyPageJSON=async()=>{ try{ const p=JSON.parse($("jp_cfg").value);
+    if(p.pages)throw new Error("esto es el dashboard completo (tiene 'pages'); usa «{ } Config»");
+    if(!p.visuals||!Array.isArray(p.visuals))throw new Error("falta 'visuals' (debe ser una sola página)");
+    let i=p.id?DASH.pages.findIndex(x=>x.id===p.id):-1; if(i<0)i=DASH.active; const old=DASH.pages[i];
+    if(!p.id)p.id=old.id; if(!p.name)p.name=old.name; if(!p.panel)p.panel=old.panel||{collapsed:false,orient:"vertical"};
+    DASH.pages[i]=p; DASH.active=i; ensureParams(); saveDash(); disposeCharts(); await buildSlicerOpts(); renderTabs(); layoutStage(); paintPanel(); await refreshAll(); closeDrawer();
+  }catch(e){ $("jp_err").textContent="JSON inválido: "+e.message; } };
 window.openModel=()=>openDrawer("Tablas y filtros",`<div class="hint">No hay relaciones entre tablas. Cada slicer filtra <b>su propia tabla</b> (por sus columnas). Para cruzar tablas, haz el <b>JOIN</b> tú en el SQL.</div>
   <div class="hint">A cada query se le antepone este bloque <code>WITH</code> (una CTE por tabla, ya filtrada por los slicers activos). Tú escribes un <code>SELECT</code> debajo usando esos nombres (<code>FROM reservations</code>, etc.) y ya viene filtrado:</div>
   <pre style="background:#0f1e22;color:#d6e2e4;padding:10px 12px;border-radius:8px;font-family:Consolas,monospace;font-size:12px;white-space:pre;overflow:auto">${esc(ctePrefix()||"(sin filtros activos)")}</pre>
