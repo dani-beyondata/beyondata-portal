@@ -478,7 +478,9 @@ function predOf(f){ const c=f.column;
    Sin relaciones ni semi-joins: para cruzar tablas, escribe el JOIN en tu SQL. */
 function cteDefs(){ const ids=new Set(CP().visuals.map(v=>v.id)); const byTable={};
   for(const key in FILTERS){ if(!ids.has(key))continue; const f=FILTERS[key]; if(!fActive(f))continue; if(!(tableCols[f.table]||[]).includes(f.column))continue; const p=predOf(f); if(p)(byTable[f.table]=byTable[f.table]||[]).push(p); }
-  return Object.keys(tableCols).map(t=>{ const preds=(byTable[t]&&byTable[t].length)?byTable[t].join(" AND "):"1=1"; return {table:t,where:preds,def:`${t} AS NOT MATERIALIZED (SELECT * FROM public.${t} WHERE ${preds})`}; }); }
+  // Solo envolvemos las tablas con filtro ACTIVO (no las 23 en passthrough): sin filtros,
+  // cteDefs=[] y applyWhere devuelve el SQL tal cual (overhead cero).
+  return Object.keys(byTable).filter(t=>byTable[t]&&byTable[t].length).map(t=>{ const preds=byTable[t].join(" AND "); return {table:t,where:preds,def:`${t} AS NOT MATERIALIZED (SELECT * FROM public.${t} WHERE ${preds})`}; }); }
 function ctePrefix(){ const d=cteDefs(); return d.length?("WITH\n  "+d.map(x=>x.def).join(",\n  ")+"\n"):""; }
 /* Nivel 1 (solo display, read-only): los CTEs que los slicers de la página inyectan.
    Un bloque por tabla con slicer; el 1º lleva "with", los demás ",". Orden = aparición en el SQL. */
