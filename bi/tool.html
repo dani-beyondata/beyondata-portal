@@ -2177,6 +2177,37 @@ function sparkCell(val){ const nums=String(val).split(/[,\s;|]+/).map(Number).fi
   return `<svg width="${w}" height="${h}" style="vertical-align:middle"><polyline points="${pts}" fill="none" stroke="#0F6E63" stroke-width="1.5"/></svg>`; }
 window.tblSort=(id,col)=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; if(s.sortCol===col)s.sortDir=s.sortDir==="asc"?"desc":"asc"; else{s.sortCol=col;s.sortDir="desc";} s.page=0; renderTable(v); };
 window.tblPage=(id,p)=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; (TBL_STATE[id]=TBL_STATE[id]||{}).page=p; renderTable(v); };
+/* ── Tabla jerárquica (pivot): v.rowLevels=[col1,col2,…] agrupa filas, plegable ▸/▾ ── */
+window.tblToggle=(id,pk)=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; s.expanded=s.expanded||new Set(); s.expanded.has(pk)?s.expanded.delete(pk):s.expanded.add(pk); renderTable(v); };
+window.tblExpandAll=id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; s.expanded=new Set(s._allGroups||[]); renderTable(v); };
+window.tblCollapseAll=id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; s.expanded=new Set(); renderTable(v); };
+window.tblExpandNext=id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; s.expanded=s.expanded||new Set(); (s._nodeIndex||[]).forEach(n=>{ if((n.parentKey==null||s.expanded.has(n.parentKey))&&!s.expanded.has(n.pathKey))s.expanded.add(n.pathKey); }); renderTable(v); };
+function _subtot(rowsArr,c,isNum,cc){ if(!isNum(c))return null; if(cc.arrow||cc.fmt==="pct"||cc.spark)return null; return rowsArr.reduce((a,r)=>a+(typeof r[c]==="number"?r[c]:0),0); }
+function renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels){
+  const SEP="␟"; const groupLevels=levels.slice(0,-1); const leafLabel=levels[levels.length-1]; const valueCols=cols.filter(c=>!levels.includes(c));
+  const stats={}; valueCols.forEach(c=>{ if(isNum(c)){ const vs=rows.map(r=>r[c]).filter(x=>typeof x==="number"); if(vs.length)stats[c]={mn:Math.min(...vs),mx:Math.max(...vs)}; }});
+  const grp=(arr,lvls)=>{ const [lv,...rest]=lvls; const m=new Map(); arr.forEach(r=>{ const k=r[lv]==null?"∅":String(r[lv]); if(!m.has(k))m.set(k,[]); m.get(k).push(r); }); return [...m.entries()].map(([k,rs])=>({key:k,rows:rs,kids:rest.length?grp(rs,rest):null})); };
+  const tree=grp(rows,groupLevels);
+  const nodeList=[]; (function collect(nodes,parent,depth){ nodes.forEach(n=>{ const pk=(parent?parent+SEP:"")+n.key; nodeList.push({pathKey:pk,parentKey:parent||null,depth}); if(n.kids)collect(n.kids,pk,depth+1); }); })(tree,"",0);
+  st._allGroups=nodeList.map(n=>n.pathKey); st._nodeIndex=nodeList;
+  st.expanded=st.expanded||new Set(); const exp=st.expanded;
+  const sortLeaves=arr=>{ if(st.sortCol&&valueCols.includes(st.sortCol)){ const d=st.sortDir==="asc"?1:-1; return arr.slice().sort((a,b)=>{ const x=a[st.sortCol],y=b[st.sortCol]; if(x==null)return 1; if(y==null)return -1; return (x>y?1:x<y?-1:0)*d; }); } return arr; };
+  const out=[];
+  (function walk(nodes,depth,parent){ nodes.forEach(n=>{ const pk=(parent?parent+SEP:"")+n.key; const open=exp.has(pk); const pad=depth*18;
+    const sub=valueCols.map(c=>{ const s=_subtot(n.rows,c,isNum,cfg[c]||{}); return `<td class="num">${s==null?"":fmtCell(s,fmtOf(c))}</td>`; }).join("");
+    out.push(`<tr style="background:#f3f6f8"><td style="padding-left:${pad}px;cursor:pointer" onclick="tblToggle('${v.id}','${escA(pk)}')"><span style="display:inline-block;width:12px;color:#6d7683">${open?"▾":"▸"}</span> <b>${esc(n.key)}</b> <span style="color:#9aa4ab;font-weight:400">(${n.rows.length})</span></td>${sub}</tr>`);
+    if(open){ if(n.kids)walk(n.kids,depth+1,pk); else sortLeaves(n.rows).forEach(r=>{ const cells=valueCols.map(c=>{ const cc=cfg[c]||{}; const val=r[c]; const num=isNum(c)&&typeof val==="number"; let style="",inner;
+        if(cc.spark)inner=sparkCell(val);
+        else if(num){ const f=fmtOf(c); if(cc.arrow){const up=val>=0;inner=`<span style="color:${up?'#2F7A34':'#b4322a'}">${up?'▲':'▼'} ${fmtCell(Math.abs(val),f)}</span>`;} else inner=fmtCell(val,f); if(cc.heat&&stats[c])style+=condStyle(val,stats[c].mn,stats[c].mx,cc.heat); if(cc.bar&&stats[c])inner=condBar(inner,val,stats[c].mn,stats[c].mx,cc.bar); }
+        else inner=esc(val);
+        return `<td class="${isNum(c)?'num':''}" style="${style}">${inner}</td>`; }).join("");
+      out.push(`<tr><td style="padding-left:${(depth+1)*18}px">${esc(r[leafLabel]==null?"":r[leafLabel])}</td>${cells}</tr>`); }); }
+  }); })(tree,0,"");
+  const head=`<tr><th>${esc(levels.join(" / "))}</th>${valueCols.map(c=>`<th class="${isNum(c)?'num':''}" ${v.sortable!==false?`onclick="tblSort('${v.id}','${escA(c)}')" style="cursor:pointer"`:""}>${esc(c)}${st.sortCol===c?(st.sortDir==="asc"?" ▲":" ▼"):""}</th>`).join("")}</tr>`;
+  let totals=""; if(v.totals){ totals=`<tr class="tbl-tot"><td>Total</td>${valueCols.map(c=>{ const s=_subtot(rows,c,isNum,cfg[c]||{}); return `<td class="num">${s==null?"":fmtCell(s,fmtOf(c))}</td>`; }).join("")}</tr>`; }
+  const bar=`<div style="display:flex;gap:6px;margin-bottom:6px"><button class="sm" onclick="tblExpandAll('${v.id}')">⊞ Expandir todo</button><button class="sm" onclick="tblCollapseAll('${v.id}')">⊟ Colapsar todo</button><button class="sm" onclick="tblExpandNext('${v.id}')">▸ Siguiente nivel</button></div>`;
+  el.innerHTML=tableFxCSS(v.id,buildFx(v))+bar+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}"><table class="dt"><thead>${head}</thead><tbody>${out.join("")}${totals}</tbody></table></div>`;
+}
 async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
   const cols=Object.keys(rows[0]); const isNum=c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number");
   const cfg=v.cols||{}; const st=TBL_STATE[v.id]=TBL_STATE[v.id]||{};
@@ -2187,6 +2218,8 @@ async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),
   const ps=+v.pageSize||0,total=data.length; let page=st.page||0; if(ps>0&&page*ps>=total)page=st.page=0;
   const view=ps>0?data.slice(page*ps,page*ps+ps):data;
   const fmtOf=c=>{ const cc=cfg[c]; if(cc&&cc.fmt)return cc.fmt; return /prod|produc|revpa|adr|adb|€/i.test(c)?v.fmt:null; };
+  const levels=Array.isArray(v.rowLevels)?v.rowLevels.filter(c=>cols.includes(c)):[];
+  if(levels.length>=2){ return renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels); }
   const head=`<tr>${cols.map(c=>`<th class="${isNum(c)?'num':''}" ${v.sortable!==false?`onclick="tblSort('${v.id}','${c}')" style="cursor:pointer"`:""}>${esc(c)}${st.sortCol===c?(st.sortDir==="asc"?" ▲":" ▼"):""}</th>`).join("")}</tr>`;
   const body=view.map(r=>{ const hl=(topSet&&topSet.has(r))?' class="tbl-top"':"";
     return `<tr${hl}>${cols.map(c=>{ const cc=cfg[c]||{}; const val=r[c]; const num=isNum(c)&&typeof val==="number"; let style="";
@@ -2341,7 +2374,10 @@ function fmtTable(v,id){ return `<div class="row"><div><label>Formato nº genera
     <div style="margin-top:8px"><label>Formato por columna (JSON editable) <button class="sm" style="float:right;padding:2px 9px" onclick="tblDetect('${id}')">detectar columnas</button></label>
       <textarea id="e_cols" class="fxjson" style="min-height:130px;width:100%">${esc(v.cols?JSON.stringify(v.cols,null,2):"{}")}</textarea>
       <div class="hint">Por columna: <code>fmt</code> (money/int/pct/num) · <code>heat</code> (escala: teal/blue/green/orange → color de celda por valor) · <code>bar</code> (<code>true</code> o <code>"#hex"</code> → barra de datos) · <code>arrow</code> (<code>true</code> → ▲▼ por signo) · <code>spark</code> (<code>true</code> si la celda trae números separados por comas).<br>Ej.: <code>{"production":{"fmt":"money","bar":true},"var_pct":{"fmt":"pct","arrow":true}}</code></div></div>
-    <div style="margin-top:6px"><label>Resaltar top-N (JSON, opcional)</label><input id="e_topn" type="text" class="fxjson" value="${escA(v.topN?JSON.stringify(v.topN):"")}" placeholder='{"col":"production","n":3}'></div>`; }
+    <div style="margin-top:6px"><label>Resaltar top-N (JSON, opcional)</label><input id="e_topn" type="text" class="fxjson" value="${escA(v.topN?JSON.stringify(v.topN):"")}" placeholder='{"col":"production","n":3}'></div>
+    <div style="margin-top:8px"><label>Niveles de fila · jerarquía (una columna por línea, de arriba a abajo)</label>
+      <textarea id="e_rowlevels" class="fxjson" style="min-height:48px;width:100%" placeholder="Market Group&#10;Market">${esc((v.rowLevels||[]).join("\n"))}</textarea>
+      <div class="hint">Agrupa la tabla por estas columnas en orden, plegable con ▸/▾ (subtotales en columnas aditivas). La última es la hoja; las columnas de nivel dejan de mostrarse como columnas de valor. Vacío = tabla plana.</div></div>`; }
 function fmtMatrix(v){ return `<div class="row"><div><label>Formato nº</label><select id="e_fmt">${["money","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Mostrar como %</label><select id="e_mpct"><option value="none" ${(!v.pct||v.pct==="none")?"selected":""}>no (valores)</option><option value="row" ${v.pct==="row"?"selected":""}>% de fila</option><option value="col" ${v.pct==="col"?"selected":""}>% de columna</option><option value="total" ${v.pct==="total"?"selected":""}>% del total</option></select></div></div>
     <div class="row"><div><label>Heatmap de celda</label><select id="e_heat"><option value="" ${!v.heat?"selected":""}>no</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.heat===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Barras de datos</label><select id="e_mbar"><option value="0" ${!v.bar?"selected":""}>no</option><option value="1" ${v.bar?"selected":""}>sí</option></select></div><div><label>Ordenar filas por total</label><select id="e_sortrows"><option value="none" ${(!v.sortRows||v.sortRows==="none")?"selected":""}>no</option><option value="desc" ${v.sortRows==="desc"?"selected":""}>mayor→menor</option><option value="asc" ${v.sortRows==="asc"?"selected":""}>menor→mayor</option></select></div></div>
     <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_zebra" ${v.zebra?"checked":""}> Filas alternas (zebra)</label><label class="fxrow2"><input type="checkbox" id="e_sticky" ${v.sticky?"checked":""}> Cabecera fija (al hacer scroll)</label></div>
@@ -2360,6 +2396,7 @@ function readTable(v){ if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIV
   if($("e_pagesize"))v.pageSize=Math.max(0,parseInt($("e_pagesize").value)||0);
   if($("e_cols")){ const t=$("e_cols").value.trim(); if(!t||t==="{}")delete v.cols; else{ try{v.cols=JSON.parse(t);}catch(e){if(!LIVE)alert("Formato por columna: JSON inválido, se mantiene el anterior.\n"+e.message);} } }
   if($("e_topn")){ const t=$("e_topn").value.trim(); if(!t)delete v.topN; else{ try{v.topN=JSON.parse(t);}catch(e){if(!LIVE)alert("Top-N: JSON inválido.\n"+e.message);} } }
+  if($("e_rowlevels")){ const t=$("e_rowlevels").value.split("\n").map(s=>s.trim()).filter(Boolean); if(t.length)v.rowLevels=t; else delete v.rowLevels; }
   if(document.querySelector(".fxlist"))readFx(v); }
 function readMatrix(v){ if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIVE)commitSQLText(v,$("e_sql").value);
   if($("e_mpct"))v.pct=$("e_mpct").value; if($("e_heat"))v.heat=$("e_heat").value||undefined; if($("e_mbar"))v.bar=$("e_mbar").value==="1"; if($("e_sortrows"))v.sortRows=$("e_sortrows").value;
