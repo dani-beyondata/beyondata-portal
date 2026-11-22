@@ -89,6 +89,11 @@
   .gctrl{position:absolute;top:5px;right:7px;display:none;gap:4px;z-index:6}
   .gcard:hover .gctrl{display:flex}
   .gctrl span{font-size:11px;background:#fff;border:1px solid var(--border);border-radius:6px;padding:1px 6px;cursor:pointer;color:var(--muted)}
+  #expmenu{position:fixed;z-index:200;background:#fff;border:1px solid var(--border);border-radius:9px;box-shadow:0 6px 24px rgba(16,40,50,.18);padding:4px;min-width:150px}
+  #expmenu .expitem{padding:7px 11px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;color:var(--teal-d)}
+  #expmenu .expitem:hover{background:#eef4f4}
+  #exptoast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#0A4A43;color:#fff;padding:8px 16px;border-radius:9px;font-size:13px;z-index:220;box-shadow:0 6px 24px rgba(16,40,50,.22);opacity:0;transition:opacity .15s}
+  #exptoast.on{opacity:1}
   .vbody{flex:1;min-height:0;padding:4px 8px 8px;overflow:auto}
   .gcard.kpi .vbody,.gcard.html .vbody{padding:0;overflow:visible}
   .gcard.text .vbody{padding:10px 12px}
@@ -2064,7 +2069,7 @@ function layoutStage(){ const stage=$("stage"); let maxB=300;
     const card=document.createElement("div"); card.className="gcard "+(['kpi','html','text','slicer','metricgroup','resultfilter'].includes(v.type)?v.type:""); card.dataset.id=v.id;
     card.style.cssText=`left:${v.x}px;top:${v.y}px;width:${v.w}px;height:${v.h}px`;
     applyVisualBox(card,v);
-    card.innerHTML=`<div class="gdrag"></div><div class="gctrl">${v.type==="slicer"?`<span onclick="moveSlicer('${v.id}','panel')" title="al panel">↙</span>`:""}<span onclick="editVisual('${v.id}')">✎</span><span onclick="dupVisual('${v.id}')">⧉</span><span onclick="delVisual('${v.id}')">🗑</span></div>`+
+    card.innerHTML=`<div class="gdrag"></div><div class="gctrl">${(!['kpi','html','text','slicer','metricgroup','resultfilter'].includes(v.type))?`<span onclick="exportMenu(event,'${v.id}')" title="Exportar datos">⬇</span>`:""}${v.type==="slicer"?`<span onclick="moveSlicer('${v.id}','panel')" title="al panel">↙</span>`:""}<span onclick="editVisual('${v.id}')">✎</span><span onclick="dupVisual('${v.id}')">⧉</span><span onclick="delVisual('${v.id}')">🗑</span></div>`+
       ((['kpi','html','slicer','text','metricgroup','resultfilter'].includes(v.type))?'':`<div class="ghead"><div class="t">${esc(v.title||'')}</div>${v.subtitle?`<div class="st">${esc(v.subtitle)}</div>`:''}</div>`)+
       `<div class="vbody" id="body_${v.id}"></div><div class="rz"></div>`;
     stage.appendChild(card); });
@@ -2326,6 +2331,27 @@ function snapResize(v,nw,nh){ const gs=[]; const sibs=siblings(v.id);
   return {w:Math.max(120,nw),h:Math.max(48,nh),gs}; }
 /* ═ Multi-selección estilo PowerPoint ═ */
 let SEL=new Set();
+/* ── Exportar datos de un visual (CSV / copiar) — solo lo filtrado (métrica + result filter actuales) ── */
+function expRows(v){ return q(applyRF(applyWhere(effSQL(v)),v)); }
+function dlBlob(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},800); }
+function expToast(msg){ let t=$("exptoast"); if(!t){t=document.createElement("div");t.id="exptoast";document.body.appendChild(t);} t.textContent=msg; t.classList.add("on"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),1600); }
+window.closeExportMenu=()=>{ const m=$("expmenu"); if(m)m.remove(); };
+window.exportMenu=(ev,id)=>{ ev.stopPropagation(); closeExportMenu(); const m=document.createElement("div"); m.id="expmenu";
+  m.innerHTML=`<div class="expitem" onclick="exportCSV('${id}')">⬇ Descargar CSV</div><div class="expitem" onclick="exportCopy('${id}')">⧉ Copiar (pegar en Excel/Sheets)</div>`;
+  document.body.appendChild(m); const x=Math.min(ev.clientX,innerWidth-164), y=Math.min(ev.clientY,innerHeight-86); m.style.left=Math.max(6,x)+"px"; m.style.top=Math.max(6,y)+"px";
+  setTimeout(()=>document.addEventListener("mousedown",closeExportMenu,{once:true}),0); };
+window.exportCSV=async id=>{ closeExportMenu(); const v=CP().visuals.find(x=>x.id===id); if(!v)return;
+  try{ const rows=await expRows(v); if(!rows||!rows.length){expToast("Sin datos para exportar");return;}
+    const cols=Object.keys(rows[0]); const q1=s=>{s=(s==null)?"":String(s); return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+    const csv=[cols.join(","),...rows.map(r=>cols.map(c=>q1(r[c])).join(","))].join("\r\n");
+    dlBlob(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}),(v.title||id).replace(/[\\/:*?"<>|]+/g,"_")+".csv"); expToast("CSV descargado"); }
+  catch(e){ expToast("No pude exportar: "+e.message); } };
+window.exportCopy=async id=>{ closeExportMenu(); const v=CP().visuals.find(x=>x.id===id); if(!v)return;
+  try{ const rows=await expRows(v); if(!rows||!rows.length){expToast("Sin datos para copiar");return;}
+    const cols=Object.keys(rows[0]); const tsv=[cols.join("\t"),...rows.map(r=>cols.map(c=>{const s=r[c]==null?"":String(r[c]); return s.replace(/[\t\r\n]/g," ");}).join("\t"))].join("\n");
+    try{ await navigator.clipboard.writeText(tsv); }catch(e){ const ta=document.createElement("textarea"); ta.value=tsv; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.focus(); ta.select(); try{document.execCommand("copy");}catch(_){} ta.remove(); }
+    expToast(`Copiado · ${rows.length} filas`); }
+  catch(e){ expToast("No pude copiar: "+e.message); } };
 function selCards(){ return [...document.querySelectorAll('#stage .gcard')]; }
 function selPaint(){ selCards().forEach(c=>c.classList.toggle("sel", SEL.has(c.dataset.id))); }
 function selClear(){ if(SEL.size){ SEL.clear(); selPaint(); } }
