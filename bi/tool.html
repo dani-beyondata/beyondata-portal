@@ -1984,16 +1984,78 @@ window.boxPreset=k=>{ const m={
     outline:'{"border":1,"borderColor":"#c7d0d6","radius":12}',
     none:'' };
   const t=document.getElementById("e_box"); if(t){ t.value=m[k]!=null?m[k]:""; t.dispatchEvent(new Event("input",{bubbles:true})); } };
-/* Fondo del lienzo, por página (CP().bg) — se aplica a #stage en layoutStage */
-window.editCanvas=()=>{ const p=CP(); openDrawer("Fondo del lienzo · "+esc(p.name),`
-  <div class="sec"><div class="sech">Color de fondo (esta página)</div>
-    ${colorField("cv_bg",p.bg||"#ffffff")}
-    <div class="hint">Pinta el fondo del lienzo de <b>esta página</b>. Cada página puede tener el suyo. Vacío = fondo por defecto.</div>
-    <div style="display:flex;gap:8px;margin-top:10px"><button class="primary" onclick="applyCanvasBg()">Aplicar</button><button onclick="clearCanvasBg()">Quitar (default)</button></div></div>`); };
-window.applyCanvasBg=()=>{ const el=document.getElementById("cv_bg"); const val=el?el.value.trim():""; if(val)CP().bg=val; else delete CP().bg; const st=document.getElementById("stage"); if(st)st.style.background=val||""; saveDash(); };
-window.clearCanvasBg=()=>{ delete CP().bg; const st=document.getElementById("stage"); if(st)st.style.background=""; const el=document.getElementById("cv_bg"); if(el)el.value=""; saveDash(); };
+/* ── Fondo del lienzo, por página (CP().canvas): color / gradiente / imagen (URL) + opacidad + cuadrícula.
+   Aditivo y retrocompatible: sin canvas (ni el antiguo CP().bg) el lienzo se ve como siempre. ── */
+function canvasModel(p){
+  if(p.canvas && typeof p.canvas==="object") return p.canvas;
+  if(p.bg) return {bg:{type:"color",color:p.bg,opacity:1},grid:{show:false,size:20,color:"rgba(0,0,0,.04)"}};
+  return null;
+}
+function canvasDefault(){ return {bg:{type:"color",color:"#f7f9fa",opacity:1,
+  gradient:{from:"#0E3A35",to:"#0A4A43",angle:135,kind:"linear"},
+  image:{url:"",fit:"cover",opacity:1}}, grid:{show:true,size:20,color:"rgba(0,0,0,.04)"}}; }
+const CV_LAYER="position:absolute;inset:0;pointer-events:none;z-index:0;background-repeat:no-repeat;background-position:center";
+function applyCanvas(){
+  const stage=$("stage"); if(!stage) return;
+  let bg=$("cv-bg"), grid=$("cv-grid");
+  if(!grid){ grid=document.createElement("div"); grid.id="cv-grid"; stage.prepend(grid); }
+  if(!bg){ bg=document.createElement("div"); bg.id="cv-bg"; stage.prepend(bg); }
+  bg.style.cssText=CV_LAYER; grid.style.cssText=CV_LAYER+";background-position:0 0";
+  const c=canvasModel(CP());
+  if(!c){ stage.style.background=""; return; }          // default CSS (incluye la cuadrícula por defecto)
+  stage.style.background="#f7f9fa";                       // base sólida: mata la cuadrícula CSS; la dibujamos nosotros
+  const b=c.bg||{}, t=b.type||"none";
+  if(t==="color"){ bg.style.background=b.color||"#ffffff"; bg.style.opacity=(b.opacity==null?1:b.opacity); }
+  else if(t==="gradient"){ const g=b.gradient||{}, from=g.from||"#0E3A35", to=g.to||"#0A4A43";
+    bg.style.backgroundImage=(g.kind==="radial")?`radial-gradient(circle at 50% 40%, ${from}, ${to})`:`linear-gradient(${g.angle==null?135:g.angle}deg, ${from}, ${to})`;
+    bg.style.opacity=(b.opacity==null?1:b.opacity); }
+  else if(t==="image"){ const im=b.image||{}; if(im.url){ bg.style.backgroundImage=`url("${String(im.url).replace(/"/g,"%22")}")`;
+    const fit=im.fit||"cover"; bg.style.backgroundSize=(fit==="tile"?"auto":fit); bg.style.backgroundRepeat=(fit==="tile"?"repeat":"no-repeat");
+    bg.style.opacity=(im.opacity==null?1:im.opacity); } }
+  const gr=c.grid||{};
+  if(gr.show){ const sz=gr.size||20, col=gr.color||"rgba(0,0,0,.04)";
+    grid.style.backgroundImage=`linear-gradient(90deg, ${col} 1px, transparent 1px), linear-gradient(${col} 1px, transparent 1px)`;
+    grid.style.backgroundSize=`${sz}px ${sz}px, ${sz}px ${sz}px`; grid.style.backgroundRepeat="repeat"; }
+}
+window.cvTypeUI=()=>{ const t=(($("cv_type")||{}).value)||"none"; const show=(id,on)=>{const e=$(id); if(e)e.style.display=on?"":"none";};
+  show("cv_s_color",t==="color"); show("cv_s_grad",t==="gradient"); show("cv_s_img",t==="image"); show("cv_s_op",t!=="none"); };
+window.cvApply=()=>{ const t=(($("cv_type")||{}).value)||"none"; const op=(parseInt(($("cv_opacity")||{}).value,10)||100)/100;
+  if(t==="none"){ delete CP().canvas; delete CP().bg; }
+  else { const c=(CP().canvas&&typeof CP().canvas==="object")?CP().canvas:canvasDefault(); c.bg=c.bg||{}; c.bg.type=t;
+    if(t==="color"){ c.bg.color=(($("cv_color")||{}).value)||"#f7f9fa"; c.bg.opacity=op; }
+    else if(t==="gradient"){ c.bg.gradient={from:(($("cv_gfrom")||{}).value)||"#0E3A35",to:(($("cv_gto")||{}).value)||"#0A4A43",angle:parseInt(($("cv_gangle")||{}).value,10)||135,kind:(($("cv_gkind")||{}).value)||"linear"}; c.bg.opacity=op; }
+    else if(t==="image"){ c.bg.image={url:((($("cv_imgurl")||{}).value)||"").trim(),fit:(($("cv_imgfit")||{}).value)||"cover",opacity:op}; }
+    c.grid={show:!!(($("cv_grid")||{}).checked),size:parseInt(($("cv_gridsize")||{}).value,10)||20,color:(($("cv_gridcolor")||{}).value)||"rgba(0,0,0,.04)"};
+    delete CP().bg; CP().canvas=c; }
+  applyCanvas(); saveDash(); };
+window.cvAllPages=()=>{ const c=CP().canvas?JSON.parse(JSON.stringify(CP().canvas)):null; DASH.pages.forEach(p=>{ if(c)p.canvas=c; else delete p.canvas; delete p.bg; }); saveDash(); applyCanvas(); alert("Fondo aplicado a todas las páginas."); };
+window.clearCanvas=()=>{ delete CP().canvas; delete CP().bg; applyCanvas(); saveDash(); const d=$("cv_type"); if(d){ d.value="none"; cvTypeUI(); } };
+window.editCanvas=()=>{ const p=CP(); const c=canvasModel(p)||canvasDefault(); const b=c.bg||{}, g=(b.gradient||{}), im=(b.image||{}), gr=(c.grid||{});
+  const op=Math.round(((b.type==="image"?im.opacity:b.opacity)==null?1:(b.type==="image"?im.opacity:b.opacity))*100);
+  openDrawer("Fondo del lienzo · "+esc(p.name),`
+  <div class="sec"><div class="sech">Tipo de fondo (esta página)</div>
+    <select id="cv_type" onchange="cvTypeUI();cvApply()" style="width:100%">
+      <option value="none">Ninguno (default)</option><option value="color">Color</option>
+      <option value="gradient">Gradiente</option><option value="image">Imagen (URL)</option></select></div>
+  <div class="sec" id="cv_s_color"><div class="sech">Color</div>${colorField("cv_color",b.color||"#f7f9fa")}</div>
+  <div class="sec" id="cv_s_grad"><div class="sech">Gradiente</div>
+    <div class="row"><div><label>Desde</label>${colorField("cv_gfrom",g.from||"#0E3A35")}</div><div><label>Hasta</label>${colorField("cv_gto",g.to||"#0A4A43")}</div></div>
+    <div class="row" style="margin-top:6px"><div><label>Ángulo</label><input id="cv_gangle" type="number" value="${g.angle==null?135:g.angle}" oninput="cvApply()"></div>
+      <div><label>Tipo</label><select id="cv_gkind" onchange="cvApply()"><option value="linear" ${g.kind!=="radial"?"selected":""}>Lineal</option><option value="radial" ${g.kind==="radial"?"selected":""}>Radial</option></select></div></div></div>
+  <div class="sec" id="cv_s_img"><div class="sech">Imagen</div>
+    <label>URL</label><input id="cv_imgurl" type="text" value="${escA(im.url||"")}" placeholder="https://… (p.ej. bucket público de Supabase)" oninput="cvApply()" style="width:100%">
+    <div style="margin-top:6px"><label>Ajuste</label><select id="cv_imgfit" onchange="cvApply()"><option value="cover" ${(im.fit!=="contain"&&im.fit!=="tile")?"selected":""}>Cubrir</option><option value="contain" ${im.fit==="contain"?"selected":""}>Contener</option><option value="tile" ${im.fit==="tile"?"selected":""}>Mosaico</option></select></div></div>
+  <div class="sec" id="cv_s_op"><div class="sech">Opacidad del fondo</div><input id="cv_opacity" type="range" min="0" max="100" value="${op}" oninput="cvApply()" style="width:100%"></div>
+  <div class="sec"><div class="sech">Cuadrícula</div>
+    <label style="display:flex;gap:8px;align-items:center"><input id="cv_grid" type="checkbox" ${gr.show?"checked":""} onchange="cvApply()"> Mostrar cuadrícula</label>
+    <div class="row" style="margin-top:6px"><div><label>Tamaño (px)</label><input id="cv_gridsize" type="number" value="${gr.size||20}" oninput="cvApply()"></div><div><label>Color</label>${colorField("cv_gridcolor",gr.color||"rgba(0,0,0,.04)")}</div></div></div>
+  <div class="hint">Se aplica a <b>esta página</b>. Cada página puede tener el suyo; viaja en el JSON de la página.</div>
+  <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+    <button onclick="cvAllPages()">Aplicar a todas las páginas</button>
+    <button class="danger" onclick="clearCanvas()">Quitar (default)</button></div>`);
+  const d=$("cv_type"); if(d){ d.value=b.type||"none"; } cvTypeUI(); };
 function layoutStage(){ const stage=$("stage"); let maxB=300;
-  stage.style.background = (CP().bg ? CP().bg : "");   // fondo del lienzo por página (vacío = default CSS)
+  applyCanvas();   // fondo del lienzo por página (CP().canvas): color / gradiente / imagen + opacidad + cuadrícula
   Object.keys(charts).forEach(k=>{try{charts[k].dispose();}catch(e){} delete charts[k];});
   stage.querySelectorAll(".gcard").forEach(e=>e.remove());
   CP().visuals.filter(v=>!(v.type==="slicer"&&(v.dock||"panel")==="panel")).forEach(v=>{ maxB=Math.max(maxB,v.y+v.h);
