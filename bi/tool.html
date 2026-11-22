@@ -126,6 +126,8 @@
   .tbl-wrap.sticky table.dt thead th{position:sticky;top:0;background:#fff;z-index:1}
   .tbl-wrap.zebra table.dt tbody tr:nth-child(even) td{background:rgba(15,110,99,.045)}
   table.dt tr.tbl-tot td{border-top:2px solid var(--border);font-weight:800;background:#f4f8f8}
+  .tbl-wrap.totfreeze table.dt tbody tr.tbl-tot td,.tbl-wrap.totfreeze table.dt.mx tbody tr.tot td{position:sticky;bottom:0;z-index:2}
+  .tbl-wrap.totfreeze table.dt.mx tbody tr.tot td{background:#f0f5f5}
   table.dt tr.tbl-top td{box-shadow:inset 3px 0 0 #E0A800}
   .tbar{position:relative;display:flex;align-items:center;justify-content:flex-end;min-width:54px}
   .tbar-f{position:absolute;left:0;top:2px;bottom:2px;border-radius:3px;opacity:.5}
@@ -2263,7 +2265,7 @@ async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),
       return `<td class="${isNum(c)?'num':''}" style="${style}">${inner}</td>`; }).join("")}</tr>`; }).join("");
   let totals=""; if(v.totals){ totals=`<tr class="tbl-tot">${cols.map((c,i)=>{ if(i===0)return `<td>Total</td>`; const cc=cfg[c]||{}; if(isNum(c)&&!(cc.fmt==="pct"||cc.arrow)){ const sum=data.reduce((a,b)=>a+(typeof b[c]==="number"?b[c]:0),0); return `<td class="num">${fmtCell(sum,fmtOf(c))}</td>`; } return `<td></td>`; }).join("")}</tr>`; }
   let pager=""; if(ps>0&&total>ps){ const pages=Math.ceil(total/ps); pager=`<div class="tbl-pager">${page>0?`<button class="sm" onclick="tblPage('${v.id}',${page-1})">‹</button>`:""}<span>${page+1} / ${pages} · ${total} filas</span>${page<pages-1?`<button class="sm" onclick="tblPage('${v.id}',${page+1})">›</button>`:""}</div>`; }
-  el.innerHTML=tableFxCSS(v.id,buildFx(v))+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}"><table class="dt"><thead>${head}</thead><tbody>${body}${totals}</tbody></table></div>${pager}`; }
+  el.innerHTML=tableFxCSS(v.id,buildFx(v))+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}${(v.totals&&v.totalsFreeze!==false)?' totfreeze':''}"><table class="dt"><thead>${head}</thead><tbody>${body}${totals}</tbody></table></div>${pager}`; }
 window.tblDetect=async id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; try{ const rows=await q(applyWhere(v.sql)); if(!rows.length){alert("La query no devuelve filas.");return;} const cols=Object.keys(rows[0]); const num=cols.filter(c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number")); const sk=Object.assign({},v.cols||{}); num.forEach(c=>{ if(!sk[c])sk[c]={fmt:v.fmt||"num"}; }); $("e_cols").value=JSON.stringify(sk,null,2); }catch(e){ alert("No pude detectar columnas: "+e.message); } };
 /* Orden interactivo de matriz (cliente, por sesión): filas por columna, columnas por fila, reset.
    Tri-estado: desc → asc → sin orden (vuelve al orden del SQL / colOrd). */
@@ -2292,7 +2294,7 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v))
   const thTot=clickable?`<th class="num tot" style="cursor:pointer" title="Ordenar filas por el total" onclick="mxSortRows('${v.id}','__total__')">Total${arrR("__total__")}</th>`:`<th class="num tot">Total</th>`;
   const tdRow=rw=>clickable?`<td style="cursor:pointer" title="Ordenar columnas por esta fila" onclick="mxSortCols('${v.id}','${cp(rw)}')">${esc(rw)}${arrC(rw)}</td>`:`<td>${esc(rw)}</td>`;
   const tdTot=clickable?`<td style="cursor:pointer" title="Ordenar columnas por el total" onclick="mxSortCols('${v.id}','__total__')">Total${arrC("__total__")}</td>`:`<td>Total</td>`;
-  let h=`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}"><table class="dt mx"><thead><tr>${corner}`+colvals.map(thCol).join("")+thTot+`</tr></thead><tbody>`;
+  let h=`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}${v.totalsFreeze!==false?' totfreeze':''}"><table class="dt mx"><thead><tr>${corner}`+colvals.map(thCol).join("")+thTot+`</tr></thead><tbody>`;
   rowvals.forEach(rw=>{h+=`<tr>${tdRow(rw)}`+colvals.map(c=>cellHTML(rw,c)).join("")+`<td class="num tot">${fmtCell(rowTot[rw],v.fmt)}</td></tr>`;});
   h+=`<tr class="tot">${tdTot}`+colvals.map(c=>`<td class="num">${fmtCell(colTot[c],v.fmt)}</td>`).join("")+`<td class="num">${fmtCell(grand,v.fmt)}</td></tr></tbody></table></div>`; el.innerHTML=tableFxCSS(v.id,buildFx(v))+h; }
 
@@ -2399,6 +2401,7 @@ function fmtTable(v,id){ return `<div class="row"><div><label>Formato nº genera
     <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_zebra" ${v.zebra?"checked":""}> Filas alternas (zebra)</label>
       <label class="fxrow2"><input type="checkbox" id="e_sticky" ${v.sticky?"checked":""}> Cabecera fija (al hacer scroll)</label>
       <label class="fxrow2"><input type="checkbox" id="e_totals" ${v.totals?"checked":""}> Fila de totales (suma numéricas)</label>
+      <label class="fxrow2"><input type="checkbox" id="e_totfreeze" ${v.totalsFreeze!==false?"checked":""}> Totales fijos al hacer scroll</label>
       <label class="fxrow2"><input type="checkbox" id="e_sortable" ${v.sortable!==false?"checked":""}> Ordenar al hacer clic en la cabecera</label></div>
     <div style="margin-top:8px"><label>Formato por columna (JSON editable) <button class="sm" style="float:right;padding:2px 9px" onclick="tblDetect('${id}')">detectar columnas</button></label>
       <textarea id="e_cols" class="fxjson" style="min-height:130px;width:100%">${esc(v.cols?JSON.stringify(v.cols,null,2):"{}")}</textarea>
@@ -2406,7 +2409,7 @@ function fmtTable(v,id){ return `<div class="row"><div><label>Formato nº genera
     <div style="margin-top:6px"><label>Resaltar top-N (JSON, opcional)</label><input id="e_topn" type="text" class="fxjson" value="${escA(v.topN?JSON.stringify(v.topN):"")}" placeholder='{"col":"production","n":3}'></div>`; }
 function fmtMatrix(v){ return `<div class="row"><div><label>Formato nº</label><select id="e_fmt">${["money","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Mostrar como %</label><select id="e_mpct"><option value="none" ${(!v.pct||v.pct==="none")?"selected":""}>no (valores)</option><option value="row" ${v.pct==="row"?"selected":""}>% de fila</option><option value="col" ${v.pct==="col"?"selected":""}>% de columna</option><option value="total" ${v.pct==="total"?"selected":""}>% del total</option></select></div></div>
     <div class="row"><div><label>Heatmap de celda</label><select id="e_heat"><option value="" ${!v.heat?"selected":""}>no</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.heat===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Barras de datos</label><select id="e_mbar"><option value="0" ${!v.bar?"selected":""}>no</option><option value="1" ${v.bar?"selected":""}>sí</option></select></div><div><label>Ordenar filas por total</label><select id="e_sortrows"><option value="none" ${(!v.sortRows||v.sortRows==="none")?"selected":""}>no</option><option value="desc" ${v.sortRows==="desc"?"selected":""}>mayor→menor</option><option value="asc" ${v.sortRows==="asc"?"selected":""}>menor→mayor</option></select></div></div>
-    <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_zebra" ${v.zebra?"checked":""}> Filas alternas (zebra)</label><label class="fxrow2"><input type="checkbox" id="e_sticky" ${v.sticky?"checked":""}> Cabecera fija (al hacer scroll)</label></div>
+    <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_zebra" ${v.zebra?"checked":""}> Filas alternas (zebra)</label><label class="fxrow2"><input type="checkbox" id="e_sticky" ${v.sticky?"checked":""}> Cabecera fija (al hacer scroll)</label><label class="fxrow2"><input type="checkbox" id="e_totfreeze" ${v.totalsFreeze!==false?"checked":""}> Totales fijos al hacer scroll</label></div>
     <div class="hint">Celdas = la medida; los totales de fila/columna siempre en valores absolutos. Forma SQL: <code>row</code>, <code>col</code>, <code>v</code> (+ <code>colOrd</code> opcional).</div>`; }
 /* lecturas del editor → objeto del visual */
 function readGraphic(v){ if($("e_color"))v.color=$("e_color").value; if($("e_fmt"))v.fmt=$("e_fmt").value;
@@ -2418,14 +2421,14 @@ function readGraphic(v){ if($("e_color"))v.color=$("e_color").value; if($("e_fmt
   if($("e_echarts")){ const t=$("e_echarts").value.trim(); if(!t)delete v.echartsOption; else{ try{ v.echartsOption=JSON.parse(t); }catch(e){ if(!LIVE)alert("ECharts avanzado: JSON inválido, se mantiene el anterior.\n"+e.message); } } }
   if(document.querySelector(".fxlist"))readFx(v); }
 function readTable(v){ if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIVE)commitSQLText(v,$("e_sql").value);
-  if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked; if($("e_totals"))v.totals=$("e_totals").checked; if($("e_sortable"))v.sortable=$("e_sortable").checked;
+  if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked; if($("e_totals"))v.totals=$("e_totals").checked; if($("e_totfreeze"))v.totalsFreeze=$("e_totfreeze").checked; if($("e_sortable"))v.sortable=$("e_sortable").checked;
   if($("e_pagesize"))v.pageSize=Math.max(0,parseInt($("e_pagesize").value)||0);
   if($("e_cols")){ const t=$("e_cols").value.trim(); if(!t||t==="{}")delete v.cols; else{ try{v.cols=JSON.parse(t);}catch(e){if(!LIVE)alert("Formato por columna: JSON inválido, se mantiene el anterior.\n"+e.message);} } }
   if($("e_topn")){ const t=$("e_topn").value.trim(); if(!t)delete v.topN; else{ try{v.topN=JSON.parse(t);}catch(e){if(!LIVE)alert("Top-N: JSON inválido.\n"+e.message);} } }
   if(document.querySelector(".fxlist"))readFx(v); }
 function readMatrix(v){ if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIVE)commitSQLText(v,$("e_sql").value);
   if($("e_mpct"))v.pct=$("e_mpct").value; if($("e_heat"))v.heat=$("e_heat").value||undefined; if($("e_mbar"))v.bar=$("e_mbar").value==="1"; if($("e_sortrows"))v.sortRows=$("e_sortrows").value;
-  if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked;
+  if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked; if($("e_totfreeze"))v.totalsFreeze=$("e_totfreeze").checked;
   if(document.querySelector(".fxlist"))readFx(v); }
 function readKpi(v){ v.label=$("e_label")?.value||v.title; v.kind=$("e_kind")?.value||"money"; v.isPct=$("e_pct")?.value==="1"; if($("e_sqlcy")&&!LIVE)v.sqlCY=$("e_sqlcy").value; if($("e_sqltgt")&&!LIVE)v.sqlTGT=$("e_sqltgt").value; }
 function readHtml(v){ if($("e_sql")&&!LIVE)v.sql=$("e_sql").value; }
