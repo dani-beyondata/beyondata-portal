@@ -2335,20 +2335,23 @@ let SEL=new Set();
 function expRows(v){ return q(applyRF(applyWhere(effSQL(v)),v)); }
 function dlBlob(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},800); }
 function expToast(msg){ let t=$("exptoast"); if(!t){t=document.createElement("div");t.id="exptoast";document.body.appendChild(t);} t.textContent=msg; t.classList.add("on"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),1600); }
-window.closeExportMenu=()=>{ const m=$("expmenu"); if(m)m.remove(); };
+let _expDown=null;
+function expCols(rows){ const HIDE=new Set(["ord","sord","colord","roword"]); return Object.keys(rows[0]||{}).filter(c=>!HIDE.has(String(c).toLowerCase())); }
+window.closeExportMenu=()=>{ const m=$("expmenu"); if(m)m.remove(); if(_expDown){document.removeEventListener("mousedown",_expDown);_expDown=null;} };
 window.exportMenu=(ev,id)=>{ ev.stopPropagation(); closeExportMenu(); const m=document.createElement("div"); m.id="expmenu";
   m.innerHTML=`<div class="expitem" onclick="exportCSV('${id}')">⬇ Descargar CSV</div><div class="expitem" onclick="exportCopy('${id}')">⧉ Copiar (pegar en Excel/Sheets)</div>`;
   document.body.appendChild(m); const x=Math.min(ev.clientX,innerWidth-164), y=Math.min(ev.clientY,innerHeight-86); m.style.left=Math.max(6,x)+"px"; m.style.top=Math.max(6,y)+"px";
-  setTimeout(()=>document.addEventListener("mousedown",closeExportMenu,{once:true}),0); };
+  _expDown=e=>{ if(!e.target.closest("#expmenu")) closeExportMenu(); };
+  setTimeout(()=>document.addEventListener("mousedown",_expDown),0); };
 window.exportCSV=async id=>{ closeExportMenu(); const v=CP().visuals.find(x=>x.id===id); if(!v)return;
   try{ const rows=await expRows(v); if(!rows||!rows.length){expToast("Sin datos para exportar");return;}
-    const cols=Object.keys(rows[0]); const q1=s=>{s=(s==null)?"":String(s); return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+    const cols=expCols(rows); const q1=s=>{s=(s==null)?"":String(s); return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
     const csv=[cols.join(","),...rows.map(r=>cols.map(c=>q1(r[c])).join(","))].join("\r\n");
     dlBlob(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}),(v.title||id).replace(/[\\/:*?"<>|]+/g,"_")+".csv"); expToast("CSV descargado"); }
   catch(e){ expToast("No pude exportar: "+e.message); } };
 window.exportCopy=async id=>{ closeExportMenu(); const v=CP().visuals.find(x=>x.id===id); if(!v)return;
   try{ const rows=await expRows(v); if(!rows||!rows.length){expToast("Sin datos para copiar");return;}
-    const cols=Object.keys(rows[0]); const tsv=[cols.join("\t"),...rows.map(r=>cols.map(c=>{const s=r[c]==null?"":String(r[c]); return s.replace(/[\t\r\n]/g," ");}).join("\t"))].join("\n");
+    const cols=expCols(rows); const tsv=[cols.join("\t"),...rows.map(r=>cols.map(c=>{const s=r[c]==null?"":String(r[c]); return s.replace(/[\t\r\n]/g," ");}).join("\t"))].join("\n");
     try{ await navigator.clipboard.writeText(tsv); }catch(e){ const ta=document.createElement("textarea"); ta.value=tsv; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.focus(); ta.select(); try{document.execCommand("copy");}catch(_){} ta.remove(); }
     expToast(`Copiado · ${rows.length} filas`); }
   catch(e){ expToast("No pude copiar: "+e.message); } };
