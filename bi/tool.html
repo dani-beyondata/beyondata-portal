@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BeyonData · SQL Playground v63</title>
 <style>
-  :root{ --teal:#0F6E63; --teal-d:#0A4A43; --ink:#1A2B33; --muted:#6B7A82; --bg:#EEF1F3;
+  :root{ --teal:#3D65A8; --teal-d:#1E3A5F; --ink:#1A2B33; --muted:#6B7A82; --bg:#EEF1F3;
     --surface:#fff; --border:#E2E8EB; --accent:#2563eb; --guide:#ff2d7a; }
   *{box-sizing:border-box}
   body{margin:0;font-family:Arial,Segoe UI,system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:14px;display:flex;flex-direction:column;height:100vh}
@@ -25,16 +25,16 @@
   code.ptok{background:#eef2fb;color:#3D65A8;border-radius:4px;padding:0 5px;font-size:11px;font-weight:700}
   .pchips{display:flex;flex-wrap:wrap;gap:5px}
   .pchip{border:1px solid var(--border);background:#fff;border-radius:7px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer;color:#45515b}
-  .pchip.on{background:#0F6E63;border-color:#0F6E63;color:#fff}
+  .pchip.on{background:#3D65A8;border-color:#3D65A8;color:#fff}
   .pxadd{margin-top:2px}
   .paramref{background:#f3f6fb;border:1px solid #dde6f3;border-radius:8px;padding:7px 9px;margin-bottom:8px}
   .paramref .prh{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#3D65A8;margin-bottom:5px}
   .paramref .prlist{display:flex;flex-wrap:wrap;gap:6px}
   .prtok{font-size:11.5px;background:#fff;border:1px solid #dde6f3;border-radius:6px;padding:2px 7px;color:#5a6672}
   .prtok code{color:#3D65A8;font-weight:700}
-  .prtok.used{border-color:#0F6E63;background:#eafaf3}
+  .prtok.used{border-color:#3D65A8;background:#eafaf3}
   .prtok .prlbl{color:#8a95a0;margin-left:3px}
-  .prtok .prused{color:#0F6E63;font-weight:700;margin-left:4px;font-size:10px}
+  .prtok .prused{color:#3D65A8;font-weight:700;margin-left:4px;font-size:10px}
   .fp-rz{position:absolute;z-index:6;background:transparent}
   .fp-rz::after{content:"";position:absolute;background:var(--border);border-radius:3px;transition:background .12s}
   #filterpanel:not(.vert) .fp-rz{left:0;right:0;bottom:0;height:9px;cursor:ns-resize} #filterpanel:not(.vert) .fp-rz::after{left:50%;bottom:2px;width:46px;height:3px;transform:translateX(-50%)}
@@ -79,10 +79,10 @@
   .gcard.sel{outline:2px solid var(--accent);outline-offset:1px}
   .gcard.kpi,.gcard.html,.gcard.text,.gcard.slicer,.gcard.metricgroup,.gcard.resultfilter{background:transparent;border:none;box-shadow:none;overflow:visible}
   .gdrag{position:absolute;top:0;left:0;right:0;height:16px;cursor:move;z-index:4}
-  .gcard:hover .gdrag{background:linear-gradient(#0f6e6314,transparent)}
+  .gcard:hover .gdrag{background:linear-gradient(#3D65A814,transparent)}
   .gdrag{height:22px}
-  .gcard.sel{outline:2px solid #0F6E63;outline-offset:2px;box-shadow:0 0 0 4px rgba(15,110,99,.16),0 1px 2px rgba(16,40,50,.05)}
-  .gcard.sel .gdrag{background:linear-gradient(#0f6e6333,transparent)}
+  .gcard.sel{outline:2px solid #3D65A8;outline-offset:2px;box-shadow:0 0 0 4px rgba(15,110,99,.16),0 1px 2px rgba(16,40,50,.05)}
+  .gcard.sel .gdrag{background:linear-gradient(#3D65A833,transparent)}
   .ghead{padding:8px 10px 2px}
   .ghead .t{font-size:13.5px;font-weight:700;color:var(--teal-d)} .ghead .st{font-size:11.5px;color:var(--muted);margin-top:1px}
   .gcard.kpi .ghead,.gcard.html .ghead{display:none}
@@ -92,7 +92,7 @@
   #expmenu{position:fixed;z-index:200;background:#fff;border:1px solid var(--border);border-radius:9px;box-shadow:0 6px 24px rgba(16,40,50,.18);padding:4px;min-width:150px}
   #expmenu .expitem{padding:7px 11px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;color:var(--teal-d)}
   #expmenu .expitem:hover{background:#eef4f4}
-  #exptoast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#0A4A43;color:#fff;padding:8px 16px;border-radius:9px;font-size:13px;z-index:220;box-shadow:0 6px 24px rgba(16,40,50,.22);opacity:0;transition:opacity .15s}
+  #exptoast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1E3A5F;color:#fff;padding:8px 16px;border-radius:9px;font-size:13px;z-index:220;box-shadow:0 6px 24px rgba(16,40,50,.22);opacity:0;transition:opacity .15s}
   #exptoast.on{opacity:1}
   .vbody{flex:1;min-height:0;padding:4px 8px 8px;overflow:auto}
   .gcard.kpi .vbody,.gcard.html .vbody{padding:0;overflow:visible}
@@ -154,14 +154,14 @@
   .row{display:flex;gap:10px;flex-wrap:wrap} .row>div{flex:1 1 0;min-width:0}
   .hint{font-size:11.5px;color:var(--muted);line-height:1.55}
   code{background:#eef2f4;padding:1px 4px;border-radius:4px;font-size:12px}
-  pre.ex{background:#0f2b28;color:#d7f0ea;padding:9px 11px;border-radius:8px;font-size:11.5px;overflow:auto;margin:5px 0 0;white-space:pre}
+  pre.ex{background:#11223D;color:#E3EDFB;padding:9px 11px;border-radius:8px;font-size:11.5px;overflow:auto;margin:5px 0 0;white-space:pre}
   details.adv{border:1px solid var(--border);border-radius:8px;padding:6px 10px}
   details.adv summary{cursor:pointer;font-size:12px;color:var(--muted);font-weight:700}
   .tbl-pill{display:inline-block;background:#eef2f4;border:1px solid var(--border);border-radius:7px;padding:3px 9px;margin:0 6px 6px 0;cursor:pointer;font-size:12.5px}
   .qprev{background:#f7f9fa;border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:11.5px;max-height:190px;overflow:auto}
-  .sqlwrap{position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#0f2b28}
+  .sqlwrap{position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#11223D}
   .sqlwrap pre, .sqlwrap textarea{margin:0;padding:9px 11px;font-family:Consolas,Monaco,monospace;font-size:12.5px;line-height:1.5;white-space:pre;overflow:auto;border:0;tab-size:2}
-  .sqlwrap pre{position:absolute;inset:0;color:#d7f0ea;pointer-events:none;z-index:0}
+  .sqlwrap pre{position:absolute;inset:0;color:#E3EDFB;pointer-events:none;z-index:0}
   .sqlwrap textarea{position:relative;z-index:1;width:100%;min-height:150px;background:transparent;color:transparent;caret-color:#9effe6;resize:vertical;outline:none}
   .tk-kw{color:#73d3ff;font-weight:700} .tk-fn{color:#ffd479} .tk-str{color:#9effa0} .tk-com{color:#6b8c86;font-style:italic}
   .tk-tok{color:#ff9edb;font-weight:700} .tk-num{color:#ffb3a0}
@@ -182,7 +182,7 @@
   .fxitem:last-child{border-bottom:none}
   .fxhead{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer}
   .fxhead input[type=checkbox]{flex:0 0 auto;width:15px;height:15px}
-  .fxjson{font-family:Consolas,Monaco,monospace;font-size:11.5px;width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:#0d2b28;color:#d7efe9;white-space:pre;overflow-x:auto}
+  .fxjson{font-family:Consolas,Monaco,monospace;font-size:11.5px;width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:#11223D;color:#d7efe9;white-space:pre;overflow-x:auto}
   .fxjson::placeholder{color:#5c7f79}
   .cfield{display:flex;gap:6px;align-items:center}
   .cfield input[type=text]{flex:1;min-width:0}
@@ -231,7 +231,7 @@
   #fs_resize::after{content:"";position:absolute;top:50%;left:2px;width:3px;height:48px;background:var(--border);border-radius:3px;transform:translateY(-50%);transition:background .12s}
   #fs_resize:hover::after,#fs_resize.drag::after{background:var(--teal)}
   .sqlwrap.wrap pre,.sqlwrap.wrap textarea{white-space:pre-wrap;word-break:break-word;overflow-x:hidden}
-  .sqlro{margin:0;padding:9px 11px;font-family:Consolas,Monaco,monospace;font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;background:#0f2b28;color:#d7f0ea;border:1px dashed var(--border);border-radius:8px;overflow:auto;max-height:170px}
+  .sqlro{margin:0;padding:9px 11px;font-family:Consolas,Monaco,monospace;font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;background:#11223D;color:#E3EDFB;border:1px dashed var(--border);border-radius:8px;overflow:auto;max-height:170px}
   .cte-warn{margin-top:7px;padding:7px 10px;border-radius:7px;background:#fff4e5;border:1px solid #f0c67a;color:#8a5a12;font-size:12px;line-height:1.45}
   .cte-note{margin-top:7px;padding:6px 10px;border-radius:7px;background:#eef4fb;border:1px solid #c5d8ee;color:#3a5a82;font-size:12px;line-height:1.45}
   .mglist{display:flex;flex-direction:column;gap:3px}
@@ -425,14 +425,14 @@ window.wyInsert=html=>{ const w=$("e_wysiwyg"); if(!w)return; wyRestore(); let o
 window.wyInsertSnippet=k=>{ const S={
   lr:`<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;width:100%"><div>Izquierda</div><div>Derecha</div></div>`,
   center:`<div style="text-align:center">Texto centrado</div>`,
-  band:`<div style="background:#0a4a43;color:#fff;padding:14px 20px;border-radius:12px;display:flex;align-items:center;gap:14px"><div style="font-weight:800;font-size:20px">Título</div><div style="margin-left:auto;opacity:.75;font-size:13px">subtítulo</div></div>`
+  band:`<div style="background:#1E3A5F;color:#fff;padding:14px 20px;border-radius:12px;display:flex;align-items:center;gap:14px"><div style="font-weight:800;font-size:20px">Título</div><div style="margin-left:auto;opacity:.75;font-size:13px">subtítulo</div></div>`
 }; wyInsert(S[k]||""); };
 window.applyTextHtml=()=>{ const w=$("e_wysiwyg"); if(w&&$("e_html")){ w.innerHTML=$("e_html").value; const v=CP().visuals[_editIdx]; if(v)v.html=w.innerHTML; fsPreview(); } };
 window.fmtTextHtml=()=>{ if($("e_html")){ $("e_html").value=prettyHTML($("e_html").value); try{$("e_html").dispatchEvent(new Event("input"));}catch(e){} } };
 /* campo de color: caja hex + selector nativo sincronizados */
 function toHex(v){ if(!v)return null; v=String(v).trim(); if(/^#[0-9a-fA-F]{6}$/.test(v))return v; if(/^#[0-9a-fA-F]{3}$/.test(v))return "#"+v[1]+v[1]+v[2]+v[2]+v[3]+v[3]; return null; }
 window.syncColor=(tid,pid)=>{ const t=$(tid),p=$(pid); if(!t||!p)return; const h=toHex(t.value); if(h)p.value=h; };
-function colorField(id,val){ const hx=toHex(val)||"#0F6E63"; return `<div class="cfield"><input id="${id}" type="text" value="${esc(val||"")}" oninput="syncColor('${id}','${id}_pick')"><input id="${id}_pick" type="color" value="${hx}" oninput="var t=document.getElementById('${id}');t.value=this.value;t.dispatchEvent(new Event('input'));"></div>`; }
+function colorField(id,val){ const hx=toHex(val)||"#3D65A8"; return `<div class="cfield"><input id="${id}" type="text" value="${esc(val||"")}" oninput="syncColor('${id}','${id}_pick')"><input id="${id}_pick" type="color" value="${hx}" oninput="var t=document.getElementById('${id}');t.value=this.value;t.dispatchEvent(new Event('input'));"></div>`; }
 
 /* ─ datos fake ─ */
 let seed=42; const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
@@ -625,25 +625,25 @@ const KPI_SQL=(kind,metric)=>({
     : `SELECT (SELECT CAST(SUM(production) AS DOUBLE) FROM reservations r WHERE r.y=$YEAR)\n     / NULLIF((SELECT COUNT(*) FROM nights n WHERE n.y=$YEAR),0) AS v`,
   sqlTGT: metric==="adb"?`SELECT (SELECT SUM(target_value) FROM targets t WHERE t.y=$CY AND t.metric='prod')\n     / NULLIF((SELECT SUM(target_value) FROM targets t WHERE t.y=$CY AND t.metric='bednights'),0) AS v`
     : `SELECT CAST(SUM(t.target_value) AS DOUBLE) AS v\nFROM targets t\nWHERE 1=1\n  AND t.y = $CY\n  AND t.metric = '${metric}'\n ` });
-const HTML_TPL=`<div style="font-family:'Segoe UI',Arial;height:100%;border:2px solid #d7dbe0;border-radius:16px;background:#0f6e63;color:#fff;padding:16px;display:flex;flex-direction:column;justify-content:center">
+const HTML_TPL=`<div style="font-family:'Segoe UI',Arial;height:100%;border:2px solid #d7dbe0;border-radius:16px;background:#3D65A8;color:#fff;padding:16px;display:flex;flex-direction:column;justify-content:center">
   <div style="font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.5px">Mi tarjeta HTML</div>
   <div style="font-size:30px;font-weight:800;margin-top:4px">[[prod:money]]</div>
   <div style="font-size:13px;opacity:.9;margin-top:2px">[[reservas:int]] reservas · pega aquí tu HTML</div></div>`;
 const HTML_PRESETS={
   kpi:{html:`<div style="font-family:'Segoe UI',Arial;height:100%;border:1px solid #e3e8ea;border-radius:14px;background:#fff;padding:14px 16px;display:flex;flex-direction:column;justify-content:center">
   <div style="font-size:12px;color:#6b7a82;font-weight:700;text-transform:uppercase;letter-spacing:.4px">[[label]]</div>
-  <div style="font-size:30px;font-weight:800;color:#0f3b36;margin-top:4px">[[valor:money]]</div>
+  <div style="font-size:30px;font-weight:800;color:#16305A;margin-top:4px">[[valor:money]]</div>
   <div style="font-size:12px;margin-top:4px;color:[[color]];font-weight:600">[[flecha]] [[yoy:pct]] <span style="color:#6b7a82;font-weight:400">vs año anterior</span></div>
 </div>`,
   sql:`SELECT 'Producción' AS label\n  , CAST(SUM(production) AS DOUBLE) AS valor\n  , CAST(SUM(production)/NULLIF((SELECT SUM(production) FROM reservations WHERE y=$LY),0)-1 AS DOUBLE) AS yoy\n  , CASE WHEN SUM(production) >= (SELECT SUM(production) FROM reservations WHERE y=$LY) THEN '#2F7A34' ELSE '#b4322a' END AS color\n  , CASE WHEN SUM(production) >= (SELECT SUM(production) FROM reservations WHERE y=$LY) THEN '▲' ELSE '▼' END AS flecha\nFROM reservations WHERE y=$CY`},
   two:{html:`<div style="font-family:'Segoe UI',Arial;height:100%;display:flex;gap:12px;align-items:center;justify-content:space-around;padding:12px">
-  <div style="text-align:center"><div style="font-size:28px;font-weight:800;color:#0f3b36">[[a:int]]</div><div style="font-size:12px;color:#6b7a82">[[la]]</div></div>
+  <div style="text-align:center"><div style="font-size:28px;font-weight:800;color:#16305A">[[a:int]]</div><div style="font-size:12px;color:#6b7a82">[[la]]</div></div>
   <div style="width:1px;height:40px;background:#e3e8ea"></div>
-  <div style="text-align:center"><div style="font-size:28px;font-weight:800;color:#0f3b36">[[b:money]]</div><div style="font-size:12px;color:#6b7a82">[[lb]]</div></div>
+  <div style="text-align:center"><div style="font-size:28px;font-weight:800;color:#16305A">[[b:money]]</div><div style="font-size:12px;color:#6b7a82">[[lb]]</div></div>
 </div>`,
   sql:`SELECT 'Reservas' AS la, COUNT(*) AS a, 'Producción' AS lb, CAST(SUM(production) AS DOUBLE) AS b\nFROM reservations WHERE y=$CY`},
   yoy:{html:`<table style="font-family:'Segoe UI',Arial;width:100%;border-collapse:collapse;font-size:13px">
-  <thead><tr style="background:#0E3A35;color:#fff">
+  <thead><tr style="background:#16305A;color:#fff">
     <th style="text-align:left;padding:8px 10px">Métrica</th><th style="text-align:right;padding:8px 10px">Real</th>
     <th style="text-align:right;padding:8px 10px">Año ant.</th><th style="text-align:right;padding:8px 10px">YoY</th></tr></thead>
   <tbody>
@@ -727,11 +727,11 @@ function defaultPage(){ return { id:"pg_main", name:"Demo · Playground", panel:
   kpiCard({id:"k2",x:332,y:12,title:"Bednights",label:"Bednights",kind:"int",...KPI_SQL("bn","bednights")}),
   kpiCard({id:"k3",x:648,y:12,title:"ADB",label:"ADB",kind:"money",...KPI_SQL("adb","adb")}),
   {id:"kh",type:"html",x:964,y:12,w:308,h:176,title:"HTML",sql:SQL.htmlKpi,html:HTML_TPL},
-  {id:"t1",type:"text",x:16,y:204,w:1256,h:50,title:"",html:`<div style="color:#0A4A43;font-weight:700">Lienzo libre + panel de filtros colapsable</div><div style="color:#6B7A82;font-size:12px">Los slicers de arriba están en el <b>panel</b> (colapsable, vertical/horizontal). Puedes añadir slicers al panel o sueltos en el lienzo. Arrastra por la franja superior de cada card; redimensiona por ◣.</div>`},
-  {id:"v_bar",type:"bar",x:16,y:268,w:616,h:300,title:"Producción por mes",color:"#0F6E63",fmt:"money",dataLabels:"top",sql:SQL.prodMes},
+  {id:"t1",type:"text",x:16,y:204,w:1256,h:50,title:"",html:`<div style="color:#1E3A5F;font-weight:700">Lienzo libre + panel de filtros colapsable</div><div style="color:#6B7A82;font-size:12px">Los slicers de arriba están en el <b>panel</b> (colapsable, vertical/horizontal). Puedes añadir slicers al panel o sueltos en el lienzo. Arrastra por la franja superior de cada card; redimensiona por ◣.</div>`},
+  {id:"v_bar",type:"bar",x:16,y:268,w:616,h:300,title:"Producción por mes",color:"#3D65A8",fmt:"money",dataLabels:"top",sql:SQL.prodMes},
   {id:"v_donut",type:"donut",x:648,y:268,w:624,h:300,title:"Producción por canal",color:"#2563eb",blue:true,fmt:"money",sql:SQL.prodCanal},
   {id:"v_stack",type:"bar",x:16,y:584,w:616,h:320,title:"Producción por mes × canal",subtitle:"apilado · multi-serie",stacked:true,fmt:"money",sql:SQL.stack},
-  {id:"v_bn",type:"bar",x:648,y:584,w:624,h:320,title:"Bednights por categoría (nights)",subtitle:"se filtra por País vía relación",color:"#0A4A43",fmt:"int",dataLabels:"top",sql:SQL.bnCat},
+  {id:"v_bn",type:"bar",x:648,y:584,w:624,h:320,title:"Bednights por categoría (nights)",subtitle:"se filtra por País vía relación",color:"#1E3A5F",fmt:"int",dataLabels:"top",sql:SQL.bnCat},
   {id:"v_matrix",type:"matrix",x:16,y:920,w:1256,h:280,title:"Matriz canal × mes",fmt:"money",heat:"teal",sql:SQL.matrix},
 ]};}
 /* ═══ Réplica de la página "Executive Summary" de Power BI (The Central House) ═══
@@ -751,8 +751,8 @@ function esPage(sfx){ sfx=sfx||""; const P=id=>"es_"+id+sfx;
     {id:P("sl_prop"),type:"slicer",dock:"panel",x:16,y:12,w:300,h:90,slTable:"properties",slColumn:"property_id",label:"Propiedad",slKind:"prop"},
     {id:P("sl_q"),type:"slicer",dock:"panel",x:332,y:12,w:300,h:90,slTable:"calendar",slColumn:"q",label:"Trimestre",slKind:"distinct"},
     {id:P("sl_month"),type:"slicer",dock:"panel",x:648,y:12,w:620,h:90,slTable:"reservations",slColumn:"m",label:"Mes (2026)",slKind:"month"},
-    txt("hdr",16,8,1256,56,`<div style="background:#0A4A43;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px;gap:14px"><div style="font-size:22px;font-weight:800;letter-spacing:.5px">BEYON<span style="color:#56B14E">DATA</span></div><div style="opacity:.55;font-size:12px">powered by</div><div style="margin-left:auto;font-size:19px;font-weight:700">Executive Summary · The Central House</div></div>`),
-    txt("s1",16,74,520,30,`<div style="color:#0A4A43;font-weight:800;font-size:16px">YTD Annual KPIs</div>`),
+    txt("hdr",16,8,1256,56,`<div style="background:#1E3A5F;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px;gap:14px"><div style="font-size:22px;font-weight:800;letter-spacing:.5px">BEYON<span style="color:#56B14E">DATA</span></div><div style="opacity:.55;font-size:12px">powered by</div><div style="margin-left:auto;font-size:19px;font-weight:700">Executive Summary · The Central House</div></div>`),
+    txt("s1",16,74,520,30,`<div style="color:#1E3A5F;font-weight:800;font-size:16px">YTD Annual KPIs</div>`),
     K("occ","% Occupancy","% Occupancy","pct",true,`SELECT ${bnSub}/NULLIF(${daysSub},0) AS v`,xs[0],r1),
     K("bn","Bednights","Bednights","int",false,`SELECT ${bnSub} AS v`,xs[1],r1),
     K("adb","ADB","ADB","money",false,`SELECT ${prodSub}/NULLIF(${bnSub},0) AS v`,xs[2],r1),
@@ -760,23 +760,23 @@ function esPage(sfx){ sfx=sfx||""; const P=id=>"es_"+id+sfx;
     K("prodt","Prod Total","ProdTotal","money",false,`SELECT ${prodSub} AS v`,xs[4],r1),
     K("prodad","Prod Alojamiento","ProdAD","money",false,`SELECT ${prodSub}*0.82 AS v`,xs[5],r1),
     K("prodex","Prod Extras","ProdExtras","money",false,`SELECT ${prodSub}*0.18 AS v`,xs[6],r1),
-    txt("s2",16,274,520,30,`<div style="color:#0A4A43;font-weight:800;font-size:16px">YTD Annual KPIs · Extras</div>`),
+    txt("s2",16,274,520,30,`<div style="color:#1E3A5F;font-weight:800;font-size:16px">YTD Annual KPIs · Extras</div>`),
     K("epb","Extras / cama","ExtrasPerBed","money",false,`SELECT (${prodSub}*0.18)/NULLIF(${bnSub},0) AS v`,xs[0],r2),
     K("fbpb","F&B / cama","FBPerBed","money",false,`SELECT (${prodSub}*0.10)/NULLIF(${bnSub},0) AS v`,xs[1],r2),
     K("opb","Otros extras / cama","OtherExtraPerBed","money",false,`SELECT (${prodSub}*0.08)/NULLIF(${bnSub},0) AS v`,xs[2],r2),
     K("bfp","% Desayuno","BreakfastPct","pct",true,`SELECT ${privSub}/NULLIF(${bnSub},0) AS v`,xs[3],r2),
-    txt("s3",16,472,620,30,`<div style="color:#0A4A43;font-weight:800;font-size:16px">Pivot mensual · controlling</div>`),
+    txt("s3",16,472,620,30,`<div style="color:#1E3A5F;font-weight:800;font-size:16px">Pivot mensual · controlling</div>`),
     {id:P("tbl"),type:"table",x:16,y:504,w:1256,h:360,title:"Métricas por mes (2026)",fmt:"money",zebra:true,sortable:true,totals:true,sql:tblSQL,cols:{"Bednights":{fmt:"int"},"% Occ":{fmt:"pct",heat:"teal"},"ADB":{fmt:"money"},"Prod Total":{fmt:"money",bar:true},"Prod Extras":{fmt:"money"}}},
     {id:P("msel"),type:"metricgroup",x:16,y:876,w:1256,h:84,label:"Métrica (controlling)",selected:"prod",targets:[P("mbar")],chips:[
       {id:"prod",label:"Producción"},{id:"res",label:"Reservas"},{id:"adr",label:"ADR"},{id:"pax",label:"Huéspedes"}]},
-    {id:P("mbar"),type:"bar",x:16,y:972,w:1256,h:256,title:"Serie mensual · según la métrica seleccionada",color:"#0F6E63",fmt:"int",dataLabels:"top",group:P("msel"),
+    {id:P("mbar"),type:"bar",x:16,y:972,w:1256,h:256,title:"Serie mensual · según la métrica seleccionada",color:"#3D65A8",fmt:"int",dataLabels:"top",group:P("msel"),
       metricSQL:{
         prod:`SELECT month_name AS k, m AS ord, CAST(SUM(production) AS DOUBLE) AS v FROM reservations r WHERE r.y=$CY GROUP BY month_name, m ORDER BY m`,
         res:`SELECT month_name AS k, m AS ord, CAST(COUNT(DISTINCT reservation_uid) AS DOUBLE) AS v FROM reservations r WHERE r.y=$CY GROUP BY month_name, m ORDER BY m`,
         adr:`SELECT month_name AS k, m AS ord, CAST(SUM(production)/NULLIF(COUNT(DISTINCT reservation_uid),0) AS DOUBLE) AS v FROM reservations r WHERE r.y=$CY GROUP BY month_name, m ORDER BY m`,
         pax:`SELECT month_name AS k, m AS ord, CAST(SUM(pax) AS DOUBLE) AS v FROM reservations r WHERE r.y=$CY GROUP BY month_name, m ORDER BY m`},
       sql:`SELECT month_name AS k, m AS ord, CAST(SUM(production) AS DOUBLE) AS v FROM reservations r WHERE r.y=$CY GROUP BY month_name, m ORDER BY m`},
-    txt("s4",16,1252,900,30,`<div style="color:#0A4A43;font-weight:800;font-size:16px">Controlling mensual · Producción — real vs objetivo vs año anterior</div>`),
+    txt("s4",16,1252,900,30,`<div style="color:#1E3A5F;font-weight:800;font-size:16px">Controlling mensual · Producción — real vs objetivo vs año anterior</div>`),
     {id:P("ctrl"),type:"table",x:16,y:1284,w:1256,h:452,title:"Controlling (2026)",fmt:"money",zebra:true,sortable:true,totals:true,sql:ctrlSQL,cols:{"Real":{fmt:"money",bar:true},"Objetivo":{fmt:"money"},"Δ Obj":{fmt:"pct",arrow:true},"Año ant.":{fmt:"money"},"YoY":{fmt:"pct",arrow:true}}},
     txt("note",16,1748,1256,56,`<div style="color:#6B7A82;font-size:12px">Réplica de la página <b>Executive Summary</b> de Power BI (The Central House): cabecera, filtros, 7 KPIs YTD + 4 de extras, pivot mensual, <b>selector de métrica</b> y <b>bloque de controlling</b> (real vs objetivo vs año anterior, con ▲▼ y barras). Datos fake; las fórmulas son aproximaciones demostrativas.</div>`),
   ]};}
@@ -786,7 +786,7 @@ function esPage(sfx){ sfx=sfx||""; const P=id=>"es_"+id+sfx;
    Selector" de PBI): el formato de número lo fija el visual (de momento entero). */
 function ventasPage(sfx){ sfx=sfx||""; const P=id=>"vt_"+id+sfx;
   const txt=(id,x,y,w,h,html)=>({id:P(id),type:"text",x,y,w,h,title:"",html});
-  const band=(id,y,label,sub)=>txt(id,16,y,1256,34,`<div style="color:#0A4A43;font-weight:800;font-size:16px">${label}${sub?` <span style="font-weight:500;color:#6B7A82;font-size:13px">· ${sub}</span>`:""}</div>`);
+  const band=(id,y,label,sub)=>txt(id,16,y,1256,34,`<div style="color:#1E3A5F;font-weight:800;font-size:16px">${label}${sub?` <span style="font-weight:500;color:#6B7A82;font-size:13px">· ${sub}</span>`:""}</div>`);
   const K=(id,title,label,kind,isPct,cy,x,y,w)=>kpiCard({id:P(id),x,y,w:w||172,h:168,title,label,kind,isPct:!!isPct,sqlCY:cy,sqlTGT:`SELECT CAST(q.v*0.92 AS DOUBLE) AS v FROM (${cy}) q`});
   const MG=(id,y,label,targets,sel)=>({id:P(id),type:"metricgroup",x:16,y,w:1256,h:70,label,selected:sel||"res",chips:CHIPS,targets:targets.map(P)});
   // subconsultas de medida (sobre las CTE ya filtradas)
@@ -822,7 +822,7 @@ function ventasPage(sfx){ sfx=sfx||""; const P=id=>"vt_"+id+sfx;
     {id:P("sl_month"),type:"slicer",dock:"panel",x:588,y:12,w:560,h:90,slTable:"reservations",slColumn:"m",label:"Mes (2026)",slKind:"month"},
     {id:P("sl_seg"),type:"slicer",dock:"panel",x:1160,y:12,w:220,h:90,slTable:"reservations",slColumn:"segment",label:"Segmento",slKind:"distinct"},
     // cabecera
-    txt("hdr",16,8,1256,56,`<div style="background:#0A4A43;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px;gap:14px"><div style="font-size:22px;font-weight:800;letter-spacing:.5px">BEYON<span style="color:#56B14E">DATA</span></div><div style="opacity:.55;font-size:12px">powered by</div><div style="margin-left:auto;font-size:19px;font-weight:700">Análisis de Ventas · The Central House</div></div>`),
+    txt("hdr",16,8,1256,56,`<div style="background:#1E3A5F;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px;gap:14px"><div style="font-size:22px;font-weight:800;letter-spacing:.5px">BEYON<span style="color:#56B14E">DATA</span></div><div style="opacity:.55;font-size:12px">powered by</div><div style="margin-left:auto;font-size:19px;font-weight:700">Análisis de Ventas · The Central House</div></div>`),
     // ── Sección 1 · KPIs ──
     band("b1",76,"YTD Annual KPIs","medidas anuales acumuladas"),
     K("a1","% Ocupación","% Ocupación","pct",true,`SELECT ${bnS}/NULLIF(${bedS}*24.0,0) AS v`,xs7[0],112),
@@ -862,8 +862,8 @@ function ventasPage(sfx){ sfx=sfx||""; const P=id=>"vt_"+id+sfx;
     band("b6",3786,"Análisis por habitación y día","categoría × mes + día de la semana"),
     MG("mg5",3824,"Métrica",["mx3","barCat","barWd"],"bn"),
     {id:P("mx3"),type:"matrix",x:16,y:3902,w:1256,h:300,title:"Categoría de habitación × mes",fmt:"int",heat:"teal",group:P("mg5"),metricSQL:mgMatNig("n.category_name"),sql:mgMatNig("n.category_name").bn},
-    {id:P("barCat"),type:"bar",x:16,y:4214,w:620,h:340,title:"Por categoría de habitación",fmt:"int",color:"#0F6E63",dataLabels:"top",group:P("mg5"),metricSQL:mgNig("n.category_name"),sql:mgNig("n.category_name").bn},
-    {id:P("barWd"),type:"bar",x:652,y:4214,w:620,h:340,title:"Por día de la semana",fmt:"int",color:"#0A4A43",dataLabels:"top",group:P("mg5"),metricSQL:mgNig("n.weekday","n.wd"),sql:mgNig("n.weekday","n.wd").bn},
+    {id:P("barCat"),type:"bar",x:16,y:4214,w:620,h:340,title:"Por categoría de habitación",fmt:"int",color:"#3D65A8",dataLabels:"top",group:P("mg5"),metricSQL:mgNig("n.category_name"),sql:mgNig("n.category_name").bn},
+    {id:P("barWd"),type:"bar",x:652,y:4214,w:620,h:340,title:"Por día de la semana",fmt:"int",color:"#1E3A5F",dataLabels:"top",group:P("mg5"),metricSQL:mgNig("n.weekday","n.wd"),sql:mgNig("n.weekday","n.wd").bn},
     txt("note",16,4574,1256,40,`<div style="color:#6B7A82;font-size:12px">Datos fake enriquecidos. La métrica de cada sección se conmuta con su <b>grupo de métrica</b>; el formato de número lo fija el visual (entero). Cruces entre tablas vía JOIN; RevPab usa 260 camas totales como aproximación.</div>`),
   ]};}
 /* =========================================================================
@@ -1105,7 +1105,7 @@ FROM grid ORDER BY secord, mo, prard, pn`;
 
 /* ===== Página 1 · Executive Summary ===== */
 function tchExecSummary(sfx){ sfx=sfx||""; const P=id=>"tch1_"+id+sfx; const V=[];
-  V.push({id:P("ttl"),type:"text",x:16,y:10,w:900,h:46,html:"<div style='font:700 24px Segoe UI,Arial;color:#0f6e63'>Executive Summary</div><div style='color:#8a8f98;font:13px Segoe UI'>The Central House · YTD 2026 vs 2025 · datos demo</div>"});
+  V.push({id:P("ttl"),type:"text",x:16,y:10,w:900,h:46,html:"<div style='font:700 24px Segoe UI,Arial;color:#3D65A8'>Executive Summary</div><div style='color:#8a8f98;font:13px Segoe UI'>The Central House · YTD 2026 vs 2025 · datos demo</div>"});
   // slicers (panel)
   V.push({id:P("s_prop"),type:"slicer",slTable:"properties",slColumn:"property_name",dock:"panel",label:"Propiedad",x:16,y:70,w:220,h:120});
   V.push({id:P("s_q"),type:"slicer",slTable:"reservations",slColumn:"q",dock:"panel",label:"Trimestre",x:16,y:200,w:220,h:120});
@@ -1150,7 +1150,7 @@ function tchPropMonthSQL(metric){
   return `SELECT p.property_name AS row, ${mn} AS col, x.m AS colOrd, CAST(SUM(production) AS DOUBLE) AS v FROM reservations x JOIN properties p ON p.property_id=x.property_id WHERE x.y=$CY GROUP BY p.property_name, x.m`;
 }
 function tchPropertiesSummary(sfx){ sfx=sfx||""; const P=id=>"tch2_"+id+sfx; const V=[];
-  V.push({id:P("ttl"),type:"text",x:16,y:10,w:900,h:46,html:"<div style='font:700 24px Segoe UI,Arial;color:#0f6e63'>Properties Summary</div><div style='color:#8a8f98;font:13px Segoe UI'>Comparativa por propiedad · YTD 2026 · datos demo</div>"});
+  V.push({id:P("ttl"),type:"text",x:16,y:10,w:900,h:46,html:"<div style='font:700 24px Segoe UI,Arial;color:#3D65A8'>Properties Summary</div><div style='color:#8a8f98;font:13px Segoe UI'>Comparativa por propiedad · YTD 2026 · datos demo</div>"});
   V.push({id:P("s_prop"),type:"slicer",slTable:"properties",slColumn:"property_name",dock:"panel",label:"Propiedad",x:16,y:70,w:220,h:120});
   V.push({id:P("s_q"),type:"slicer",slTable:"reservations",slColumn:"q",dock:"panel",label:"Trimestre",x:16,y:200,w:220,h:120});
   V.push({id:P("s_m"),type:"slicer",slTable:"reservations",slColumn:"month_name",dock:"panel",label:"Mes",x:16,y:330,w:220,h:200});
@@ -1174,7 +1174,7 @@ function tchVentasCalendar(sfx){ sfx=sfx||""; const pg=ventasPage(sfx); pg.name=
 /* ===== Página 4 · Análisis Ventas - Rooms (enfoque noches/categorías) ===== */
 function tchVentasRooms(sfx){ sfx=sfx||""; const P=id=>"tch4_"+id+sfx;
   const txt=(id,x,y,w,h,html)=>({id:P(id),type:"text",x,y,w,h,title:"",html});
-  const band=(id,y,label,sub)=>txt(id,16,y,1256,34,`<div style="color:#0A4A43;font-weight:800;font-size:16px">${label}${sub?` <span style="font-weight:500;color:#6B7A82;font-size:13px">· ${sub}</span>`:""}</div>`);
+  const band=(id,y,label,sub)=>txt(id,16,y,1256,34,`<div style="color:#1E3A5F;font-weight:800;font-size:16px">${label}${sub?` <span style="font-weight:500;color:#6B7A82;font-size:13px">· ${sub}</span>`:""}</div>`);
   const K=(id,title,label,kind,isPct,cy,x,y,w)=>kpiCard({id:P(id),x,y,w:w||172,h:168,title,label,kind,isPct:!!isPct,sqlCY:cy,sqlTGT:`SELECT CAST(q.v*0.93 AS DOUBLE) AS v FROM (${cy}) q`});
   const CHIPS=[{id:"bn",label:"Bednights"},{id:"prod",label:"Producción"},{id:"res",label:"Reservas"},{id:"pax",label:"Huéspedes"}];
   const MG=(id,y,label,targets,sel)=>({id:P(id),type:"metricgroup",x:16,y,w:1256,h:70,label,selected:sel||"bn",chips:CHIPS,targets:targets.map(P)});
@@ -1201,7 +1201,7 @@ SELECT nn.d AS "Categoría", CAST(nn.bn AS DOUBLE) AS "Bednights", CAST(rr.res A
 FROM nn JOIN rr USING(d) ORDER BY "Bednights" DESC`;
   const mcols={"Bednights":{fmt:"int",heat:"teal"},"Reservas":{fmt:"int"},"Prod Total":{fmt:"money",bar:true},"ADB":{fmt:"money"},"Ocup. aprox":{fmt:"num"}};
   return { id:"tchpg4"+sfx, name:"4 · Análisis Ventas - Rooms", panel:{collapsed:false,orient:"vertical"}, visuals:[
-    txt("hdr",16,8,1256,56,`<div style="background:#0A4A43;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px"><div style="font-size:21px;font-weight:700">Análisis de Ventas · Habitaciones — The Central House</div></div>`),
+    txt("hdr",16,8,1256,56,`<div style="background:#1E3A5F;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px"><div style="font-size:21px;font-weight:700">Análisis de Ventas · Habitaciones — The Central House</div></div>`),
     {id:P("sl_prop"),type:"slicer",dock:"panel",x:16,y:12,w:300,h:90,slTable:"properties",slColumn:"property_name",label:"Propiedad"},
     {id:P("sl_q"),type:"slicer",dock:"panel",x:332,y:12,w:240,h:90,slTable:"reservations",slColumn:"q",label:"Trimestre"},
     {id:P("sl_cat"),type:"slicer",dock:"panel",x:588,y:12,w:300,h:90,slTable:"nights",slColumn:"category_name",label:"Categoría"},
@@ -1217,10 +1217,10 @@ FROM nn JOIN rr USING(d) ORDER BY "Bednights" DESC`;
     MG("mg1",318,"Métrica",["mx1","do1","barCat"]),
     {id:P("mx1"),type:"matrix",x:16,y:396,w:1256,h:300,title:"Categoría × mes",fmt:"int",heat:"teal",group:P("mg1"),metricSQL:matN("n.category_name","n.month_name","n.m"),sql:matN("n.category_name","n.month_name","n.m").bn},
     {id:P("do1"),type:"donut",x:16,y:704,w:620,h:360,title:"Reparto por categoría",fmt:"int",palette:"multi",group:P("mg1"),metricSQL:dim("n.category_name"),sql:dim("n.category_name").bn},
-    {id:P("barCat"),type:"bar",x:652,y:704,w:620,h:360,title:"Por categoría",fmt:"int",color:"#0F6E63",dataLabels:"top",group:P("mg1"),metricSQL:dim("n.category_name"),sql:dim("n.category_name").bn},
+    {id:P("barCat"),type:"bar",x:652,y:704,w:620,h:360,title:"Por categoría",fmt:"int",color:"#3D65A8",dataLabels:"top",group:P("mg1"),metricSQL:dim("n.category_name"),sql:dim("n.category_name").bn},
     band("b3",1080,"Patrones temporales","por día de la semana y canal"),
     MG("mg2",1118,"Métrica",["barWd","mx2"]),
-    {id:P("barWd"),type:"bar",x:16,y:1196,w:620,h:340,title:"Por día de la semana",fmt:"int",color:"#0A4A43",dataLabels:"top",group:P("mg2"),metricSQL:dim("n.weekday","n.wd"),sql:dim("n.weekday","n.wd").bn},
+    {id:P("barWd"),type:"bar",x:16,y:1196,w:620,h:340,title:"Por día de la semana",fmt:"int",color:"#1E3A5F",dataLabels:"top",group:P("mg2"),metricSQL:dim("n.weekday","n.wd"),sql:dim("n.weekday","n.wd").bn},
     {id:P("mx2"),type:"matrix",x:652,y:1196,w:620,h:340,title:"Categoría × canal",fmt:"int",heat:"teal",group:P("mg2"),metricSQL:matN("n.category_name","r.channel"),sql:matN("n.category_name","r.channel").bn},
     band("b4",1556,"Tabla por categoría","multi-medida"),
     {id:P("tcat"),type:"table",x:16,y:1594,w:1256,h:340,title:"Categorías · multi-medida",fmt:"money",zebra:true,sortable:true,totals:true,sql:catTable,cols:mcols}
@@ -1311,9 +1311,9 @@ ORDER BY colOrd`; }
 
 function tchRoomCatTables(sfx){ sfx=sfx||""; const P=id=>"tch5_"+id+sfx;
   const txt=(id,x,y,w,h,html)=>({id:P(id),type:"text",x,y,w,h,title:"",html});
-  const band=(id,y,l,s)=>txt(id,16,y,1256,32,`<div style="color:#0A4A43;font-weight:800;font-size:16px">${l}${s?` <span style="font-weight:500;color:#6B7A82;font-size:13px">· ${s}</span>`:""}</div>`);
+  const band=(id,y,l,s)=>txt(id,16,y,1256,32,`<div style="color:#1E3A5F;font-weight:800;font-size:16px">${l}${s?` <span style="font-weight:500;color:#6B7A82;font-size:13px">· ${s}</span>`:""}</div>`);
   return { id:"tchpg5"+sfx, name:"5 · Room Categories - Tables", panel:{collapsed:false,orient:"vertical"}, visuals:[
-    txt("hdr",16,8,1256,48,`<div style="background:#0A4A43;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px"><div style="font-size:20px;font-weight:700">Room Categories · Tablas — The Central House</div></div>`),
+    txt("hdr",16,8,1256,48,`<div style="background:#1E3A5F;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px"><div style="font-size:20px;font-weight:700">Room Categories · Tablas — The Central House</div></div>`),
     {id:P("sl_prop"),type:"slicer",dock:"panel",x:16,y:10,w:280,h:90,slTable:"properties",slColumn:"property_name",label:"Propiedad"},
     {id:P("sl_cat"),type:"slicer",dock:"panel",x:310,y:10,w:280,h:90,slTable:"nights",slColumn:"category_name",label:"Categoría"},
     {id:P("sl_q"),type:"slicer",dock:"panel",x:604,y:10,w:220,h:90,slTable:"reservations",slColumn:"q",label:"Trimestre"},
@@ -1336,10 +1336,10 @@ function tchRoomCatTables(sfx){ sfx=sfx||""; const P=id=>"tch5_"+id+sfx;
 }
 function tchRoomCatCharts(sfx){ sfx=sfx||""; const P=id=>"tch6_"+id+sfx;
   const txt=(id,x,y,w,h,html)=>({id:P(id),type:"text",x,y,w,h,title:"",html});
-  const band=(id,y,l,s)=>txt(id,16,y,1256,32,`<div style="color:#0A4A43;font-weight:800;font-size:16px">${l}${s?` <span style="font-weight:500;color:#6B7A82;font-size:13px">· ${s}</span>`:""}</div>`);
+  const band=(id,y,l,s)=>txt(id,16,y,1256,32,`<div style="color:#1E3A5F;font-weight:800;font-size:16px">${l}${s?` <span style="font-weight:500;color:#6B7A82;font-size:13px">· ${s}</span>`:""}</div>`);
   const catDim=mz=>`SELECT n.category_name AS k, ${mz} AS v FROM nights n JOIN reservations r USING(reservation_uid) WHERE r.y=$CY GROUP BY n.category_name ORDER BY v DESC`;
   return { id:"tchpg6"+sfx, name:"6 · Room Categories - Charts", panel:{collapsed:false,orient:"vertical"}, visuals:[
-    txt("hdr",16,8,1256,48,`<div style="background:#0A4A43;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px"><div style="font-size:20px;font-weight:700">Room Categories · Gráficos — The Central House</div></div>`),
+    txt("hdr",16,8,1256,48,`<div style="background:#1E3A5F;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px"><div style="font-size:20px;font-weight:700">Room Categories · Gráficos — The Central House</div></div>`),
     {id:P("sl_prop"),type:"slicer",dock:"panel",x:16,y:10,w:280,h:90,slTable:"properties",slColumn:"property_name",label:"Propiedad"},
     {id:P("sl_cat"),type:"slicer",dock:"panel",x:310,y:10,w:280,h:90,slTable:"nights",slColumn:"category_name",label:"Categoría"},
     // B · Gráfico Ocupación (metric group + filtro de resultado por cálculo) + Evolución
@@ -1351,8 +1351,8 @@ function tchRoomCatCharts(sfx){ sfx=sfx||""; const P=id=>"tch6_"+id+sfx;
     {id:P("evol"),type:"matrix",x:16,y:666,w:1256,h:300,title:"Evolución · cálculo × mes",fmt:"money",group:P("mg"),metricSQL:tchMetMatrixMap(),sql:tchMetMatrix("prodtot"),rfilters:[{rf:P("rfc"),col:"row"}]},
     // Resto (se mantiene)
     band("b2",982,"Por categoría de habitación","bednights y producción · YTD 2026"),
-    {id:P("bar1"),type:"bar",x:16,y:1020,w:620,h:340,title:"Bednights por categoría",fmt:"int",color:"#0A4A43",dataLabels:"top",sql:catDim("CAST(COUNT(n.night_id) AS DOUBLE)")},
-    {id:P("bar2"),type:"bar",x:652,y:1020,w:620,h:340,title:"Producción por categoría",fmt:"money",color:"#0F6E63",dataLabels:"top",sql:catDim("CAST(SUM(r.production) AS DOUBLE)")},
+    {id:P("bar1"),type:"bar",x:16,y:1020,w:620,h:340,title:"Bednights por categoría",fmt:"int",color:"#1E3A5F",dataLabels:"top",sql:catDim("CAST(COUNT(n.night_id) AS DOUBLE)")},
+    {id:P("bar2"),type:"bar",x:652,y:1020,w:620,h:340,title:"Producción por categoría",fmt:"money",color:"#3D65A8",dataLabels:"top",sql:catDim("CAST(SUM(r.production) AS DOUBLE)")},
     band("b3",1376,"Room-nights por nivel de ocupación","nº de camas ocupadas — SINTÉTICO (el fake no trae ocupación por cama)"),
     {id:P("bedbar"),type:"bar",x:16,y:1414,w:1256,h:340,title:"Room-nights por nº de camas ocupadas (sintético)",fmt:"int",color:"#3D65A8",dataLabels:"top",sql:tchBedLevelBarSQL()}
   ]};
@@ -1470,8 +1470,8 @@ const REAL_MV=`WITH na AS (SELECT EXTRACT(year FROM CAST(stay_date AS DATE)) y, 
       COALESCE(na.acc,0)/NULLIF(na.bn,0) adb, COALESCE(na.bn,0)/NULLIF(ca.cap,0) occ, COALESCE(na.acc,0)/NULLIF(ca.cap,0) revpab,
       COALESCE(na.bn,0)/NULLIF(ra.res,0) los, COALESCE(xa.ext,0) prodex, COALESCE(na.acc,0) prodacc
     FROM ca LEFT JOIN na ON na.y=ca.y AND na.m=ca.m LEFT JOIN xa ON xa.y=ca.y AND xa.m=ca.m LEFT JOIN ra ON ra.y=ca.y AND ra.m=ca.m)`;
-const R_hdr=t=>`<div style="background:#0A4A43;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px"><div style="font-size:21px;font-weight:700">${t}</div></div>`;
-const R_band=(id,y,l,s)=>({id,type:"text",x:16,y,w:1256,h:34,title:"",html:`<div style="color:#0A4A43;font-weight:800;font-size:16px">${l}${s?` <span style="font-weight:500;color:#6B7A82;font-size:13px">· ${s}</span>`:""}</div>`});
+const R_hdr=t=>`<div style="background:#1E3A5F;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px"><div style="font-size:21px;font-weight:700">${t}</div></div>`;
+const R_band=(id,y,l,s)=>({id,type:"text",x:16,y,w:1256,h:34,title:"",html:`<div style="color:#1E3A5F;font-weight:800;font-size:16px">${l}${s?` <span style="font-weight:500;color:#6B7A82;font-size:13px">· ${s}</span>`:""}</div>`});
 
 /* ===== Página REAL · Executive Summary (controlling fiel) ===== */
 function realExecSummary(){
@@ -1559,8 +1559,8 @@ SELECT d AS "Categoría", CAST(bn AS BIGINT) AS "Bednights", CAST(res AS BIGINT)
     R_band(P("b3"),618,"Categoría × mes / día","métrica conmutable"),
     MG("mg",656,"Métrica",["mx","barCat","barWd"]),
     {id:P("mx"),type:"matrix",x:16,y:734,w:1256,h:300,title:"Categoría × mes",fmt:"int",heat:"teal",group:P("mg"),metricSQL:nmat(CAT),sql:nmat(CAT).bn},
-    {id:P("barCat"),type:"bar",x:16,y:1046,w:620,h:340,title:"Por categoría",fmt:"int",color:"#0F6E63",dataLabels:"top",group:P("mg"),metricSQL:ndim(CAT),sql:ndim(CAT).bn},
-    {id:P("barWd"),type:"bar",x:652,y:1046,w:620,h:340,title:"Por día de la semana",fmt:"int",color:"#0A4A43",dataLabels:"top",group:P("mg"),metricSQL:ndim("dayname(CAST(n.stay_date AS DATE))","isodow(CAST(n.stay_date AS DATE))"),sql:ndim("dayname(CAST(n.stay_date AS DATE))","isodow(CAST(n.stay_date AS DATE))").bn}
+    {id:P("barCat"),type:"bar",x:16,y:1046,w:620,h:340,title:"Por categoría",fmt:"int",color:"#3D65A8",dataLabels:"top",group:P("mg"),metricSQL:ndim(CAT),sql:ndim(CAT).bn},
+    {id:P("barWd"),type:"bar",x:652,y:1046,w:620,h:340,title:"Por día de la semana",fmt:"int",color:"#1E3A5F",dataLabels:"top",group:P("mg"),metricSQL:ndim("dayname(CAST(n.stay_date AS DATE))","isodow(CAST(n.stay_date AS DATE))"),sql:ndim("dayname(CAST(n.stay_date AS DATE))","isodow(CAST(n.stay_date AS DATE))").bn}
   ]};
 }
 
@@ -1568,7 +1568,7 @@ SELECT d AS "Categoría", CAST(bn AS BIGINT) AS "Bednights", CAST(res AS BIGINT)
 function realVentasCal(){
   const P=id=>"rvc_"+id;
   const txt=(id,x,y,w,h,html)=>({id:P(id),type:"text",x,y,w,h,title:"",html});
-  const band=(id,y,l,s)=>txt(id,16,y,1256,34,`<div style="color:#0A4A43;font-weight:800;font-size:16px">${l}${s?` <span style="font-weight:500;color:#6B7A82;font-size:13px">· ${s}</span>`:""}</div>`);
+  const band=(id,y,l,s)=>txt(id,16,y,1256,34,`<div style="color:#1E3A5F;font-weight:800;font-size:16px">${l}${s?` <span style="font-weight:500;color:#6B7A82;font-size:13px">· ${s}</span>`:""}</div>`);
   const K=(id,title,label,kind,isPct,cy,x,y,w)=>kpiCard({id:P(id),x,y,w:w||172,h:168,title,label,kind,isPct:!!isPct,sqlCY:cy,sqlTGT:`SELECT CAST(q.v*0.95 AS DOUBLE) AS v FROM (${cy}) q`});
   // ── escalares para KPI (year = $YEAR) ──
   const yN="EXTRACT(year FROM CAST(stay_date AS DATE))", yR="EXTRACT(year FROM CAST(date_check_in AS TIMESTAMP))", REAL_ST="status IN ('Checked out','Checked in','Confirmed')";
@@ -1611,7 +1611,7 @@ function realVentasCal(){
     {id:P("sl_q"),type:"slicer",dock:"panel",x:16,y:12,w:240,h:90,slTable:"reservations",slColumn:"status",label:"Estado"},
     {id:P("sl_seg"),type:"slicer",dock:"panel",x:272,y:12,w:240,h:90,slTable:"reservations",slColumn:"segment_id",label:"Segmento"},
     {id:P("sl_src"),type:"slicer",dock:"panel",x:528,y:12,w:300,h:90,slTable:"reservations",slColumn:"reservation_source",label:"Canal"},
-    txt("hdr",16,8,1256,56,`<div style="background:#0A4A43;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px;gap:14px"><div style="font-size:22px;font-weight:800;letter-spacing:.5px">BEYON<span style="color:#56B14E">DATA</span></div><div style="opacity:.55;font-size:12px">powered by</div><div style="margin-left:auto;font-size:19px;font-weight:700">Análisis de Ventas · The Central House · 2026 (datos reales)</div></div>`),
+    txt("hdr",16,8,1256,56,`<div style="background:#1E3A5F;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px;gap:14px"><div style="font-size:22px;font-weight:800;letter-spacing:.5px">BEYON<span style="color:#56B14E">DATA</span></div><div style="opacity:.55;font-size:12px">powered by</div><div style="margin-left:auto;font-size:19px;font-weight:700">Análisis de Ventas · The Central House · 2026 (datos reales)</div></div>`),
     band("b1",76,"KPIs anuales","2026 vs 2025 · año completo"),
     superCard({id:P("a1"),key:"occ",x:xs7[0],y:112}),
     superCard({id:P("a2"),key:"bednights",kind:"int",x:xs7[1],y:112}),
@@ -1646,8 +1646,8 @@ function realVentasCal(){
     band("b6",3786,"Habitación y día","categoría × mes + día de la semana"),
     MG("mg5",3824,"Métrica",["mx3","barCat","barWd"],"bn"),
     {id:P("mx3"),type:"matrix",x:16,y:3902,w:1256,h:300,title:"Categoría × mes (noche)",fmt:"int",heat:"teal",group:P("mg5"),metricSQL:nmat("COALESCE(rc.display_name,'(otros)')"),sql:nmat("COALESCE(rc.display_name,'(otros)')").bn},
-    {id:P("barCat"),type:"bar",x:16,y:4214,w:620,h:340,title:"Por categoría",fmt:"int",color:"#0F6E63",dataLabels:"top",group:P("mg5"),metricSQL:ndim("COALESCE(rc.display_name,'(otros)')"),sql:ndim("COALESCE(rc.display_name,'(otros)')").bn},
-    {id:P("barWd"),type:"bar",x:652,y:4214,w:620,h:340,title:"Por día de la semana",fmt:"int",color:"#0A4A43",dataLabels:"top",group:P("mg5"),metricSQL:ndim("dayname(CAST(n.stay_date AS DATE))","isodow(CAST(n.stay_date AS DATE))"),sql:ndim("dayname(CAST(n.stay_date AS DATE))","isodow(CAST(n.stay_date AS DATE))").bn},
+    {id:P("barCat"),type:"bar",x:16,y:4214,w:620,h:340,title:"Por categoría",fmt:"int",color:"#3D65A8",dataLabels:"top",group:P("mg5"),metricSQL:ndim("COALESCE(rc.display_name,'(otros)')"),sql:ndim("COALESCE(rc.display_name,'(otros)')").bn},
+    {id:P("barWd"),type:"bar",x:652,y:4214,w:620,h:340,title:"Por día de la semana",fmt:"int",color:"#1E3A5F",dataLabels:"top",group:P("mg5"),metricSQL:ndim("dayname(CAST(n.stay_date AS DATE))","isodow(CAST(n.stay_date AS DATE))"),sql:ndim("dayname(CAST(n.stay_date AS DATE))","isodow(CAST(n.stay_date AS DATE))").bn},
     txt("note",16,4574,1256,40,`<div style="color:#6B7A82;font-size:12px">Datos REALES. Producción = alojamiento (nights.price) + extras (amount_gross). Target de las KPI = placeholder (95% del real) hasta conectar objetivos. Año completo (2026 parcial).</div>`)
   ]};
 }
@@ -1701,8 +1701,8 @@ function realRoomCatCharts(){ const P=id=>"rcc_"+id;
     R_band(P("b1"),628,"Evolución","cálculo × mes (misma métrica + mismo filtro)"),
     {id:P("evol"),type:"matrix",x:16,y:666,w:1256,h:300,title:"Evolución · cálculo × mes",fmt:"money",group:P("mg"),metricSQL:realMetMatrixMap(),sql:realMetMatrix("prodtot"),rfilters:[{rf:P("rfc"),col:"row"}]},
     R_band(P("b2"),982,"Por categoría de habitación","bednights y producción · 2026"),
-    {id:P("bar1"),type:"bar",x:16,y:1020,w:620,h:340,title:"Bednights por categoría",fmt:"int",color:"#0A4A43",dataLabels:"top",sql:catBar("CAST(COUNT(*) AS DOUBLE)")},
-    {id:P("bar2"),type:"bar",x:652,y:1020,w:620,h:340,title:"Prod Alojamiento por categoría",fmt:"money",color:"#0F6E63",dataLabels:"top",sql:catBar("CAST(SUM(n.price) AS DOUBLE)")}
+    {id:P("bar1"),type:"bar",x:16,y:1020,w:620,h:340,title:"Bednights por categoría",fmt:"int",color:"#1E3A5F",dataLabels:"top",sql:catBar("CAST(COUNT(*) AS DOUBLE)")},
+    {id:P("bar2"),type:"bar",x:652,y:1020,w:620,h:340,title:"Prod Alojamiento por categoría",fmt:"money",color:"#3D65A8",dataLabels:"top",sql:catBar("CAST(SUM(n.price) AS DOUBLE)")}
   ]};
 }
 function realRoomCatTables(){ const P=id=>"rct_"+id;
@@ -1722,7 +1722,7 @@ function realRoomCatTables(){ const P=id=>"rct_"+id;
 }
 
 function realDoc(){
-  const hdr=t=>`<div style="background:#0A4A43;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px"><div style="font-size:20px;font-weight:700">${t}</div></div>`;
+  const hdr=t=>`<div style="background:#1E3A5F;color:#fff;height:100%;border-radius:12px;display:flex;align-items:center;padding:0 20px"><div style="font-size:20px;font-weight:700">${t}</div></div>`;
   const note=t=>`<div style="color:#6B7A82;font:13px 'Segoe UI',Arial">${t}</div>`;
   const p1={id:"rpg1",name:"1 · KPIs · Validación",panel:{collapsed:false,orient:"vertical"},visuals:[
     {id:"r1h",type:"text",x:16,y:8,w:1256,h:48,html:hdr("Validación · KPIs reales (2026 vs 2025) — The Central House")},
@@ -1733,14 +1733,14 @@ function realDoc(){
     {id:"r2h",type:"text",x:16,y:8,w:1256,h:48,html:hdr("Validación · Mensual 2026")},
     {id:"r2n",type:"text",x:16,y:64,w:1256,h:40,html:note("Bed-nights, alojamiento, extras, ocupación y ADB por mes de 2026. Ojo: 2026 es parcial (menos reservas en meses futuros).")},
     {id:"r2t",type:"table",x:16,y:112,w:1256,h:430,title:"Mensual 2026",fmt:"num",zebra:true,sortable:true,sql:RSQL_MONTH},
-    {id:"r2b",type:"bar",x:16,y:558,w:1256,h:340,title:"Alojamiento por mes 2026",fmt:"money",color:"#0F6E63",dataLabels:"top",sql:RSQL_MONTHBAR}
+    {id:"r2b",type:"bar",x:16,y:558,w:1256,h:340,title:"Alojamiento por mes 2026",fmt:"money",color:"#3D65A8",dataLabels:"top",sql:RSQL_MONTHBAR}
   ]};
   const p3={id:"rpg3",name:"3 · Categorías",panel:{collapsed:false,orient:"vertical"},visuals:[
     {id:"r3h",type:"text",x:16,y:8,w:1256,h:48,html:hdr("Validación · Categorías / Room Mix")},
     {id:"r3n",type:"text",x:16,y:64,w:1256,h:40,html:note("Room Mix (inventario, masters) y desglose por categoría 2026 (nights ↔ room_categories por raw_value).")},
     {id:"r3mix",type:"table",x:16,y:112,w:620,h:300,title:"Room Mix (inventario)",fmt:"num",zebra:true,sql:RSQL_MIX},
     {id:"r3cat",type:"table",x:652,y:112,w:620,h:300,title:"Por categoría · 2026",fmt:"num",zebra:true,sortable:true,sql:RSQL_CAT},
-    {id:"r3bar",type:"bar",x:16,y:428,w:1256,h:340,title:"Bed-nights por categoría 2026",fmt:"int",color:"#0A4A43",dataLabels:"top",sql:RSQL_CATBAR}
+    {id:"r3bar",type:"bar",x:16,y:428,w:1256,h:340,title:"Bed-nights por categoría 2026",fmt:"int",color:"#1E3A5F",dataLabels:"top",sql:RSQL_CATBAR}
   ]};
   return {pages:[realExecSummary(),realProperties(),realVentasCal(),realVentasRooms(),realRoomCatTables(),realRoomCatCharts(),p1,p2,p3],active:0};
 }
@@ -1968,7 +1968,7 @@ window.delPage=i=>{ if(DASH.pages.length<=1||!DASH.pages[i])return; if(!confirm(
   DASH.pages.splice(i,1); if(DASH.active>=DASH.pages.length)DASH.active=DASH.pages.length-1; else if(DASH.active>i)DASH.active--; saveDash(); renderPage(); };
 
 /* ─ color util ─ */
-const SCALES={blue:{from:"#cfe3ff",to:"#0a3d91"},green:{from:"#d6f0dc",to:"#0f5f33"},teal:{from:"#cdeae6",to:"#0A4A43"},orange:{from:"#ffe2c2",to:"#b5540a"}};
+const SCALES={blue:{from:"#cfe3ff",to:"#0a3d91"},green:{from:"#d6f0dc",to:"#0f5f33"},teal:{from:"#DBE7F7",to:"#1E3A5F"},orange:{from:"#ffe2c2",to:"#b5540a"}};
 function hex2rgb(h){h=h.replace("#","");return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
 function lerpColor(a,b,t){const A=hex2rgb(a),B=hex2rgb(b);return`rgb(${Math.round(A[0]+(B[0]-A[0])*t)},${Math.round(A[1]+(B[1]-A[1])*t)},${Math.round(A[2]+(B[2]-A[2])*t)})`;}
 function resolveScale(cs){ if(!cs)return null; if(typeof cs==="string")return SCALES[cs]||null; if(cs.from&&cs.to)return cs; return null; }
@@ -1999,7 +1999,7 @@ function canvasModel(p){
   return null;
 }
 function canvasDefault(){ return {bg:{type:"color",color:"#f7f9fa",opacity:1,
-  gradient:{from:"#0E3A35",to:"#0A4A43",angle:135,kind:"linear"},
+  gradient:{from:"#16305A",to:"#1E3A5F",angle:135,kind:"linear"},
   image:{url:"",fit:"cover",opacity:1}}, grid:{show:true,size:20,color:"rgba(0,0,0,.04)"}}; }
 const CV_LAYER="position:absolute;inset:0;pointer-events:none;z-index:0;background-repeat:no-repeat;background-position:center";
 function applyCanvas(){
@@ -2013,7 +2013,7 @@ function applyCanvas(){
   stage.style.background="#f7f9fa";                       // base sólida: mata la cuadrícula CSS; la dibujamos nosotros
   const b=c.bg||{}, t=b.type||"none";
   if(t==="color"){ bg.style.background=b.color||"#ffffff"; bg.style.opacity=(b.opacity==null?1:b.opacity); }
-  else if(t==="gradient"){ const g=b.gradient||{}, from=g.from||"#0E3A35", to=g.to||"#0A4A43";
+  else if(t==="gradient"){ const g=b.gradient||{}, from=g.from||"#16305A", to=g.to||"#1E3A5F";
     bg.style.backgroundImage=(g.kind==="radial")?`radial-gradient(circle at 50% 40%, ${from}, ${to})`:`linear-gradient(${g.angle==null?135:g.angle}deg, ${from}, ${to})`;
     bg.style.opacity=(b.opacity==null?1:b.opacity); }
   else if(t==="image"){ const im=b.image||{}; if(im.url){ bg.style.backgroundImage=`url("${String(im.url).replace(/"/g,"%22")}")`;
@@ -2030,7 +2030,7 @@ window.cvApply=()=>{ const t=(($("cv_type")||{}).value)||"none"; const op=(parse
   if(t==="none"){ delete CP().canvas; delete CP().bg; }
   else { const c=(CP().canvas&&typeof CP().canvas==="object")?CP().canvas:canvasDefault(); c.bg=c.bg||{}; c.bg.type=t;
     if(t==="color"){ c.bg.color=(($("cv_color")||{}).value)||"#f7f9fa"; c.bg.opacity=op; }
-    else if(t==="gradient"){ c.bg.gradient={from:(($("cv_gfrom")||{}).value)||"#0E3A35",to:(($("cv_gto")||{}).value)||"#0A4A43",angle:parseInt(($("cv_gangle")||{}).value,10)||135,kind:(($("cv_gkind")||{}).value)||"linear"}; c.bg.opacity=op; }
+    else if(t==="gradient"){ c.bg.gradient={from:(($("cv_gfrom")||{}).value)||"#16305A",to:(($("cv_gto")||{}).value)||"#1E3A5F",angle:parseInt(($("cv_gangle")||{}).value,10)||135,kind:(($("cv_gkind")||{}).value)||"linear"}; c.bg.opacity=op; }
     else if(t==="image"){ c.bg.image={url:((($("cv_imgurl")||{}).value)||"").trim(),fit:(($("cv_imgfit")||{}).value)||"cover",opacity:op}; }
     c.grid={show:!!(($("cv_grid")||{}).checked),size:parseInt(($("cv_gridsize")||{}).value,10)||20,color:(($("cv_gridcolor")||{}).value)||"rgba(0,0,0,.04)"};
     delete CP().bg; CP().canvas=c; }
@@ -2046,7 +2046,7 @@ window.editCanvas=()=>{ const p=CP(); const c=canvasModel(p)||canvasDefault(); c
       <option value="gradient">Gradiente</option><option value="image">Imagen (URL)</option></select></div>
   <div class="sec" id="cv_s_color"><div class="sech">Color</div>${colorField("cv_color",b.color||"#f7f9fa")}</div>
   <div class="sec" id="cv_s_grad"><div class="sech">Gradiente</div>
-    <div class="row"><div><label>Desde</label>${colorField("cv_gfrom",g.from||"#0E3A35")}</div><div><label>Hasta</label>${colorField("cv_gto",g.to||"#0A4A43")}</div></div>
+    <div class="row"><div><label>Desde</label>${colorField("cv_gfrom",g.from||"#16305A")}</div><div><label>Hasta</label>${colorField("cv_gto",g.to||"#1E3A5F")}</div></div>
     <div class="row" style="margin-top:6px"><div><label>Ángulo</label><input id="cv_gangle" type="number" value="${g.angle==null?135:g.angle}" oninput="cvApply()"></div>
       <div><label>Tipo</label><select id="cv_gkind" onchange="cvApply()"><option value="linear" ${g.kind!=="radial"?"selected":""}>Lineal</option><option value="radial" ${g.kind==="radial"?"selected":""}>Radial</option></select></div></div></div>
   <div class="sec" id="cv_s_img"><div class="sech">Imagen</div>
@@ -2148,7 +2148,7 @@ const FX=[
   {id:"roundBars",fam:"chart",label:"Puntas de barra redondeadas",json:'{"series":[{"itemStyle":{"borderRadius":[6,6,0,0]}}]}'},
   {id:"bgTrack",fam:"chart",label:"Pista de fondo en barras",json:'{"series":[{"showBackground":true,"backgroundStyle":{"color":"rgba(0,0,0,.05)"}}]}'},
   {id:"maxMin",fam:"chart",label:"Marcar máximo y mínimo",json:'{"series":[{"markPoint":{"symbolSize":42,"data":[{"type":"max"},{"type":"min"}]}}]}'},
-  {id:"gradient",fam:"chart",label:"Degradado vertical en barras",json:'{"series":[{"itemStyle":{"color":{"type":"linear","x":0,"y":0,"x2":0,"y2":1,"colorStops":[{"offset":0,"color":"#23b3a3"},{"offset":1,"color":"#0A4A43"}]}}}]}'},
+  {id:"gradient",fam:"chart",label:"Degradado vertical en barras",json:'{"series":[{"itemStyle":{"color":{"type":"linear","x":0,"y":0,"x2":0,"y2":1,"colorStops":[{"offset":0,"color":"#5B8FD6"},{"offset":1,"color":"#1E3A5F"}]}}}]}'},
   {id:"focusSeries",fam:"chart",label:"Atenuar las demás series al pasar",json:'{"series":[{"emphasis":{"focus":"series"}}]}'},
   // familia "pie": donut/pie
   {id:"roundSlices",fam:"pie",label:"Esquinas redondeadas + separación",json:'{"series":[{"itemStyle":{"borderRadius":8,"borderColor":"#fff","borderWidth":2}}]}'},
@@ -2170,7 +2170,7 @@ const FX=[
   {id:"tRowH", fam:"tbl",label:"Altura de fila fija (px)",            json:'{"rowHeight":34}'},
   {id:"tColW", fam:"tbl",label:"Ancho mínimo de columna (px)",        json:'{"colMinWidth":110}'},
   {id:"tWrap", fam:"tbl",label:"Partir el texto largo en las celdas", json:'{"wrap":true}'},
-  {id:"tHead", fam:"tbl",label:"Cabecera: fondo, color y línea",      json:'{"head":{"bg":"#0E3A35","color":"#ffffff","line":2}}'},
+  {id:"tHead", fam:"tbl",label:"Cabecera: fondo, color y línea",      json:'{"head":{"bg":"#16305A","color":"#ffffff","line":2}}'},
   {id:"tCol1R",fam:"tbl",label:"Alinear la 1ª columna a la derecha",  json:'{"firstColRight":true}'},
 ];
 function fxFam(v){ return v.type==="map"?"map":((v.type==="donut"||v.type==="pie")?"pie":((v.type==="table"||v.type==="matrix")?"tbl":"chart")); }
@@ -2190,7 +2190,7 @@ function tableFxCSS(id,sp){ if(!sp)return ""; const s="#body_"+id+" table.dt"; l
   if(sp.rowHeight)css+=`${s} tbody td{height:${sp.rowHeight}px;line-height:1.1}`;
   if(sp.colMinWidth)css+=`${s} th,${s} td{min-width:${sp.colMinWidth}px}`;
   if(sp.wrap)css+=`${s} th,${s} td{white-space:normal;word-break:break-word}`;
-  if(sp.head)css+=`${s} thead th{background:${sp.head.bg||"#0E3A35"} !important;color:${sp.head.color||"#fff"} !important;border-bottom:${sp.head.line==null?2:sp.head.line}px solid ${sp.head.bg||"#0E3A35"}}`;
+  if(sp.head)css+=`${s} thead th{background:${sp.head.bg||"#16305A"} !important;color:${sp.head.color||"#fff"} !important;border-bottom:${sp.head.line==null?2:sp.head.line}px solid ${sp.head.bg||"#16305A"}}`;
   if(sp.firstColRight)css+=`${s} tbody td:first-child,${s} thead th:first-child{text-align:right}`;
   return css?`<style>${css}</style>`:""; }
 function renderChart(v,rows){ const ch=charts[v.id]; if(!rows.length){ch.clear();return;}
@@ -2203,21 +2203,21 @@ function renderChart(v,rows){ const ch=charts[v.id]; if(!rows.length){ch.clear()
   else { const m={}; rows.forEach(r=>m[r[XC]]=r[YC]); let arr=cats.map(k=>Number(m[k]??0));
     if(v.sort==="desc"||v.sort==="asc"){ const idx=cats.map((k,i)=>i).sort((a,b)=>v.sort==="desc"?arr[b]-arr[a]:arr[a]-arr[b]); cats=idx.map(i=>cats[i]); arr=idx.map(i=>arr[i]); }
     const scale=resolveScale(v.colorScale); let data; if(scale&&!baseLine){const mn=Math.min(...arr),mx=Math.max(...arr);data=arr.map(val=>({value:val,itemStyle:{color:lerpColor(scale.from,scale.to,(val-mn)/((mx-mn)||1))}}));}else data=arr;
-    series=[{type:baseLine?"line":"bar",smooth:baseLine,areaStyle:v.type==="area"?{opacity:.18}:undefined,itemStyle:{color:v.color||"#0F6E63",borderRadius:baseLine?0:(horiz?[0,4,4,0]:[4,4,0,0])},lineStyle:{color:v.color||"#0F6E63",width:2},barWidth:v.barWidth||"58%",barCategoryGap:v.barCategoryGap,label:dataLabel(v,horiz,fmt),data}]; }
+    series=[{type:baseLine?"line":"bar",smooth:baseLine,areaStyle:v.type==="area"?{opacity:.18}:undefined,itemStyle:{color:v.color||"#3D65A8",borderRadius:baseLine?0:(horiz?[0,4,4,0]:[4,4,0,0])},lineStyle:{color:v.color||"#3D65A8",width:2},barWidth:v.barWidth||"58%",barCategoryGap:v.barCategoryGap,label:dataLabel(v,horiz,fmt),data}]; }
   const catAxis={type:"category",data:cats,axisTick:{show:false}},valAxis={type:"value",max:v.stack100?1:undefined,axisLabel:{formatter:x=>fmtAxis(x,fmt)}};
   ch.setOption({grid:{left:horiz?90:54,right:16,top:(hasSeries&&legend)?34:14,bottom:28},tooltip:{trigger:"axis",valueFormatter:x=>fmtValue(x,fmt)},legend:legend?{top:4,type:"scroll",textStyle:{fontSize:11,width:140,overflow:"truncate"},tooltip:{show:true}}:undefined,xAxis:horiz?valAxis:catAxis,yAxis:horiz?catAxis:valAxis,series},true);
   ch.off("click"); applyEch(v); ch.resize(); }
 function dataLabel(v,horiz,fmt){ const dl=v.dataLabels||"none"; if(dl==="none")return{show:false}; return {show:true,position:dl==="inside"?"inside":(horiz?"right":"top"),fontSize:10,fontWeight:700,color:dl==="inside"?"#fff":"#444",formatter:p=>fmtValue(p.value,fmt||v.fmt)}; }
-const PIE_PAL=["#0F6E63","#2563eb","#E0A800","#A0453D","#56B14E","#7C3AED","#0A4A43","#D1770B","#1B7F9E","#B23A6F"];
+const PIE_PAL=["#3D65A8","#2563eb","#E0A800","#A0453D","#56B14E","#7C3AED","#1E3A5F","#D1770B","#1B7F9E","#B23A6F"];
 function pieColors(v,rows,YC){ const n=rows.length,vals=rows.map(r=>+r[YC]); const pal=v.palette||(v.blue?"blue":"multi");
   if(pal==="blue")return rows.map((r,i)=>blueScale(n,i));
-  if(pal==="single")return rows.map(()=>v.color||"#0F6E63");
+  if(pal==="single")return rows.map(()=>v.color||"#3D65A8");
   if(pal==="scale"){ const sc=resolveScale(v.colorScale)||SCALES.teal; const mn=Math.min(...vals),mx=Math.max(...vals); return vals.map(val=>lerpColor(sc.from,sc.to,(val-mn)/((mx-mn)||1))); }
   const P=(v.colors&&v.colors.length)?v.colors:PIE_PAL; return rows.map((r,i)=>P[i%P.length]); }
 function renderPie(v,rows){ const ch=charts[v.id]; const XC=v.x2||"k",YC=v.y2||"v"; rows=applyGroupOther(rows,v.group,XC,YC); const total=rows.reduce((a,b)=>a+(+b[YC]),0);
   const cols=pieColors(v,rows,YC); const data=rows.map((r,i)=>({name:r[XC],value:+r[YC],itemStyle:{color:cols[i]}})); const donut=v.type==="donut";
   const showCenter=donut&&(v.centerLabel!==false), showSlice=v.sliceLabels!==false;
-  ch.setOption({tooltip:{trigger:"item",formatter:"{b}: {c} ({d}%)"},legend:{type:"scroll",orient:"vertical",right:4,top:"center",textStyle:{fontSize:11,width:150,overflow:"truncate"},tooltip:{show:true}},title:showCenter?{text:fmtValue(total,v.fmt||"money"),subtext:v.centerText||"Total",left:"34%",top:"44%",textAlign:"center",textStyle:{fontSize:16,fontWeight:800,color:"#0A4A43"},subtextStyle:{fontSize:10,color:"#6B7A82"}}:undefined,
+  ch.setOption({tooltip:{trigger:"item",formatter:"{b}: {c} ({d}%)"},legend:{type:"scroll",orient:"vertical",right:4,top:"center",textStyle:{fontSize:11,width:150,overflow:"truncate"},tooltip:{show:true}},title:showCenter?{text:fmtValue(total,v.fmt||"money"),subtext:v.centerText||"Total",left:"34%",top:"44%",textAlign:"center",textStyle:{fontSize:16,fontWeight:800,color:"#1E3A5F"},subtextStyle:{fontSize:10,color:"#6B7A82"}}:undefined,
     series:[{type:"pie",radius:donut?["52%","74%"]:["0%","72%"],center:["34%","50%"],label:{show:showSlice,formatter:"{d}%",fontSize:11,fontWeight:700},labelLine:{show:showSlice,length:6,length2:6},data}]},true);
   ch.off("click"); applyEch(v); ch.resize(); }
 let _worldMapP=null;
@@ -2239,11 +2239,11 @@ async function renderMap(v,rows){ const ch=charts[v.id]; await ensureWorldMap();
   applyEch(v); ch.resize(); }
 /* celda condicional compartida por tabla y matriz */
 function condStyle(d,mn,mx,heat){ if(!heat||d==null)return ""; const sc=resolveScale(heat)||SCALES.teal; const t=(d-mn)/((mx-mn)||1); return `background:${lerpColor(sc.from,sc.to,t)};`+(t>0.6?"color:#fff;":""); }
-function condBar(inner,d,mn,mx,bar){ if(!bar||d==null)return inner; const base=Math.min(0,mn); const t=Math.max(0,Math.min(100,(d-base)/((mx-base)||1)*100)); const bc=(typeof bar==="string")?bar:"#4aa89b"; return `<div class="tbar"><div class="tbar-f" style="width:${t.toFixed(1)}%;background:${bc}"></div><span>${inner}</span></div>`; }
+function condBar(inner,d,mn,mx,bar){ if(!bar||d==null)return inner; const base=Math.min(0,mn); const t=Math.max(0,Math.min(100,(d-base)/((mx-base)||1)*100)); const bc=(typeof bar==="string")?bar:"#3D65A8"; return `<div class="tbar"><div class="tbar-f" style="width:${t.toFixed(1)}%;background:${bc}"></div><span>${inner}</span></div>`; }
 const TBL_STATE={}; const COLORDER={};
 function sparkCell(val){ const nums=String(val).split(/[,\s;|]+/).map(Number).filter(x=>!isNaN(x)); if(nums.length<2)return esc(val);
   const w=72,h=18,mn=Math.min(...nums),mx=Math.max(...nums),rg=(mx-mn)||1; const pts=nums.map((n,i)=>`${((i/(nums.length-1))*w).toFixed(1)},${(h-((n-mn)/rg)*h).toFixed(1)}`).join(" ");
-  return `<svg width="${w}" height="${h}" style="vertical-align:middle"><polyline points="${pts}" fill="none" stroke="#0F6E63" stroke-width="1.5"/></svg>`; }
+  return `<svg width="${w}" height="${h}" style="vertical-align:middle"><polyline points="${pts}" fill="none" stroke="#3D65A8" stroke-width="1.5"/></svg>`; }
 window.tblSort=(id,col)=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; if(s.sortCol===col)s.sortDir=s.sortDir==="asc"?"desc":"asc"; else{s.sortCol=col;s.sortDir="desc";} s.page=0; renderTable(v); };
 window.tblPage=(id,p)=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; (TBL_STATE[id]=TBL_STATE[id]||{}).page=p; renderTable(v); };
 async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
@@ -2415,13 +2415,13 @@ window.addSlicer=async()=>{ const slTable=$("as_table").value,slColumn=$("as_col
 /* ═══════════ Registro de tipos de visual (VIS) ═══════════
    Añadir un tipo = añadir UNA entrada en VIS (engine, shape, defaults, formato, read, render).
    Los puntos genéricos (dispatch, init, editor, lectura, menú, forma) leen de aquí. */
-function fmtChart(v){ return `<div class="row"><div><label>Color</label>${colorField("e_color",v.color||"#0F6E63")}</div><div><label>Formato nº</label><select id="e_fmt">${["money","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
+function fmtChart(v){ return `<div class="row"><div><label>Color</label>${colorField("e_color",v.color||"#3D65A8")}</div><div><label>Formato nº</label><select id="e_fmt">${["money","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
     <div class="row" style="margin-top:6px"><div><label>X (col)</label><input id="e_x2" type="text" value="${esc(v.x2||"k")}"></div><div><label>Y (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div><div><label>Serie (col)</label><input id="e_series" type="text" value="${esc(v.series||"series")}"></div></div>
       <div class="row"><div><label>Valores</label><select id="e_dl">${["none","top","inside"].map(k=>`<option ${v.dataLabels===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Apilado</label><select id="e_stacked"><option value="0" ${!v.stacked?"selected":""}>no</option><option value="1" ${v.stacked?"selected":""}>sí</option></select></div><div><label>100%</label><select id="e_s100"><option value="0" ${!v.stack100?"selected":""}>no</option><option value="1" ${v.stack100?"selected":""}>sí</option></select></div><div><label>Horizontal</label><select id="e_horiz"><option value="0" ${!v.horizontal?"selected":""}>no</option><option value="1" ${v.horizontal?"selected":""}>sí</option></select></div></div>
       <div class="row"><div><label>Ordenar</label><select id="e_sort">${["","desc","asc"].map(k=>`<option value="${k}" ${v.sort===k?"selected":""}>${k||"no"}</option>`).join("")}</select></div><div><label>Color por valor (barras)</label><select id="e_cs"><option value="" ${!v.colorScale?"selected":""}>no</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.colorScale===k?"selected":""}>${k}</option>`).join("")}</select></div></div>`; }
 function fmtPie(v){ const donut=v.type==="donut"; const pal=v.palette||(v.blue?"blue":"multi");
   return `<div class="row"><div><label>Esquema de color</label><select id="e_pal" onchange="pieColorToggle()"><option value="multi" ${pal==="multi"?"selected":""}>Paleta (un color por porción)</option><option value="scale" ${pal==="scale"||pal==="blue"?"selected":""}>Gradiente por valor</option><option value="single" ${pal==="single"?"selected":""}>Un solo color</option></select></div><div><label>Formato nº</label><select id="e_fmt">${["money","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
-    <div class="row"><div id="e_colorwrap" style="${pal==="single"?"":"display:none"}"><label>Color único</label>${colorField("e_color",v.color||"#0F6E63")}</div><div id="e_cswrap" style="${pal==="scale"?"":"display:none"}"><label>Gradiente</label><select id="e_cs"><option value="" ${!v.colorScale?"selected":""}>teal</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.colorScale===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
+    <div class="row"><div id="e_colorwrap" style="${pal==="single"?"":"display:none"}"><label>Color único</label>${colorField("e_color",v.color||"#3D65A8")}</div><div id="e_cswrap" style="${pal==="scale"?"":"display:none"}"><label>Gradiente</label><select id="e_cs"><option value="" ${!v.colorScale?"selected":""}>teal</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.colorScale===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
     <div class="row" style="margin-top:6px"><div><label>Etiquetas % en porciones</label><select id="e_slice"><option value="1" ${v.sliceLabels!==false?"selected":""}>sí</option><option value="0" ${v.sliceLabels===false?"selected":""}>no</option></select></div>${donut?`<div><label>Valor en el centro</label><select id="e_center"><option value="1" ${v.centerLabel!==false?"selected":""}>sí</option><option value="0" ${v.centerLabel===false?"selected":""}>no</option></select></div><div><label>Texto bajo el centro</label><input id="e_ctext" type="text" value="${esc(v.centerText||"Total")}"></div>`:""}</div>`; }
 function fmtKpi(v){ return `<div class="row"><div><label>Etiqueta</label><input id="e_label" type="text" value="${esc(v.label||"")}"></div><div><label>Formato</label><select id="e_kind">${["money","int","pct","ratio"].map(k=>`<option ${v.kind===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>%</label><select id="e_pct"><option value="0" ${!v.isPct?"selected":""}>no</option><option value="1" ${v.isPct?"selected":""}>sí</option></select></div></div>`; }
 function fmtMap(v){ return `<div class="row"><div><label>Gradiente (color por valor)</label><select id="e_cs"><option value="" ${!v.colorScale?"selected":""}>teal</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.colorScale===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Formato nº</label><select id="e_fmt">${["money","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
@@ -2537,9 +2537,9 @@ function readMetricGroup(v){ if($("e_mglabel"))v.label=$("e_mglabel").value; if(
   const boxes=document.querySelectorAll(".e_mgtgt"); if(boxes.length)v.targets=[...boxes].filter(b=>b.checked).map(b=>b.value); }
 /* content: qué editor de SQL/contenido mostrar · title: none|only|full · engine: echarts|html */
 const VIS={
-  bar:   {engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>v</code> (+<code>series</code>).",render:renderChart,formato:fmtChart,read:readGraphic,defaults:t=>({type:t,sql:SQL.prodCanal,color:"#0F6E63",fmt:"money",dataLabels:"top"})},
-  line:  {engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>v</code>.",render:renderChart,formato:fmtChart,read:readGraphic,defaults:t=>({type:t,sql:SQL.prodCanal,color:"#0F6E63",fmt:"money",dataLabels:"top"})},
-  area:  {engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>v</code>.",render:renderChart,formato:fmtChart,read:readGraphic,defaults:t=>({type:t,sql:SQL.prodCanal,color:"#0F6E63",fmt:"money",dataLabels:"top"})},
+  bar:   {engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>v</code> (+<code>series</code>).",render:renderChart,formato:fmtChart,read:readGraphic,defaults:t=>({type:t,sql:SQL.prodCanal,color:"#3D65A8",fmt:"money",dataLabels:"top"})},
+  line:  {engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>v</code>.",render:renderChart,formato:fmtChart,read:readGraphic,defaults:t=>({type:t,sql:SQL.prodCanal,color:"#3D65A8",fmt:"money",dataLabels:"top"})},
+  area:  {engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>v</code>.",render:renderChart,formato:fmtChart,read:readGraphic,defaults:t=>({type:t,sql:SQL.prodCanal,color:"#3D65A8",fmt:"money",dataLabels:"top"})},
   combo: {engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>series</code>,<code>v</code>.",render:renderChart,formato:fmtChart,read:readGraphic,defaults:()=>({type:"combo",sql:SQL.prodCanal,fmt:"money"})},
   donut: {engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>v</code>.",render:renderPie,formato:fmtPie,read:readGraphic,defaults:t=>({type:t,sql:SQL.prodCanal,fmt:"money",palette:"multi"})},
   pie:   {engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>v</code>.",render:renderPie,formato:fmtPie,read:readGraphic,defaults:t=>({type:t,sql:SQL.prodCanal,fmt:"money",palette:"multi"})},
@@ -2589,7 +2589,7 @@ function editorFormHTML(v,id){ const def=VIS[v.type]||{};
       <button type="button" title="Centrar" onmousedown="return false" onclick="wyCmd('justifyCenter')">≡</button>
       <button type="button" title="Alinear a la derecha" onmousedown="return false" onclick="wyCmd('justifyRight')">⇥</button>
       <span class="wy-sep"></span>
-      <label class="wy-c" title="Color de la letra seleccionada">Texto<input type="color" value="#0A4A43" oninput="wyColor('fore',this.value)"></label>
+      <label class="wy-c" title="Color de la letra seleccionada">Texto<input type="color" value="#1E3A5F" oninput="wyColor('fore',this.value)"></label>
       <label class="wy-c" title="Resaltado: fondo detrás de la letra seleccionada (como un rotulador)">Resalt.<input type="color" value="#fff59d" oninput="wyColor('back',this.value)"></label>
       <button type="button" title="Quitar el formato de la selección" onmousedown="return false" onclick="wyCmd('removeFormat')">⌫ formato</button>
     </div>
@@ -2599,7 +2599,7 @@ function editorFormHTML(v,id){ const def=VIS[v.type]||{};
       <button type="button" title="Banda con fondo de color (tipo cabecera)" onmousedown="return false" onclick="wyInsertSnippet('band')">▭ Banda</button>
     </div>`;
     sqlInner=`${tb}<div id="e_wysiwyg" class="wy-area" contenteditable="true" oninput="wyInput()" onkeyup="wySaveSel()" onmouseup="wySaveSel()" style="background:${v.bg||'#fff'}">${v.html||""}</div>
-      <div class="row" style="margin-top:8px"><div><label>Fondo de la tarjeta</label><select id="e_bgmode" onchange="document.getElementById('e_bgwrap').style.display=this.value==='color'?'block':'none'"><option value="none" ${!v.bg?"selected":""}>Ninguno (transparente)</option><option value="color" ${v.bg?"selected":""}>Color</option></select></div><div><label>&nbsp;</label><span id="e_bgwrap" style="display:${v.bg?"block":"none"}"><input type="color" id="e_bg" value="${toHex(v.bg)||'#0A4A43'}" style="width:100%;height:32px;padding:2px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer"></span></div></div>
+      <div class="row" style="margin-top:8px"><div><label>Fondo de la tarjeta</label><select id="e_bgmode" onchange="document.getElementById('e_bgwrap').style.display=this.value==='color'?'block':'none'"><option value="none" ${!v.bg?"selected":""}>Ninguno (transparente)</option><option value="color" ${v.bg?"selected":""}>Color</option></select></div><div><label>&nbsp;</label><span id="e_bgwrap" style="display:${v.bg?"block":"none"}"><input type="color" id="e_bg" value="${toHex(v.bg)||'#1E3A5F'}" style="width:100%;height:32px;padding:2px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer"></span></div></div>
       <div class="hint">La “banda” (botón de arriba) pone su propio fondo dentro del texto; este “Fondo de la tarjeta” pinta toda la caja del visual.</div>
       <details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600">HTML (avanzado) — formateado</summary><div style="margin-top:6px"><textarea id="e_html" style="min-height:190px">${esc(prettyHTML(v.html||""))}</textarea><div style="display:flex;gap:8px;margin-top:6px"><button class="sm primary" onclick="applyTextHtml()">⟳ Aplicar HTML al editor</button><button class="sm" onclick="fmtTextHtml()">⟭ Formatear</button></div><div class="hint">El editor de arriba es la fuente principal. Edita aquí el HTML a mano y pulsa “Aplicar”.</div></div></details>`; }
   else if(c==="html"){ secTitle="Datos (SQL)";
@@ -2715,7 +2715,7 @@ window.applyPageJSON=async()=>{ try{ const p=JSON.parse($("jp_cfg").value);
   }catch(e){ $("jp_err").textContent="JSON inválido: "+e.message; } };
 window.openModel=()=>openDrawer("Tablas y filtros",`<div class="hint">No hay relaciones entre tablas. Cada slicer filtra <b>su propia tabla</b> (por sus columnas). Para cruzar tablas, haz el <b>JOIN</b> tú en el SQL.</div>
   <div class="hint">A cada query se le antepone este bloque <code>WITH</code> (una CTE por tabla, ya filtrada por los slicers activos). Tú escribes un <code>SELECT</code> debajo usando esos nombres (<code>FROM reservations</code>, etc.) y ya viene filtrado:</div>
-  <pre style="background:#0f1e22;color:#d6e2e4;padding:10px 12px;border-radius:8px;font-family:Consolas,monospace;font-size:12px;white-space:pre;overflow:auto">${esc(ctePrefix()||"(sin filtros activos)")}</pre>
+  <pre style="background:#0E1A2E;color:#d6e2e4;padding:10px 12px;border-radius:8px;font-family:Consolas,monospace;font-size:12px;white-space:pre;overflow:auto">${esc(ctePrefix()||"(sin filtros activos)")}</pre>
   <div class="hint" style="margin-top:10px">Columnas por tabla:</div>
   <table class="dt"><thead><tr><th>Tabla</th><th>Columnas</th></tr></thead><tbody>${Object.keys(tableCols).map(t=>`<tr><td><b>${t}</b></td><td>${(tableCols[t]||[]).map(c=>`<code>${c}</code>`).join(" ")}</td></tr>`).join("")}</tbody></table>`);
 window.openData=async()=>{ openDrawer("Datos · tablas",`<div id="dt_tables">cargando…</div><div id="dt_detail"></div>`); const tbls=await q("SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name"); const counts={};
