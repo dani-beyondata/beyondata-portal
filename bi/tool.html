@@ -2397,17 +2397,37 @@ function fmtMap(v){ return `<div class="row"><div><label>Gradiente (color por va
     <div class="row"><div><label>Leyenda (visualMap)</label><select id="e_legend"><option value="1" ${v.legend!==false?"selected":""}>sí</option><option value="0" ${v.legend===false?"selected":""}>no</option></select></div><div><label>Tipo de leyenda</label><select id="e_vmtype"><option value="continuous" ${v.vmType!=="piecewise"?"selected":""}>continua (gradiente)</option><option value="piecewise" ${v.vmType==="piecewise"?"selected":""}>por tramos</option></select></div></div>
     <div class="row"><div><label>Zoom/arrastre (roam)</label><select id="e_roam"><option value="1" ${v.roam!==false?"selected":""}>sí</option><option value="0" ${v.roam===false?"selected":""}>no</option></select></div><div><label>Nombres de país</label><select id="e_maplabels"><option value="0" ${!v.mapLabels?"selected":""}>no</option><option value="1" ${v.mapLabels?"selected":""}>sí</option></select></div></div>
     <div class="hint">Forma SQL: <code>k</code> = país (nombre en inglés, p.ej. <code>Spain</code>), <code>v</code> = valor. El SQL por defecto hace el <code>CASE</code> de ISO2 → nombre.</div>`; }
-function fmtTable(v,id){ return `<div class="row"><div><label>Formato nº general</label><select id="e_fmt">${["money","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Filas por página (0 = todas)</label><input id="e_pagesize" type="text" value="${v.pageSize||0}"></div></div>
+function colRowHTML(name,cc){ cc=cc||{}; return `<div class="colrow" style="display:flex;gap:5px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
+    <input class="cr-name" type="text" value="${escA(name||"")}" placeholder="columna" style="flex:1 1 130px;min-width:130px;width:auto">
+    <select class="cr-fmt" style="width:84px">${["","money","int","pct","num"].map(f=>`<option value="${f}" ${(cc.fmt||"")===f?"selected":""}>${f||"fmt…"}</option>`).join("")}</select>
+    <select class="cr-heat" style="width:78px"><option value="">heat…</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${cc.heat===k?"selected":""}>${k}</option>`).join("")}</select>
+    <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="cr-bar" ${cc.bar?"checked":""}>bar</label>
+    <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="cr-arrow" ${cc.arrow?"checked":""}>▲▼</label>
+    <button class="sm" title="Quitar columna" onclick="this.closest('.colrow').remove()">✕</button></div>`; }
+window.colAddRow=()=>{ const g=$("colgrid"); if(g)g.insertAdjacentHTML("beforeend",colRowHTML("",{})); };
+window.colsFromJSON=()=>{ const g=$("colgrid"),t=$("e_cols"); if(!g||!t)return; let o; try{o=JSON.parse(t.value.trim()||"{}");}catch(e){alert("JSON inválido: "+e.message);return;} g.innerHTML=Object.keys(o).map(k=>colRowHTML(k,o[k])).join(""); };
+window.tblDetectGrid=async id=>{ const v=CP().visuals.find(x=>x.id===id); const g=$("colgrid"); if(!v||!g)return;
+  try{ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); if(!rows.length){alert("La query no devuelve filas.");return;}
+    const cols=Object.keys(rows[0]); const isNum=c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number");
+    const have=new Set([...g.querySelectorAll(".cr-name")].map(i=>i.value.trim()));
+    cols.filter(c=>isNum(c)&&!have.has(c)).forEach(c=>g.insertAdjacentHTML("beforeend",colRowHTML(c,{fmt:v.fmt||"num"}))); }catch(e){ alert("No pude detectar columnas: "+e.message); } };
+function fmtTable(v,id){ return `<div class="row">${fmtNumField(v)}<div><label>Filas por página (0 = todas)</label><input id="e_pagesize" type="text" value="${v.pageSize||0}"></div></div>
     <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_zebra" ${v.zebra?"checked":""}> Filas alternas (zebra)</label>
       <label class="fxrow2"><input type="checkbox" id="e_sticky" ${v.sticky?"checked":""}> Cabecera fija (al hacer scroll)</label>
       <label class="fxrow2"><input type="checkbox" id="e_totals" ${v.totals?"checked":""}> Fila de totales (suma numéricas)</label>
       <label class="fxrow2"><input type="checkbox" id="e_totfreeze" ${v.totalsFreeze!==false?"checked":""}> Totales fijos al hacer scroll</label>
       <label class="fxrow2"><input type="checkbox" id="e_sortable" ${v.sortable!==false?"checked":""}> Ordenar al hacer clic en la cabecera</label></div>
-    <div style="margin-top:8px"><label>Formato por columna (JSON editable) <button class="sm" style="float:right;padding:2px 9px" onclick="tblDetect('${id}')">detectar columnas</button></label>
-      <textarea id="e_cols" class="fxjson" style="min-height:130px;width:100%">${esc(v.cols?JSON.stringify(v.cols,null,2):"{}")}</textarea>
-      <div class="hint">Por columna: <code>fmt</code> (money/int/pct/num) · <code>heat</code> (escala: teal/blue/green/orange → color de celda por valor) · <code>bar</code> (<code>true</code> o <code>"#hex"</code> → barra de datos) · <code>arrow</code> (<code>true</code> → ▲▼ por signo) · <code>spark</code> (<code>true</code> si la celda trae números separados por comas).<br>Ej.: <code>{"production":{"fmt":"money","bar":true},"var_pct":{"fmt":"pct","arrow":true}}</code></div></div>
+    <div style="margin-top:8px"><label>Formato por columna <button class="sm" style="float:right;padding:2px 9px" onclick="tblDetectGrid('${id}')">detectar columnas</button></label>
+      <div id="colgrid">${Object.keys(v.cols||{}).map(k=>colRowHTML(k,v.cols[k])).join("")}</div>
+      <button class="sm" onclick="colAddRow()">＋ columna</button>
+      <div class="hint">Por columna: formato del número · <code>heat</code> (color de celda por valor) · <code>bar</code> (barra de datos) · <code>▲▼</code> (flecha por signo). El nombre debe coincidir con la columna de la SQL.</div>
+      <details style="margin-top:6px"><summary class="hint" style="cursor:pointer">JSON avanzado (spark, barra con color hex, pegar/exportar)</summary>
+        <textarea id="e_cols" class="fxjson" style="min-height:100px;width:100%;margin-top:5px">${esc(v.cols?JSON.stringify(v.cols,null,2):"{}")}</textarea>
+        <button class="sm" onclick="colsFromJSON()">aplicar JSON al grid</button></details></div>
     <div style="margin-top:6px"><label>Resaltar top-N (JSON, opcional)</label><input id="e_topn" type="text" class="fxjson" value="${escA(v.topN?JSON.stringify(v.topN):"")}" placeholder='{"col":"production","n":3}'></div>`; }
-function fmtMatrix(v){ return `<div class="row"><div><label>Formato nº</label><select id="e_fmt">${["money","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Mostrar como %</label><select id="e_mpct"><option value="none" ${(!v.pct||v.pct==="none")?"selected":""}>no (valores)</option><option value="row" ${v.pct==="row"?"selected":""}>% de fila</option><option value="col" ${v.pct==="col"?"selected":""}>% de columna</option><option value="total" ${v.pct==="total"?"selected":""}>% del total</option></select></div></div>
+function groupCtrl(v){ return CP().visuals.find(x=>x.type==="metricgroup"&&(x.id===v.group||(x.targets||[]).includes(v.id)))||null; }
+function fmtNumField(v){ const g=groupCtrl(v); return g?`<div><label>Formato nº</label><div class="hint" style="padding:7px 0 0">Lo define el grupo «${esc(g.label||'Métrica')}» (cambia con la métrica)</div></div>`:`<div><label>Formato nº</label><select id="e_fmt">${["money","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div>`; }
+function fmtMatrix(v){ return `<div class="row">${fmtNumField(v)}<div><label>Mostrar como %</label><select id="e_mpct"><option value="none" ${(!v.pct||v.pct==="none")?"selected":""}>no (valores)</option><option value="row" ${v.pct==="row"?"selected":""}>% de fila</option><option value="col" ${v.pct==="col"?"selected":""}>% de columna</option><option value="total" ${v.pct==="total"?"selected":""}>% del total</option></select></div></div>
     <div class="row"><div><label>Heatmap de celda</label><select id="e_heat"><option value="" ${!v.heat?"selected":""}>no</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.heat===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Barras de datos</label><select id="e_mbar"><option value="0" ${!v.bar?"selected":""}>no</option><option value="1" ${v.bar?"selected":""}>sí</option></select></div><div><label>Ordenar filas por total</label><select id="e_sortrows"><option value="none" ${(!v.sortRows||v.sortRows==="none")?"selected":""}>no</option><option value="desc" ${v.sortRows==="desc"?"selected":""}>mayor→menor</option><option value="asc" ${v.sortRows==="asc"?"selected":""}>menor→mayor</option></select></div></div>
     <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_zebra" ${v.zebra?"checked":""}> Filas alternas (zebra)</label><label class="fxrow2"><input type="checkbox" id="e_sticky" ${v.sticky?"checked":""}> Cabecera fija (al hacer scroll)</label><label class="fxrow2"><input type="checkbox" id="e_totfreeze" ${v.totalsFreeze!==false?"checked":""}> Totales fijos al hacer scroll</label></div>
     <div class="hint">Celdas = la medida; los totales de fila/columna siempre en valores absolutos. Forma SQL: <code>row</code>, <code>col</code>, <code>v</code> (+ <code>colOrd</code> opcional).</div>`; }
@@ -2423,7 +2443,17 @@ function readGraphic(v){ if($("e_color"))v.color=$("e_color").value; if($("e_fmt
 function readTable(v){ if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIVE)commitSQLText(v,$("e_sql").value);
   if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked; if($("e_totals"))v.totals=$("e_totals").checked; if($("e_totfreeze"))v.totalsFreeze=$("e_totfreeze").checked; if($("e_sortable"))v.sortable=$("e_sortable").checked;
   if($("e_pagesize"))v.pageSize=Math.max(0,parseInt($("e_pagesize").value)||0);
-  if($("e_cols")){ const t=$("e_cols").value.trim(); if(!t||t==="{}")delete v.cols; else{ try{v.cols=JSON.parse(t);}catch(e){if(!LIVE)alert("Formato por columna: JSON inválido, se mantiene el anterior.\n"+e.message);} } }
+  const crows=document.querySelectorAll("#colgrid .colrow");
+  if(crows.length){ const prev=v.cols||{}; const cols={};
+    crows.forEach(r=>{ const name=(r.querySelector(".cr-name")?.value||"").trim(); if(!name)return; const o={};
+      const f=r.querySelector(".cr-fmt")?.value; if(f)o.fmt=f;
+      const h=r.querySelector(".cr-heat")?.value; if(h)o.heat=h;
+      if(r.querySelector(".cr-bar")?.checked)o.bar=(typeof prev[name]?.bar==="string")?prev[name].bar:true;
+      if(r.querySelector(".cr-arrow")?.checked)o.arrow=true;
+      if(prev[name]&&prev[name].spark)o.spark=prev[name].spark;
+      if(Object.keys(o).length)cols[name]=o; });
+    if(Object.keys(cols).length)v.cols=cols; else delete v.cols; }
+  else if($("e_cols")){ const t=$("e_cols").value.trim(); if(!t||t==="{}")delete v.cols; else{ try{v.cols=JSON.parse(t);}catch(e){if(!LIVE)alert("Formato por columna: JSON inválido, se mantiene el anterior.\n"+e.message);} } }
   if($("e_topn")){ const t=$("e_topn").value.trim(); if(!t)delete v.topN; else{ try{v.topN=JSON.parse(t);}catch(e){if(!LIVE)alert("Top-N: JSON inválido.\n"+e.message);} } }
   if(document.querySelector(".fxlist"))readFx(v); }
 function readMatrix(v){ if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIVE)commitSQLText(v,$("e_sql").value);
@@ -2439,17 +2469,27 @@ async function readSlicer(v){ if($("e_sltable"))v.slTable=$("e_sltable").value; 
   SLOPTS[v.id]=await slicerOpts(v); if(!LIVE)delete FILTERS[v.id]; }
 function renderText(v){ const el=$("body_"+v.id); if(!el)return; el.style.background=v.bg||""; el.style.borderRadius=v.bg?"12px":""; el.innerHTML=v.html||""; }
 const slug=s=>String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"")||"m";
+const MG_FMTS=["","money","int","pct","num","ratio","dec"];
+function mgChipRowHTML(c){ c=c||{}; return `<div class="mgchip-row" data-id="${escA(c.id||"")}" style="display:flex;gap:6px;margin-bottom:5px;align-items:center">
+    <input class="mgc-label" type="text" value="${escA(c.label||"")}" placeholder="Nombre de la métrica" style="flex:1">
+    <select class="mgc-fmt" style="width:110px">${MG_FMTS.map(f=>`<option value="${f}" ${(c.fmt||"")===f?"selected":""}>${f||"formato…"}</option>`).join("")}</select>
+    <button class="sm" title="Quitar métrica" onclick="this.closest('.mgchip-row').remove()">✕</button></div>`; }
+window.mgAddChip=()=>{ const c=$("mgchiprows"); if(!c)return; c.insertAdjacentHTML("beforeend",mgChipRowHTML({})); };
 function fmtMetricGroup(v){ const chips=v.chips||[]; const targetable=CP().visuals.filter(x=>VIS[x.type]&&VIS[x.type].needsRows);
   return `<div class="row"><div><label>Etiqueta del grupo</label><input id="e_mglabel" type="text" value="${esc(v.label||'Métrica')}"></div><div><label>Mostrar como</label><select id="e_mgdisp"><option value="chips" ${v.disp!=="list"?"selected":""}>Chips</option><option value="list" ${v.disp==="list"?"selected":""}>Listado</option></select></div></div>
-  <div style="margin-top:8px"><label>Opciones (un chip por línea · single-select)</label>
-    <textarea id="e_mgchips" style="min-height:96px;width:100%">${esc(chips.map(c=>c.fmt?`${c.label} | ${c.fmt}`:c.label).join("\n"))}</textarea>
-    <div class="hint">Cada línea = un chip. Opcional <code>etiqueta | formato</code> (<code>money·int·pct·num·ratio·dec</code>): al elegir ese chip, el visual usa ese formato. La SQL de cada chip se define <b>dentro de cada gráfico</b> asociado (editor del gráfico → “Grupo de métrica”).</div></div>
+  <div style="margin-top:8px"><label>Métricas · nombre → formato del número</label>
+    <div id="mgchiprows">${(chips.length?chips:[{}]).map(mgChipRowHTML).join("")}</div>
+    <button class="sm" onclick="mgAddChip()">＋ añadir métrica</button>
+    <div class="hint">Cada fila es un chip (selección única). El <b>formato</b> se aplica al visual al elegir esa métrica. La SQL de cada métrica se define <b>dentro de cada gráfico</b> asociado (editor del gráfico → “Grupo de métrica”).</div></div>
   <div style="margin-top:8px"><label>Gráficos asociados</label>
     <div class="optbox">${targetable.length?targetable.map(x=>`<label class="fxrow2"><input type="checkbox" class="e_mgtgt" value="${x.id}" ${(v.targets||[]).includes(x.id)?"checked":""}> ${esc(x.title||x.id)} <span class="hint" style="font-weight:400">(${x.type})</span></label>`).join(""):`<div class="hint">No hay gráficos en esta página todavía.</div>`}</div>
     <div class="hint">Al cambiar de chip, estos gráficos recargan su SQL. También puedes asociarlos desde el editor de cada gráfico.</div></div>`; }
 function readMetricGroup(v){ if($("e_mglabel"))v.label=$("e_mglabel").value; if($("e_mgdisp"))v.disp=$("e_mgdisp").value;
-  if($("e_mgchips")){ const lines=$("e_mgchips").value.split("\n").map(s=>s.trim()).filter(Boolean); const prev=v.chips||[]; const used={};
-    v.chips=lines.map(line=>{ const p=line.split("|").map(x=>x.trim()); const lab=p[0]; const fmt=p[1]||null; const ex=prev.find(c=>c.label===lab); let id=ex?ex.id:slug(lab); while(used[id])id+="_"; used[id]=1; const c={id,label:lab}; if(fmt)c.fmt=fmt; return c; }); }
+  const rows=document.querySelectorAll("#mgchiprows .mgchip-row");
+  if(rows.length){ const prev=v.chips||[]; const used={};
+    v.chips=[...rows].map(r=>{ const lab=(r.querySelector(".mgc-label")?.value||"").trim(); if(!lab)return null; const fmt=(r.querySelector(".mgc-fmt")?.value||"").trim();
+      const id0=r.getAttribute("data-id"); const ex=prev.find(c=>c.label===lab); let id=id0||(ex?ex.id:slug(lab)); while(used[id])id+="_"; used[id]=1;
+      const c={id,label:lab}; if(fmt)c.fmt=fmt; return c; }).filter(Boolean); }
   if(!v.chips||!v.chips.length)v.chips=[{id:"m1",label:"Métrica 1"}];
   if(!v.selected||!v.chips.some(c=>c.id===v.selected))v.selected=v.chips[0].id;
   const boxes=document.querySelectorAll(".e_mgtgt"); if(boxes.length)v.targets=[...boxes].filter(b=>b.checked).map(b=>b.value); }
