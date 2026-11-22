@@ -2240,14 +2240,14 @@ async function renderMap(v,rows){ const ch=charts[v.id]; await ensureWorldMap();
 /* celda condicional compartida por tabla y matriz */
 function condStyle(d,mn,mx,heat){ if(!heat||d==null)return ""; const sc=resolveScale(heat)||SCALES.teal; const t=(d-mn)/((mx-mn)||1); return `background:${lerpColor(sc.from,sc.to,t)};`+(t>0.6?"color:#fff;":""); }
 function condBar(inner,d,mn,mx,bar){ if(!bar||d==null)return inner; const base=Math.min(0,mn); const t=Math.max(0,Math.min(100,(d-base)/((mx-base)||1)*100)); const bc=(typeof bar==="string")?bar:"#4aa89b"; return `<div class="tbar"><div class="tbar-f" style="width:${t.toFixed(1)}%;background:${bc}"></div><span>${inner}</span></div>`; }
-const TBL_STATE={};
+const TBL_STATE={}; const COLORDER={};
 function sparkCell(val){ const nums=String(val).split(/[,\s;|]+/).map(Number).filter(x=>!isNaN(x)); if(nums.length<2)return esc(val);
   const w=72,h=18,mn=Math.min(...nums),mx=Math.max(...nums),rg=(mx-mn)||1; const pts=nums.map((n,i)=>`${((i/(nums.length-1))*w).toFixed(1)},${(h-((n-mn)/rg)*h).toFixed(1)}`).join(" ");
   return `<svg width="${w}" height="${h}" style="vertical-align:middle"><polyline points="${pts}" fill="none" stroke="#0F6E63" stroke-width="1.5"/></svg>`; }
 window.tblSort=(id,col)=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; if(s.sortCol===col)s.sortDir=s.sortDir==="asc"?"desc":"asc"; else{s.sortCol=col;s.sortDir="desc";} s.page=0; renderTable(v); };
 window.tblPage=(id,p)=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; (TBL_STATE[id]=TBL_STATE[id]||{}).page=p; renderTable(v); };
 async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
-  const cols=Object.keys(rows[0]); const isNum=c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number");
+  const cols=Object.keys(rows[0]); COLORDER[v.id]=cols; const isNum=c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number");
   const cfg=v.cols||{}; const st=TBL_STATE[v.id]=TBL_STATE[v.id]||{};
   let data=rows.slice();
   if(st.sortCol&&cols.includes(st.sortCol)){ const d=st.sortDir==="asc"?1:-1; data.sort((a,b)=>{const x=a[st.sortCol],y=b[st.sortCol]; if(x==null)return 1; if(y==null)return -1; return (x>y?1:x<y?-1:0)*d;}); }
@@ -2427,7 +2427,7 @@ function fmtMap(v){ return `<div class="row"><div><label>Gradiente (color por va
     <div class="row"><div><label>Zoom/arrastre (roam)</label><select id="e_roam"><option value="1" ${v.roam!==false?"selected":""}>sí</option><option value="0" ${v.roam===false?"selected":""}>no</option></select></div><div><label>Nombres de país</label><select id="e_maplabels"><option value="0" ${!v.mapLabels?"selected":""}>no</option><option value="1" ${v.mapLabels?"selected":""}>sí</option></select></div></div>
     <div class="hint">Forma SQL: <code>k</code> = país (nombre en inglés, p.ej. <code>Spain</code>), <code>v</code> = valor. El SQL por defecto hace el <code>CASE</code> de ISO2 → nombre.</div>`; }
 function colRowHTML(name,cc){ cc=cc||{}; return `<div class="colrow" style="display:flex;gap:5px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
-    <input class="cr-name" type="text" value="${escA(name||"")}" placeholder="columna" style="flex:1 1 130px;min-width:130px;width:auto">
+    <input class="cr-name" type="text" value="${escA(name||"")}" placeholder="columna" style="flex:1 1 90px;min-width:90px;width:auto">
     <select class="cr-fmt" style="width:84px">${["","money","int","pct","num"].map(f=>`<option value="${f}" ${(cc.fmt||"")===f?"selected":""}>${f||"fmt…"}</option>`).join("")}</select>
     <select class="cr-heat" style="width:78px"><option value="">heat…</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${cc.heat===k?"selected":""}>${k}</option>`).join("")}</select>
     <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="cr-bar" ${cc.bar?"checked":""}>bar</label>
@@ -2447,7 +2447,7 @@ function fmtTable(v,id){ return `<div class="row">${fmtNumField(v)}<div><label>F
       <label class="fxrow2"><input type="checkbox" id="e_totfreeze" ${v.totalsFreeze!==false?"checked":""}> Totales fijos al hacer scroll</label>
       <label class="fxrow2"><input type="checkbox" id="e_sortable" ${v.sortable!==false?"checked":""}> Ordenar al hacer clic en la cabecera</label></div>
     <div style="margin-top:8px"><label>Formato por columna <button class="sm" style="float:right;padding:2px 9px" onclick="tblDetectGrid('${id}')">detectar columnas</button></label>
-      <div id="colgrid">${Object.keys(v.cols||{}).map(k=>colRowHTML(k,v.cols[k])).join("")}</div>
+      <div id="colgrid">${(()=>{const ord=COLORDER[v.id]||[];const keys=[...ord,...Object.keys(v.cols||{}).filter(k=>!ord.includes(k))];return keys.map(k=>colRowHTML(k,(v.cols||{})[k])).join("");})()}</div>
       <button class="sm" onclick="colAddRow()">＋ columna</button>
       <div class="hint">Por columna: formato del número · <code>heat</code> (color de celda por valor) · <code>bar</code> (barra de datos) · <code>▲▼</code> (flecha por signo). El nombre debe coincidir con la columna de la SQL.</div>
       <details style="margin-top:6px"><summary class="hint" style="cursor:pointer">JSON avanzado (spark, barra con color hex, pegar/exportar)</summary>
@@ -2455,7 +2455,14 @@ function fmtTable(v,id){ return `<div class="row">${fmtNumField(v)}<div><label>F
         <button class="sm" onclick="colsFromJSON()">aplicar JSON al grid</button></details></div>
     <div style="margin-top:6px"><label>Resaltar top-N (JSON, opcional)</label><input id="e_topn" type="text" class="fxjson" value="${escA(v.topN?JSON.stringify(v.topN):"")}" placeholder='{"col":"production","n":3}'></div>`; }
 function groupCtrl(v){ return CP().visuals.find(x=>x.type==="metricgroup"&&(x.id===v.group||(x.targets||[]).includes(v.id)))||null; }
-function fmtNumField(v){ const g=groupCtrl(v); return g?`<div><label>Formato nº</label><div class="hint" style="padding:7px 0 0">Lo define el grupo «${esc(g.label||'Métrica')}» (cambia con la métrica)</div></div>`:`<div><label>Formato nº</label><select id="e_fmt">${["money","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div>`; }
+function mfRowHTML(c){ c=c||{}; return `<div class="mfmt-row" data-cid="${escA(c.id||"")}" style="display:flex;gap:6px;align-items:center;margin-bottom:4px"><span style="flex:1;min-width:0;font-size:12.5px;color:var(--teal-d)">${esc(c.label||c.id||"")}</span><select class="mf-fmt" style="width:118px;flex:0 0 auto">${["","money","int","pct","num"].map(f=>`<option value="${f}" ${(c.fmt||"")===f?"selected":""}>${f||"formato…"}</option>`).join("")}</select></div>`; }
+function fmtNumField(v){ const g=groupCtrl(v);
+  if(g){ const chips=g.chips||[]; return `<div><label>Formato por métrica · grupo «${esc(g.label||'Métrica')}»</label>
+    <div id="mfmtgrid" data-gid="${escA(g.id)}">${chips.map(mfRowHTML).join("")}</div>
+    <div class="hint">El formato del número cambia con la métrica seleccionada; se aplica al grupo (a todos los visuales que lo usan).</div></div>`; }
+  return `<div><label>Formato nº</label><select id="e_fmt">${["money","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div>`; }
+function readMetricFmts(){ const grid=$("mfmtgrid"); if(!grid)return; const g=CP().visuals.find(x=>x.id===grid.getAttribute("data-gid")); if(!g)return;
+  grid.querySelectorAll(".mfmt-row").forEach(r=>{ const chip=(g.chips||[]).find(c=>c.id===r.getAttribute("data-cid")); if(!chip)return; const f=(r.querySelector(".mf-fmt")?.value||"").trim(); if(f)chip.fmt=f; else delete chip.fmt; }); }
 function fmtMatrix(v){ return `<div class="row">${fmtNumField(v)}<div><label>Mostrar como %</label><select id="e_mpct"><option value="none" ${(!v.pct||v.pct==="none")?"selected":""}>no (valores)</option><option value="row" ${v.pct==="row"?"selected":""}>% de fila</option><option value="col" ${v.pct==="col"?"selected":""}>% de columna</option><option value="total" ${v.pct==="total"?"selected":""}>% del total</option></select></div></div>
     <div class="row"><div><label>Heatmap de celda</label><select id="e_heat"><option value="" ${!v.heat?"selected":""}>no</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.heat===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Barras de datos</label><select id="e_mbar"><option value="0" ${!v.bar?"selected":""}>no</option><option value="1" ${v.bar?"selected":""}>sí</option></select></div><div><label>Ordenar filas por total</label><select id="e_sortrows"><option value="none" ${(!v.sortRows||v.sortRows==="none")?"selected":""}>no</option><option value="desc" ${v.sortRows==="desc"?"selected":""}>mayor→menor</option><option value="asc" ${v.sortRows==="asc"?"selected":""}>menor→mayor</option></select></div></div>
     <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_zebra" ${v.zebra?"checked":""}> Filas alternas (zebra)</label><label class="fxrow2"><input type="checkbox" id="e_sticky" ${v.sticky?"checked":""}> Cabecera fija (al hacer scroll)</label><label class="fxrow2"><input type="checkbox" id="e_totfreeze" ${v.totalsFreeze!==false?"checked":""}> Totales fijos al hacer scroll</label></div>
@@ -2469,7 +2476,7 @@ function readGraphic(v){ if($("e_color"))v.color=$("e_color").value; if($("e_fmt
   if($("e_legend"))v.legend=$("e_legend").value==="1"; if($("e_vmtype"))v.vmType=$("e_vmtype").value; if($("e_roam"))v.roam=$("e_roam").value==="1"; if($("e_maplabels"))v.mapLabels=$("e_maplabels").value==="1";
   if($("e_echarts")){ const t=$("e_echarts").value.trim(); if(!t)delete v.echartsOption; else{ try{ v.echartsOption=JSON.parse(t); }catch(e){ if(!LIVE)alert("ECharts avanzado: JSON inválido, se mantiene el anterior.\n"+e.message); } } }
   if(document.querySelector(".fxlist"))readFx(v); }
-function readTable(v){ if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIVE)commitSQLText(v,$("e_sql").value);
+function readTable(v){ readMetricFmts(); if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIVE)commitSQLText(v,$("e_sql").value);
   if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked; if($("e_totals"))v.totals=$("e_totals").checked; if($("e_totfreeze"))v.totalsFreeze=$("e_totfreeze").checked; if($("e_sortable"))v.sortable=$("e_sortable").checked;
   if($("e_pagesize"))v.pageSize=Math.max(0,parseInt($("e_pagesize").value)||0);
   const crows=document.querySelectorAll("#colgrid .colrow");
@@ -2485,7 +2492,7 @@ function readTable(v){ if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIV
   else if($("e_cols")){ const t=$("e_cols").value.trim(); if(!t||t==="{}")delete v.cols; else{ try{v.cols=JSON.parse(t);}catch(e){if(!LIVE)alert("Formato por columna: JSON inválido, se mantiene el anterior.\n"+e.message);} } }
   if($("e_topn")){ const t=$("e_topn").value.trim(); if(!t)delete v.topN; else{ try{v.topN=JSON.parse(t);}catch(e){if(!LIVE)alert("Top-N: JSON inválido.\n"+e.message);} } }
   if(document.querySelector(".fxlist"))readFx(v); }
-function readMatrix(v){ if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIVE)commitSQLText(v,$("e_sql").value);
+function readMatrix(v){ readMetricFmts(); if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIVE)commitSQLText(v,$("e_sql").value);
   if($("e_mpct"))v.pct=$("e_mpct").value; if($("e_heat"))v.heat=$("e_heat").value||undefined; if($("e_mbar"))v.bar=$("e_mbar").value==="1"; if($("e_sortrows"))v.sortRows=$("e_sortrows").value;
   if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked; if($("e_totfreeze"))v.totalsFreeze=$("e_totfreeze").checked;
   if(document.querySelector(".fxlist"))readFx(v); }
@@ -2636,7 +2643,7 @@ function commitSQLText(v,txt){ if(v.group&&_editMetricId){ (v.metricSQL=v.metric
 window.mgBind=()=>{ const v=CP().visuals[_editIdx]; if(!v)return; v.group=$("e_group").value||undefined; if(v.group&&!v.metricSQL)v.metricSQL={}; _editMetricId=null; attachFsEditor(v,v.id); fsPreview(); };
 window.mgEditChip=cid=>{ const v=CP().visuals[_editIdx]; const g=metricGroupOf(v); if(!g||!(g.chips||[]).some(c=>c.id===cid))return;
   if($("e_sql"))commitSQLText(v,$("e_sql").value); _editMetricId=cid; attachFsEditor(v,v.id); fsPreview(); };
-function wireLive(){ const pane=$("fs_right"); const h=e=>{ const t=e.target; if(!t||!t.id)return; if(t.id==="e_group"){ mgBind(); return; } if(/^(e_sql|e_sqlcy|e_sqltgt|e_json)$/.test(t.id))return;
+function wireLive(){ const pane=$("fs_right"); const h=e=>{ const t=e.target; if(!t)return; if(t.id==="e_group"){ mgBind(); return; } if(/^(e_sql|e_sqlcy|e_sqltgt|e_json)$/.test(t.id))return; if(!t.id && !t.closest("#colgrid,#mgchiprows,#mfmtgrid"))return;
     clearTimeout(_liveT); _liveT=setTimeout(async()=>{ const v=CP().visuals[_editIdx]; if(!v)return; LIVE=true; try{ await readEditor(v); }catch(err){} LIVE=false; await fsPreview(); }, 70); };
   pane.oninput=h; pane.onchange=h; }
 window.fsRunSQL=async()=>{ const v=CP().visuals[_editIdx]; if(!v)return; if($("e_sql"))commitSQLText(v,$("e_sql").value); if($("e_sqlcy"))v.sqlCY=$("e_sqlcy").value; if($("e_sqltgt"))v.sqlTGT=$("e_sqltgt").value; if($("e_html"))v.html=$("e_html").value; await fsPreview(); };
@@ -2646,7 +2653,7 @@ async function fsPreview(){ const v=CP().visuals[_editIdx]; if(!v)return; if(v.t
   const fill=def.engine==="echarts"||v.type==="table"||v.type==="matrix";
   const pv=JSON.parse(JSON.stringify(v)); pv.id="__pv";
   if(v.type==="slicer")SLOPTS["__pv"]=SLOPTS[v.id];
-  if(pv.group){ const stored=(v.metricSQL||{})[_editMetricId]; pv.sql=(stored!=null&&stored!=="")?stored:(v.sql||""); pv.group=undefined; } // la preview muestra el chip que editas
+  if(pv.group){ const gg=metricGroupOf(v); const chip=gg&&(gg.chips||[]).find(c=>c.id===(_editMetricId||gg.selected)); if(chip&&chip.fmt)pv.fmt=chip.fmt; const stored=(v.metricSQL||{})[_editMetricId]; pv.sql=(stored!=null&&stored!=="")?stored:(v.sql||""); pv.group=undefined; } // la preview muestra el chip que editas, con su formato
   host.innerHTML=`<div class="gcard ${bare?v.type:''} ${fill?'fsfill':''}" style="${fill?'':`width:${v.w}px;height:${v.h}px`}">${bare?'':`<div class="ghead"><div class="t">${esc(v.title||'')}</div>${v.subtitle?`<div class="st">${esc(v.subtitle)}</div>`:''}</div>`}<div class="vbody" id="body___pv"></div></div>`;
   { const pvCard=host.querySelector(".gcard"); if(pvCard)applyVisualBox(pvCard,v); }
   if(def.engine==="echarts"){ $("body___pv").innerHTML=`<div class="echart" id="ch___pv"></div>`; charts["__pv"]=echarts.init($("ch___pv")); }
