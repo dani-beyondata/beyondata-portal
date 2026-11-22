@@ -2286,11 +2286,13 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v))
   if(clickable&&st.rowSort&&st.rowSort.by){ const by=st.rowSort.by,d=st.rowSort.dir==="asc"?1:-1; const kf=by==="__total__"?(rw=>rowTot[rw]):(rw=>{const k=rw+"||"+by;return (k in cell)?cell[k]:-Infinity;}); rowvals.sort((a,b)=>{const x=kf(a),y=kf(b);return (x>y?1:x<y?-1:0)*d;}); }
   else if(v.sortRows==="desc")rowvals.sort((a,b)=>rowTot[b]-rowTot[a]); else if(v.sortRows==="asc")rowvals.sort((a,b)=>rowTot[a]-rowTot[b]);
   const pct=v.pct||"none"; const cfmt=pct!=="none"?"pct":v.fmt;
+  const _g=metricGroupOf(v); const _chip=_g&&(_g.chips||[]).find(c=>c.id===_g.selected);
+  const _heat=(_chip&&('heat' in _chip))?_chip.heat:v.heat; const _bar=(_chip&&('bar' in _chip))?_chip.bar:v.bar;
   const disp=(rw,c)=>{ const key=rw+"||"+c; if(!(key in cell))return null; const raw=cell[key]; if(pct==="row")return rowTot[rw]?raw/rowTot[rw]:0; if(pct==="col")return colTot[c]?raw/colTot[c]:0; if(pct==="total")return grand?raw/grand:0; return raw; };
   let mn=Infinity,mx=-Infinity; rowvals.forEach(rw=>colvals.forEach(c=>{const d=disp(rw,c); if(d!=null){if(d<mn)mn=d;if(d>mx)mx=d;}})); if(!isFinite(mn)){mn=0;mx=1;}
   const cellHTML=(rw,c)=>{ const key=rw+"||"+c; if(!(key in cell))return `<td class="num"></td>`; const d=disp(rw,c); let style="",inner=fmtCell(d,cfmt);
-    if(v.heat)style+=condStyle(d,mn,mx,v.heat);
-    if(v.bar)inner=condBar(inner,d,mn,mx,v.bar);
+    if(_heat)style+=condStyle(d,mn,mx,_heat);
+    if(_bar)inner=condBar(inner,d,mn,mx,_bar);
     return `<td class="num" style="${style}">${inner}</td>`; };
   const arrR=by=>(st.rowSort&&st.rowSort.by===by)?(st.rowSort.dir==="asc"?" ▲":" ▼"):""; const arrC=by=>(st.colSort&&st.colSort.by===by)?(st.colSort.dir==="asc"?" ▲":" ▼"):""; const cp=s=>esc(String(s));
   const active=st.rowSort||st.colSort;
@@ -2455,16 +2457,20 @@ function fmtTable(v,id){ return `<div class="row">${fmtNumField(v)}<div><label>F
         <button class="sm" onclick="colsFromJSON()">aplicar JSON al grid</button></details></div>
     <div style="margin-top:6px"><label>Resaltar top-N (JSON, opcional)</label><input id="e_topn" type="text" class="fxjson" value="${escA(v.topN?JSON.stringify(v.topN):"")}" placeholder='{"col":"production","n":3}'></div>`; }
 function groupCtrl(v){ return CP().visuals.find(x=>x.type==="metricgroup"&&(x.id===v.group||(x.targets||[]).includes(v.id)))||null; }
-function mfRowHTML(c){ c=c||{}; return `<div class="mfmt-row" data-cid="${escA(c.id||"")}" style="display:flex;gap:6px;align-items:center;margin-bottom:4px"><span style="flex:1;min-width:0;font-size:12.5px;color:var(--teal-d)">${esc(c.label||c.id||"")}</span><select class="mf-fmt" style="width:118px;flex:0 0 auto">${["","money","int","pct","num"].map(f=>`<option value="${f}" ${(c.fmt||"")===f?"selected":""}>${f||"formato…"}</option>`).join("")}</select></div>`; }
+function mfRowHTML(c,hb){ c=c||{}; const heatBar=hb?`<select class="mf-heat" style="width:76px;flex:0 0 auto"><option value="">heat…</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${c.heat===k?"selected":""}>${k}</option>`).join("")}</select><label class="fxrow2" style="white-space:nowrap;margin:0;flex:0 0 auto"><input type="checkbox" class="mf-bar" ${c.bar?"checked":""}>bar</label>`:"";
+  return `<div class="mfmt-row" data-cid="${escA(c.id||"")}" style="display:flex;gap:6px;align-items:center;margin-bottom:4px;flex-wrap:wrap"><span style="flex:1 1 80px;min-width:80px;font-size:12.5px;color:var(--teal-d)">${esc(c.label||c.id||"")}</span><select class="mf-fmt" style="width:100px;flex:0 0 auto">${["","money","int","pct","num"].map(f=>`<option value="${f}" ${(c.fmt||"")===f?"selected":""}>${f||"formato…"}</option>`).join("")}</select>${heatBar}</div>`; }
 function fmtNumField(v){ const g=groupCtrl(v);
-  if(g){ const chips=g.chips||[]; return `<div><label>Formato por métrica · grupo «${esc(g.label||'Métrica')}»</label>
-    <div id="mfmtgrid" data-gid="${escA(g.id)}">${chips.map(mfRowHTML).join("")}</div>
-    <div class="hint">El formato del número cambia con la métrica seleccionada; se aplica al grupo (a todos los visuales que lo usan).</div></div>`; }
+  if(g){ const chips=g.chips||[]; const hb=v.type==="matrix"; return `<div><label>Formato por métrica · grupo «${esc(g.label||'Métrica')}»</label>
+    <div id="mfmtgrid" data-gid="${escA(g.id)}">${chips.map(c=>mfRowHTML(c,hb)).join("")}</div>
+    <div class="hint">Cada métrica: formato${hb?" · heat · barra":""}, se aplica al elegirla. Se guarda en el grupo (a todos los visuales que lo usan).</div></div>`; }
   return `<div><label>Formato nº</label><select id="e_fmt">${["money","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div>`; }
 function readMetricFmts(){ const grid=$("mfmtgrid"); if(!grid)return; const g=CP().visuals.find(x=>x.id===grid.getAttribute("data-gid")); if(!g)return;
-  grid.querySelectorAll(".mfmt-row").forEach(r=>{ const chip=(g.chips||[]).find(c=>c.id===r.getAttribute("data-cid")); if(!chip)return; const f=(r.querySelector(".mf-fmt")?.value||"").trim(); if(f)chip.fmt=f; else delete chip.fmt; }); }
-function fmtMatrix(v){ return `<div class="row">${fmtNumField(v)}<div><label>Mostrar como %</label><select id="e_mpct"><option value="none" ${(!v.pct||v.pct==="none")?"selected":""}>no (valores)</option><option value="row" ${v.pct==="row"?"selected":""}>% de fila</option><option value="col" ${v.pct==="col"?"selected":""}>% de columna</option><option value="total" ${v.pct==="total"?"selected":""}>% del total</option></select></div></div>
-    <div class="row"><div><label>Heatmap de celda</label><select id="e_heat"><option value="" ${!v.heat?"selected":""}>no</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.heat===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Barras de datos</label><select id="e_mbar"><option value="0" ${!v.bar?"selected":""}>no</option><option value="1" ${v.bar?"selected":""}>sí</option></select></div><div><label>Ordenar filas por total</label><select id="e_sortrows"><option value="none" ${(!v.sortRows||v.sortRows==="none")?"selected":""}>no</option><option value="desc" ${v.sortRows==="desc"?"selected":""}>mayor→menor</option><option value="asc" ${v.sortRows==="asc"?"selected":""}>menor→mayor</option></select></div></div>
+  grid.querySelectorAll(".mfmt-row").forEach(r=>{ const chip=(g.chips||[]).find(c=>c.id===r.getAttribute("data-cid")); if(!chip)return; const f=(r.querySelector(".mf-fmt")?.value||"").trim(); if(f)chip.fmt=f; else delete chip.fmt;
+    const hs=r.querySelector(".mf-heat"); if(hs){ const h=hs.value.trim(); if(h)chip.heat=h; else delete chip.heat; }
+    const bc=r.querySelector(".mf-bar"); if(bc){ if(bc.checked)chip.bar=true; else delete chip.bar; } }); }
+function fmtMatrix(v){ const grp=groupCtrl(v); const hbCells=grp?"":`<div><label>Heatmap de celda</label><select id="e_heat"><option value="" ${!v.heat?"selected":""}>no</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.heat===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Barras de datos</label><select id="e_mbar"><option value="0" ${!v.bar?"selected":""}>no</option><option value="1" ${v.bar?"selected":""}>sí</option></select></div>`;
+  return `<div class="row">${fmtNumField(v)}<div><label>Mostrar como %</label><select id="e_mpct"><option value="none" ${(!v.pct||v.pct==="none")?"selected":""}>no (valores)</option><option value="row" ${v.pct==="row"?"selected":""}>% de fila</option><option value="col" ${v.pct==="col"?"selected":""}>% de columna</option><option value="total" ${v.pct==="total"?"selected":""}>% del total</option></select></div></div>
+    <div class="row">${hbCells}<div><label>Ordenar filas por total</label><select id="e_sortrows"><option value="none" ${(!v.sortRows||v.sortRows==="none")?"selected":""}>no</option><option value="desc" ${v.sortRows==="desc"?"selected":""}>mayor→menor</option><option value="asc" ${v.sortRows==="asc"?"selected":""}>menor→mayor</option></select></div></div>
     <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_zebra" ${v.zebra?"checked":""}> Filas alternas (zebra)</label><label class="fxrow2"><input type="checkbox" id="e_sticky" ${v.sticky?"checked":""}> Cabecera fija (al hacer scroll)</label><label class="fxrow2"><input type="checkbox" id="e_totfreeze" ${v.totalsFreeze!==false?"checked":""}> Totales fijos al hacer scroll</label></div>
     <div class="hint">Celdas = la medida; los totales de fila/columna siempre en valores absolutos. Forma SQL: <code>row</code>, <code>col</code>, <code>v</code> (+ <code>colOrd</code> opcional).</div>`; }
 /* lecturas del editor → objeto del visual */
@@ -2653,7 +2659,7 @@ async function fsPreview(){ const v=CP().visuals[_editIdx]; if(!v)return; if(v.t
   const fill=def.engine==="echarts"||v.type==="table"||v.type==="matrix";
   const pv=JSON.parse(JSON.stringify(v)); pv.id="__pv";
   if(v.type==="slicer")SLOPTS["__pv"]=SLOPTS[v.id];
-  if(pv.group){ const gg=metricGroupOf(v); const chip=gg&&(gg.chips||[]).find(c=>c.id===(_editMetricId||gg.selected)); if(chip&&chip.fmt)pv.fmt=chip.fmt; const stored=(v.metricSQL||{})[_editMetricId]; pv.sql=(stored!=null&&stored!=="")?stored:(v.sql||""); pv.group=undefined; } // la preview muestra el chip que editas, con su formato
+  if(pv.group){ const gg=metricGroupOf(v); const chip=gg&&(gg.chips||[]).find(c=>c.id===(_editMetricId||gg.selected)); if(chip&&chip.fmt)pv.fmt=chip.fmt; if(v.type==="matrix"&&chip){ pv.heat=('heat' in chip)?chip.heat:undefined; pv.bar=('bar' in chip)?chip.bar:undefined; } const stored=(v.metricSQL||{})[_editMetricId]; pv.sql=(stored!=null&&stored!=="")?stored:(v.sql||""); pv.group=undefined; } // la preview muestra el chip que editas, con su formato y heat/barra
   host.innerHTML=`<div class="gcard ${bare?v.type:''} ${fill?'fsfill':''}" style="${fill?'':`width:${v.w}px;height:${v.h}px`}">${bare?'':`<div class="ghead"><div class="t">${esc(v.title||'')}</div>${v.subtitle?`<div class="st">${esc(v.subtitle)}</div>`:''}</div>`}<div class="vbody" id="body___pv"></div></div>`;
   { const pvCard=host.querySelector(".gcard"); if(pvCard)applyVisualBox(pvCard,v); }
   if(def.engine==="echarts"){ $("body___pv").innerHTML=`<div class="echart" id="ch___pv"></div>`; charts["__pv"]=echarts.init($("ch___pv")); }
