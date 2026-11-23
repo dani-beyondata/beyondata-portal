@@ -74,6 +74,12 @@
   #zoomwrap #zoombar{display:none}
   #zoomwrap:hover .zb-handle,#zoomwrap:focus-within .zb-handle{display:none}
   #zoomwrap:hover #zoombar,#zoomwrap:focus-within #zoombar{display:flex}
+  /* Modo visor (cliente): oculta todo el chrome de edición; deja navegar y filtrar */
+  body.mode-view .edit-only{display:none!important}
+  body.mode-view .gctrl,body.mode-view .gdrag,body.mode-view .rz{display:none!important}
+  body.mode-view .gcard{cursor:default}
+  body.mode-view .ptab .px,body.mode-view .ptab.add{display:none!important}
+  body.mode-view .fslabel .mv{display:none!important}
   #stage{position:relative;margin:0 auto;background:
     linear-gradient(90deg,#00000006 1px,transparent 1px) 0 0/20px 20px,
     linear-gradient(#00000006 1px,transparent 1px) 0 0/20px 20px, #f7f9fa;
@@ -260,17 +266,18 @@
     <span id="bd-save" style="align-self:center;font-size:12px;font-weight:600;color:#bfe0d7;margin-right:8px;opacity:0;transition:opacity .2s" title="estado de guardado"></span>
     <span id="bd-prog" style="align-self:center;font-size:12px;font-weight:600;color:#bfe0d7;margin-right:8px;opacity:0;transition:opacity .2s" title="progreso de carga"></span>
     <div id="bd-progbar" style="position:fixed;top:0;left:0;height:3px;width:0;background:#60a5fa;z-index:99999;opacity:0;transition:width .15s,opacity .3s;pointer-events:none"></div>
-    <button class="hdr" onclick="addMenu()">＋ Añadir</button>
-    <button class="hdr" onclick="undo()" title="Deshacer (Ctrl+Z)">↶</button>
-    <button class="hdr" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)">↷</button>
+    <button class="hdr" id="modeToggle" onclick="toggleMode()" title="Alternar edición / vista de cliente" style="display:none">👁 Vista cliente</button>
+    <button class="hdr edit-only" onclick="addMenu()">＋ Añadir</button>
+    <button class="hdr edit-only" onclick="undo()" title="Deshacer (Ctrl+Z)">↶</button>
+    <button class="hdr edit-only" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)">↷</button>
     <button class="hdr" onclick="togglePanelHidden()" title="mostrar/ocultar panel de filtros">⚑ Filtros</button>
-    <button class="hdr" onclick="openExplorer()">🔎 Explorar</button>
-    <button class="hdr" onclick="openData()">🗂 Datos</button>
-    <button class="hdr" onclick="refreshData()" title="Volver a consultar la base de datos (p. ej. tras subir datos nuevos). Normalmente no hace falta: los cambios de página y filtros ya reutilizan lo cargado.">↻ Actualizar</button>
-    <button class="hdr" onclick="openModel()">🔗 Modelo</button>
-    <button class="hdr" onclick="editCanvas()" title="color de fondo del lienzo de esta página">🎨 Lienzo</button>
-    <button class="hdr" onclick="openJSON()">{ } Config</button>
-    <button class="hdr" onclick="openPageJSON()">{ } Página</button>
+    <button class="hdr edit-only" onclick="openExplorer()">🔎 Explorar</button>
+    <button class="hdr edit-only" onclick="openData()">🗂 Datos</button>
+    <button class="hdr edit-only" onclick="refreshData()" title="Volver a consultar la base de datos (p. ej. tras subir datos nuevos). Normalmente no hace falta: los cambios de página y filtros ya reutilizan lo cargado.">↻ Actualizar</button>
+    <button class="hdr edit-only" onclick="openModel()">🔗 Modelo</button>
+    <button class="hdr edit-only" onclick="editCanvas()" title="color de fondo del lienzo de esta página">🎨 Lienzo</button>
+    <button class="hdr edit-only" onclick="openJSON()">{ } Config</button>
+    <button class="hdr edit-only" onclick="openPageJSON()">{ } Página</button>
     <button class="hdr" onclick="openHelp()">? Ayuda</button>
   </div>
 </header>
@@ -1582,6 +1589,13 @@ function renderTabs(){ const el=$("pagetabs"); if(!el)return;
   el.innerHTML=DASH.pages.map((p,i)=>`<span class="ptab ${i===DASH.active?'on':''}" onclick="switchPage(${i})" ondblclick="renamePage(${i})" title="doble-clic para renombrar">${esc(p.name)}${DASH.pages.length>1?` <span class="px" title="eliminar página" onclick="event.stopPropagation();delPage(${i})">✕</span>`:""}</span>`).join("")
     +`<span class="ptab add" onclick="addPage()" title="nueva página">＋</span>`; }
 function disposeCharts(){ Object.keys(charts).forEach(k=>{try{charts[k].dispose();}catch(e){} delete charts[k];}); }
+/* ═ Modo Editor / Visor (cliente) ═ Derivado del rol; seguridad real la da el RLS de bi_dashboards. */
+let MODE='view';   // fail-safe: sin rol resuelto, vista de cliente (read-only)
+function canEditRole(r){ return r==='system_admin'||r==='company_admin'; }
+function applyMode(){ const ed=MODE==='edit'; document.body.classList.toggle('mode-edit',ed); document.body.classList.toggle('mode-view',!ed);
+  const t=$('modeToggle'); if(t){ t.style.display=window.BD_CANEDIT?'':'none'; t.textContent=ed?'👁 Vista cliente':'✎ Editor'; t.title=ed?'Previsualizar como cliente':'Volver a edición'; } }
+window.toggleMode=()=>{ if(!window.BD_CANEDIT)return; MODE=(MODE==='edit')?'view':'edit'; applyMode(); if(typeof selClear==='function')selClear(); };
+async function detectMode(){ try{ if(window.sbClient){ const {data:{session}}=await window.sbClient.auth.getSession(); if(session){ const {data:pr}=await window.sbClient.from('profiles').select('role').eq('id',session.user.id).maybeSingle(); window.BD_ROLE=(pr&&pr.role)||''; } } }catch(e){} window.BD_CANEDIT=canEditRole(window.BD_ROLE||''); MODE=window.BD_CANEDIT?'edit':'view'; }
 function renderPage(){ if(typeof SEL!=="undefined")SEL.clear(); disposeCharts(); renderTabs(); layoutStage(); paintPanel(); refreshAll(); if(VFIT==="width"||VFIT==="page")recalcFit(); }
 // ── Zoom / ajuste de vista (estilo Power BI) ──
 let VZOOM=1, VFIT='actual';
@@ -1599,9 +1613,9 @@ window.resetView=()=>{ VFIT='actual'; VZOOM=1; applyZoom(); };
 window.toggleFull=()=>{ try{ const d=document; if(!d.fullscreenElement&&!d.webkitFullscreenElement){ const el=d.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el); } else { (d.exitFullscreen||d.webkitExitFullscreen||function(){}).call(d); } }catch(e){} };
 window.addEventListener("resize",()=>{ if(VFIT==='width'||VFIT==='page') recalcFit(); });
 window.switchPage=i=>{ if(i===DASH.active||!DASH.pages[i])return; DASH.active=i; saveDash(); renderPage(); };
-window.addPage=()=>{ const id="pg"+Date.now().toString(36); DASH.pages.push({id,name:"Página "+(DASH.pages.length+1),panel:{collapsed:false,orient:"horizontal"},visuals:[]}); DASH.active=DASH.pages.length-1; saveDash(); renderPage(); };
-window.renamePage=i=>{ const p=DASH.pages[i]; if(!p)return; const nn=prompt("Nombre de la página:",p.name); if(nn==null)return; p.name=nn.trim()||p.name; saveDash(); renderTabs(); };
-window.delPage=i=>{ if(DASH.pages.length<=1||!DASH.pages[i])return; if(!confirm(`¿Eliminar la página "${DASH.pages[i].name}" y todos sus visuales?`))return;
+window.addPage=()=>{ if(MODE!=='edit')return; const id="pg"+Date.now().toString(36); DASH.pages.push({id,name:"Página "+(DASH.pages.length+1),panel:{collapsed:false,orient:"horizontal"},visuals:[]}); DASH.active=DASH.pages.length-1; saveDash(); renderPage(); };
+window.renamePage=i=>{ if(MODE!=='edit')return; const p=DASH.pages[i]; if(!p)return; const nn=prompt("Nombre de la página:",p.name); if(nn==null)return; p.name=nn.trim()||p.name; saveDash(); renderTabs(); };
+window.delPage=i=>{ if(MODE!=='edit')return; if(DASH.pages.length<=1||!DASH.pages[i])return; if(!confirm(`¿Eliminar la página "${DASH.pages[i].name}" y todos sus visuales?`))return;
   const ids=new Set(DASH.pages[i].visuals.map(v=>v.id)); for(const k in FILTERS){if(ids.has(k))delete FILTERS[k];}
   DASH.pages.splice(i,1); if(DASH.active>=DASH.pages.length)DASH.active=DASH.pages.length-1; else if(DASH.active>i)DASH.active--; saveDash(); renderPage(); };
 
@@ -2052,7 +2066,7 @@ function attachInteract(){
   const st=$("stage"); st.onpointerdown=ev=>{ if(ev.target===st||ev.target.id==="guides") selClear(); };
   selCards().forEach(card=>{ const id=card.dataset.id; const v=CP().visuals.find(x=>x.id===id);
     const drag=card.querySelector(".gdrag"), rz=card.querySelector(".rz");
-    drag.onpointerdown=ev=>{ ev.preventDefault();
+    drag.onpointerdown=ev=>{ if(MODE!=='edit')return; ev.preventDefault();
       if(ev.ctrlKey||ev.metaKey){ selToggle(id); return; }           // Ctrl/Cmd+click: añade/quita de la selección
       if(!SEL.has(id)) selOnly(id);                                   // clic normal: selecciona solo este (si no estaba en el grupo)
       const prim=v, ox=prim.x, oy=prim.y, sx=ev.clientX, sy=ev.clientY;
@@ -2065,7 +2079,7 @@ function attachInteract(){
         showGuides(gs); };
       const up=()=>{window.removeEventListener("pointermove",mv);window.removeEventListener("pointerup",up);clearGuides();growStage();saveDash();};
       window.addEventListener("pointermove",mv); window.addEventListener("pointerup",up); };
-    rz.onpointerdown=ev=>{ ev.preventDefault(); ev.stopPropagation(); const sx=ev.clientX,sy=ev.clientY,ow=v.w,oh=v.h;
+    rz.onpointerdown=ev=>{ if(MODE!=='edit')return; ev.preventDefault(); ev.stopPropagation(); const sx=ev.clientX,sy=ev.clientY,ow=v.w,oh=v.h;
       const mv=e=>{ const r=snapResize(v,ow+(e.clientX-sx),oh+(e.clientY-sy)); v.w=r.w; v.h=r.h; card.style.width=v.w+"px"; card.style.height=v.h+"px"; if(charts[id])charts[id].resize(); showGuides(r.gs); };
       const up=()=>{window.removeEventListener("pointermove",mv);window.removeEventListener("pointerup",up);clearGuides();growStage();saveDash();renderVisual(v);};
       window.addEventListener("pointermove",mv); window.addEventListener("pointerup",up); }; });
@@ -2466,7 +2480,7 @@ async function boot(){
   window.addEventListener("resize",()=>{for(const id in charts)charts[id].resize();});
   try{ const dw=localStorage.getItem("drawer_w"); if(dw)$("drawer").style.width=dw; const ew=localStorage.getItem("explorer_w"); if(ew)$("explorer").style.width=ew; }catch(e){}
   makeResizer("d_resize","drawer","right"); makeResizer("exp_resize","explorer","left");
-  document.addEventListener("keydown",e=>{ const t=e.target; if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return; const k=e.key.toLowerCase();
+  document.addEventListener("keydown",e=>{ const t=e.target; if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return; if(MODE!=='edit')return; const k=e.key.toLowerCase();
     if((e.ctrlKey||e.metaKey)&&k==="z"&&!e.shiftKey){ e.preventDefault(); undo(); }
     else if((e.ctrlKey||e.metaKey)&&(k==="y"||(k==="z"&&e.shiftKey))){ e.preventDefault(); redo(); }
     else if((e.ctrlKey||e.metaKey)&&k==="a"){ e.preventDefault(); selAll(); }
@@ -2474,6 +2488,7 @@ async function boot(){
     else if(SEL.size&&k.indexOf("arrow")===0){ e.preventDefault(); const s=e.shiftKey?10:1; selNudge(k==="arrowleft"?-s:k==="arrowright"?s:0, k==="arrowup"?-s:k==="arrowdown"?s:0); } });
   // El tool aparece YA; los visuales se rellenan por su cuenta (cada uno con su carga/error).
   // Así el arranque no se bloquea esperando a que rendericen todas las queries en serie.
+  await detectMode(); applyMode();
   seedHist(); renderTabs(); layoutStage(); paintPanel(); $("boot").style.display="none"; window.__ready=true; refreshAll();
 }
 boot().catch(e=>{ $("boot").innerHTML="<div style='color:#b4322a;max-width:520px;text-align:center'>No se pudo arrancar: "+esc(e.message)+"</div>"; window.__booterr=e.message; });
