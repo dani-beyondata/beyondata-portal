@@ -339,9 +339,7 @@
 </div>
 
 <script>
-const LIBS = window.BD_LIBS || { mode:"cdn",
-  echarts:"https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js",
-  duckdb_module:"https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm" };
+const LIBS = window.BD_LIBS || { echarts:"https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js" };
 const $=id=>document.getElementById(id);
 const esc=s=>(s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 const escA=s=>esc(s).replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -603,8 +601,8 @@ function paramRefHTML(v){ const ps=getParams(); if(!ps.length)return ""; const u
   return `<div class="paramref"><div class="prh">Parámetros disponibles · solo referencia (escríbelos en el SQL)</div><div class="prlist">`+ps.map(p=>`<span class="prtok${used.has(p.token)?" used":""}"><code>${esc(p.token)}</code> = ${esc(String(p.value))} <span class="prlbl">${esc(p.label)}</span>${used.has(p.token)?' <span class="prused">● en uso</span>':''}</span>`).join("")+`</div></div>`; }
 
 /* ─ DuckDB ─ */
-let db,conn,echarts;
-// Fase 2 · dedupe por SQL: misma SQL final (tras params) → una sola RPC compartida. Caché por lote (se limpia al empezar cada refresh).
+let echarts;
+// dedupe + cache por SQL: misma SQL final (tras params) → una sola RPC compartida. QCACHE persiste entre páginas; solo se limpia con force (botón Actualizar) o al recargar.
 let QCACHE=new Map(); const QCAP=300;
 function clearQCache(){ QCACHE.clear(); }
 async function _qraw(fsql){ if(!window.sbClient) throw new Error("Sin sesion de Supabase (abre el BI dentro del portal)"); const { data, error } = await window.sbClient.rpc("bi_run_sql",{ q: fsql }); if(error) throw new Error(error.message); return Array.isArray(data) ? data : (data==null ? [] : [data]); }
@@ -613,30 +611,7 @@ async function q(sql){ const fsql=subParams(sql); let pr=QCACHE.get(fsql);
   else { pr=_qraw(fsql); QCACHE.set(fsql,pr); pr.catch(()=>QCACHE.delete(fsql));
          if(QCACHE.size>QCAP){ const oldest=QCACHE.keys().next().value; QCACHE.delete(oldest); } }
   const rows=await pr; return rows.slice(); }
-async function initDuckDB(duckdb){ let bundle=LIBS.mode==="local"?await duckdb.selectBundle(LIBS.bundles):await duckdb.selectBundle(duckdb.getJsDelivrBundles());
-  const abs=u=>u?new URL(u,location.href).href:u; const wurl=URL.createObjectURL(new Blob([`importScripts("${abs(bundle.mainWorker)}");`],{type:"text/javascript"})); const worker=new Worker(wurl);
-  db=new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING),worker); await db.instantiate(abs(bundle.mainModule),abs(bundle.pthreadWorker)); URL.revokeObjectURL(wurl); conn=await db.connect(); }
-/* Cargador config-driven: si existe data/manifest.json carga DATOS REALES (CSV),
-   si no, cae a los datos fake. Esquema-agnóstico: crea la tabla con las columnas que traiga el CSV. */
-async function seedTables(){
-  try{
-    const resp=await fetch("data/manifest.json");
-    if(resp.ok){ const man=await resp.json();
-      for(const t of (man.tables||[])){
-        const buf=new Uint8Array(await (await fetch("data/"+t.file)).arrayBuffer());
-        await db.registerFileBuffer(t.file,buf);
-        await conn.query(`CREATE TABLE ${t.name} AS SELECT * FROM read_csv_auto('${t.file}', header=true, sample_size=-1)`);
-        const r0=await conn.query(`SELECT * FROM ${t.name} LIMIT 0`); tableCols[t.name]=r0.schema.fields.map(f=>f.name);
-      }
-      // Columna BedsOccupied (como el DAX): bed_code_raw vacío -> rooms.beds_per_room, si no -> 1
-      if(tableCols.nights && tableCols.rooms_master){
-        await conn.query(`CREATE OR REPLACE TABLE nights AS SELECT n.*, CAST(CASE WHEN n.bed_code_raw IS NULL OR n.bed_code_raw='' THEN COALESCE(rm.beds_per_room, n.beds_per_room_derived) ELSE 1 END AS DOUBLE) AS beds_occupied FROM nights n LEFT JOIN rooms_master rm ON rm.room_code = n.room_code_raw`);
-        const rn=await conn.query(`SELECT * FROM nights LIMIT 0`); tableCols.nights=rn.schema.fields.map(f=>f.name);
-      }
-      window.REAL=true; console.log("Datos REALES cargados:", (man.tables||[]).map(t=>t.name).join(", ")); return;
-    }
-  }catch(e){ console.warn("Datos reales no disponibles, uso fake:", e&&e.message); }
-  /* Portal: sin datos fake — arranca vacio; q() se conectara a Postgres (paso 4). */ }
+/* (Eliminado: initDuckDB + seedTables — camino DuckDB/CSV local del prototipo; el portal consulta Postgres via bi_run_sql / sbClient.rpc.) */
 
 /* ─ SQL por defecto ─ */
 const SQL={
@@ -2828,7 +2803,6 @@ window.openHelp=()=>openDrawer("Ayuda",`
   <div class="hint">Lienzo libre: <b>arrastra</b> por la franja superior de cada card para moverla (Shift = recto); <b>redimensiona</b> por ◣ — se alinea y <b>iguala tamaños</b> con las guías rosas. ＋ Añadir pone gráficos o slicers (con desplegables de tabla/columna).</div>
   <div class="hint">Filtros: <b>automáticos por CTE</b>. Cada slicer activo envuelve su tabla en un <code>WITH tabla AS (SELECT * FROM main.tabla WHERE …)</code>, así que tu SQL solo tiene que hacer <code>FROM tabla</code> y ya sale filtrado. Sin tokens ni relaciones: si quieres cruzar tablas, usa un <code>JOIN</code> en el SQL. Slicer = un tipo de visual más; colócalo donde quieras.</div>
   ${["bar","combo","matrix"].map(t=>`<div style="border:1px solid var(--border);border-radius:8px;padding:9px 11px"><div style="font-weight:700;color:var(--teal-d)">${t}</div><div class="hint">${SHAPE[t]}</div></div>`).join("")}`);
-window.resetDash=()=>{ if(!confirm("¿Restaurar por defecto? (borra todas las páginas)"))return; for(const k in FILTERS)delete FILTERS[k]; DASH=defaultDoc(); disposeCharts(); saveDash(); buildSlicerOpts().then(()=>{renderTabs();layoutStage();paintPanel();refreshAll();}); };
 
 /* ═ Explorador de datos / SQL libre ═ */
 let EXP_READY=false;
