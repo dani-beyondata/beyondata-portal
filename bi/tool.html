@@ -80,6 +80,12 @@
   body.mode-view .gcard{cursor:default}
   body.mode-view .ptab .px,body.mode-view .ptab.add{display:none!important}
   body.mode-view .fslabel .mv{display:none!important}
+  /* Menú "⋯ Herramientas" del editor: agrupa lo esporádico fuera de la barra */
+  .hdrdrop{position:relative;display:inline-block}
+  .hdrdrop .hdrmenu{position:absolute;top:calc(100% + 5px);right:0;min-width:210px;background:#fff;border:1px solid #dbe2ec;border-radius:10px;box-shadow:0 8px 26px rgba(16,40,50,.18);padding:5px;display:none;flex-direction:column;gap:2px;z-index:600}
+  .hdrdrop.open .hdrmenu{display:flex}
+  .hdrdrop .hdrmenu button{display:block;width:100%;text-align:left;background:none;border:0;padding:8px 11px;border-radius:7px;font-size:13px;color:#1E3A5F;cursor:pointer;white-space:nowrap}
+  .hdrdrop .hdrmenu button:hover{background:#eef3fb}
   #stage{position:relative;margin:0 auto;background:
     linear-gradient(90deg,#00000006 1px,transparent 1px) 0 0/20px 20px,
     linear-gradient(#00000006 1px,transparent 1px) 0 0/20px 20px, #f7f9fa;
@@ -271,13 +277,18 @@
     <button class="hdr edit-only" onclick="undo()" title="Deshacer (Ctrl+Z)">↶</button>
     <button class="hdr edit-only" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)">↷</button>
     <button class="hdr" onclick="togglePanelHidden()" title="mostrar/ocultar panel de filtros">⚑ Filtros</button>
-    <button class="hdr edit-only" onclick="openExplorer()">🔎 Explorar</button>
-    <button class="hdr edit-only" onclick="openData()">🗂 Datos</button>
-    <button class="hdr edit-only" onclick="refreshData()" title="Volver a consultar la base de datos (p. ej. tras subir datos nuevos). Normalmente no hace falta: los cambios de página y filtros ya reutilizan lo cargado.">↻ Actualizar</button>
-    <button class="hdr edit-only" onclick="openModel()">🔗 Modelo</button>
-    <button class="hdr edit-only" onclick="editCanvas()" title="color de fondo del lienzo de esta página">🎨 Lienzo</button>
-    <button class="hdr edit-only" onclick="openJSON()">{ } Config</button>
-    <button class="hdr edit-only" onclick="openPageJSON()">{ } Página</button>
+    <div class="hdrdrop edit-only" id="toolsDrop">
+      <button class="hdr" onclick="toggleTools(event)" title="Más herramientas">⋯ Herramientas</button>
+      <div class="hdrmenu">
+        <button onclick="toolsDo(openExplorer)">🔎 Explorar</button>
+        <button onclick="toolsDo(openData)">🗂 Datos</button>
+        <button onclick="toolsDo(refreshData)" title="Volver a consultar la base de datos (p. ej. tras subir datos nuevos)">↻ Actualizar datos</button>
+        <button onclick="toolsDo(openModel)">🔗 Modelo</button>
+        <button onclick="toolsDo(editCanvas)">🎨 Lienzo (fondo de página)</button>
+        <button onclick="toolsDo(openJSON)">{ } Config dashboard</button>
+        <button onclick="toolsDo(openPageJSON)">{ } Config página</button>
+      </div>
+    </div>
     <button class="hdr" onclick="openHelp()">? Ayuda</button>
   </div>
 </header>
@@ -1596,6 +1607,10 @@ function applyMode(){ const ed=MODE==='edit'; document.body.classList.toggle('mo
   const t=$('modeToggle'); if(t){ t.style.display=window.BD_CANEDIT?'':'none'; t.textContent=ed?'👁 Vista cliente':'✎ Editor'; t.title=ed?'Previsualizar como cliente':'Volver a edición'; } }
 window.toggleMode=()=>{ if(!window.BD_CANEDIT)return; MODE=(MODE==='edit')?'view':'edit'; applyMode(); if(typeof selClear==='function')selClear(); };
 async function detectMode(){ try{ if(window.sbClient){ const {data:{session}}=await window.sbClient.auth.getSession(); if(session){ const {data:pr}=await window.sbClient.from('profiles').select('role').eq('id',session.user.id).maybeSingle(); window.BD_ROLE=(pr&&pr.role)||''; } } }catch(e){} window.BD_CANEDIT=canEditRole(window.BD_ROLE||''); MODE=window.BD_CANEDIT?'edit':'view'; }
+/* Menú "⋯ Herramientas": despliega/oculta y cierra al clicar fuera */
+window.toggleTools=(ev)=>{ if(ev)ev.stopPropagation(); const d=$('toolsDrop'); if(!d)return; const willOpen=!d.classList.contains('open'); d.classList.toggle('open',willOpen);
+  if(willOpen){ const close=(e)=>{ if(!d.contains(e.target)){ d.classList.remove('open'); document.removeEventListener('mousedown',close); } }; setTimeout(()=>document.addEventListener('mousedown',close),0); } };
+window.toolsDo=(fn)=>{ const d=$('toolsDrop'); if(d)d.classList.remove('open'); try{ if(typeof fn==='function')fn(); }catch(e){} };
 function renderPage(){ if(typeof SEL!=="undefined")SEL.clear(); disposeCharts(); renderTabs(); layoutStage(); paintPanel(); refreshAll(); if(VFIT==="width"||VFIT==="page")recalcFit(); }
 // ── Zoom / ajuste de vista (estilo Power BI) ──
 let VZOOM=1, VFIT='actual';
