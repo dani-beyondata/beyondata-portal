@@ -92,12 +92,19 @@
   body.mode-view.can-edit #editReturn{display:inline-flex}   /* botón de volver a edición: solo admins en vista previa */
   body.mode-view .ptok{display:none}   /* en visor no se enseña el token $CY del parámetro (es cosa de editor) */
   /* Chip de usuario (solo visor): colapsado a un icono abajo-izquierda, se expande al pasar por encima */
-  #userChip{position:fixed;left:14px;bottom:14px;z-index:500;display:none;align-items:center;background:#fff;border:1px solid #dbe2ec;border-radius:20px;padding:5px;box-shadow:0 2px 10px rgba(0,0,0,.14);font-size:12px;color:#1E3A5F;overflow:hidden;max-width:34px;transition:max-width .22s ease}
-  body.mode-view #userChip{display:flex}
-  #userChip:hover{max-width:340px}
+  #userZone{position:fixed;left:14px;bottom:14px;z-index:500;display:none;flex-direction:column;align-items:flex-start;gap:6px}
+  body.mode-view #userZone{display:flex}
+  #userChip{display:flex;align-items:center;background:#fff;border:1px solid #dbe2ec;border-radius:20px;padding:5px;box-shadow:0 2px 10px rgba(0,0,0,.14);font-size:12px;color:#1E3A5F;overflow:hidden;max-width:34px;transition:max-width .22s ease}
+  #userZone:hover #userChip{max-width:340px}
   #userChip .uc-ic{width:24px;text-align:center;flex:0 0 auto;font-size:14px}
   #userChip .uc-name{white-space:nowrap;padding:0 10px 0 2px;opacity:0;transition:opacity .2s}
-  #userChip:hover .uc-name{opacity:1}
+  #userZone:hover #userChip .uc-name{opacity:1}
+  #expBtn{display:none;align-items:center;gap:5px;background:#fff;border:1px solid #dbe2ec;border-radius:9px;padding:6px 11px;box-shadow:0 2px 10px rgba(0,0,0,.14);font-size:12px;font-weight:700;color:#1E3A5F;cursor:pointer}
+  #userZone:hover #expBtn,#userZone.expopen #expBtn{display:inline-flex}
+  #expMenu{display:none;flex-direction:column;gap:2px;background:#fff;border:1px solid #dbe2ec;border-radius:10px;box-shadow:0 8px 26px rgba(16,40,50,.18);padding:5px;min-width:160px}
+  #userZone.expopen #expMenu{display:flex}
+  #expMenu button{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 10px;border-radius:7px;font-size:12px;color:#1E3A5F;cursor:pointer;white-space:nowrap}
+  #expMenu button:hover{background:#eef3fb}
   /* Controles de estilo de caja/título en el editor */
   .bxgrid{display:flex;flex-direction:column;gap:7px;margin-top:5px}
   .bxrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -309,13 +316,23 @@
         <button onclick="toolsDo(editCanvas)">🎨 Lienzo (fondo de página)</button>
         <button onclick="toolsDo(openJSON)">{ } Config dashboard</button>
         <button onclick="toolsDo(openPageJSON)">{ } Config página</button>
+        <button onclick="toolsDo(exportPagePDF)">⬇ Exportar página (PDF)</button>
+        <button onclick="toolsDo(exportDocPDF)">⬇ Exportar documento (PDF)</button>
       </div>
     </div>
     <button class="hdr" onclick="openHelp()">? Ayuda</button>
   </div>
 </header>
 <button id="editReturn" onclick="toggleMode()" title="Volver a edición">✎ Editor</button>
-<div id="userChip" title="Sesión"><span class="uc-ic">👤</span><span class="uc-name"></span></div>
+<div id="userZone">
+  <div id="expMenu">
+    <button onclick="exportDo('page','pdf')">⬇ Página · PDF</button>
+    <button onclick="exportDo('page','png')">⬇ Página · PNG</button>
+    <button onclick="exportDo('doc','pdf')">⬇ Documento · PDF</button>
+  </div>
+  <button id="expBtn" onclick="toggleExpMenu(event)" title="Exportar">⬆ Exportar</button>
+  <div id="userChip" title="Sesión"><span class="uc-ic">👤</span><span class="uc-name"></span></div>
+</div>
 
 <!-- Portal BI: hereda la sesion de Supabase del portal (same-origin). Prepara window.sbClient para el paso 4. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -353,9 +370,6 @@
     <span id="zlabel" style="min-width:40px;text-align:center;font-weight:600">100%</span>
     <button onclick="zoomBy(0.1)" title="Acercar" style="cursor:pointer;background:none;border:0;padding:3px 8px;border-radius:6px;font-size:15px;color:#1E3A5F">+</button>
     <button onclick="resetView()" title="Restablecer vista (100%)" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:14px;color:#1E3A5F">↺</button>
-    <span style="width:1px;height:16px;background:#dbe2ec;margin:0 2px"></span>
-    <button onclick="exportPagePDF()" title="Descargar la página como PDF" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:11px;font-weight:800;letter-spacing:.3px;color:#1E3A5F">⬇PDF</button>
-    <button onclick="exportPagePNG()" title="Descargar la página como imagen PNG" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:11px;font-weight:800;letter-spacing:.3px;color:#1E3A5F">PNG</button>
     </div>
   </div>
 </div>
@@ -2123,9 +2137,19 @@ async function ensureExportLibs(pdf){ if(!_h2c){ await loadScript(LIBS.html2canv
 async function _capturePage(scale){ const stage=$("stage"); if(!stage)throw new Error("sin lienzo"); const z=stage.style.zoom; stage.style.zoom="1";  // el zoom CSS rompe html2canvas
   try{ const w=Math.max(stage.scrollWidth,PAGE_W), h=stage.scrollHeight; return await _h2c(stage,{scale:scale||2,backgroundColor:"#ffffff",useCORS:true,logging:false,width:w,height:h,windowWidth:w,windowHeight:h}); }
   finally{ stage.style.zoom=z; } }
-function _dlName(ext){ const n=(CP()&&CP().name)||"dashboard"; return n.replace(/[^\w\-]+/g,"_")+"."+ext; }
+function _dlName(ext,base){ const n=base||(CP()&&CP().name)||"dashboard"; return String(n).replace(/[^\w\-]+/g,"_")+"."+ext; }
 window.exportPagePNG=async()=>{ try{ expToast("Generando imagen…"); await ensureExportLibs(false); const c=await _capturePage(2); const a=document.createElement("a"); a.href=c.toDataURL("image/png"); a.download=_dlName("png"); a.click(); expToast("Imagen descargada"); }catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); } };
 window.exportPagePDF=async()=>{ try{ expToast("Generando PDF…"); await ensureExportLibs(true); const c=await _capturePage(2); const w=c.width/2, h=c.height/2; const pdf=new _jspdf({orientation:w>=h?"landscape":"portrait",unit:"pt",format:[w,h],compress:true}); pdf.addImage(c.toDataURL("image/png"),"PNG",0,0,w,h); pdf.save(_dlName("pdf")); expToast("PDF descargado"); }catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); } };
+window.exportDocPDF=async()=>{ try{ await ensureExportLibs(true); const orig=DASH.active, n=DASH.pages.length; let pdf=null;
+  for(let i=0;i<n;i++){ expToast(`Generando documento… ${i+1}/${n}`); DASH.active=i; renderTabs(); layoutStage(); paintPanel(); await refreshAll(); await new Promise(r=>setTimeout(r,180));
+    const c=await _capturePage(2); const w=c.width/2, h=c.height/2, ori=w>=h?"landscape":"portrait";
+    if(!pdf) pdf=new _jspdf({orientation:ori,unit:"pt",format:[w,h],compress:true}); else pdf.addPage([w,h],ori);
+    pdf.addImage(c.toDataURL("image/png"),"PNG",0,0,w,h); }
+  DASH.active=orig; renderTabs(); layoutStage(); paintPanel(); await refreshAll();
+  pdf.save(_dlName("pdf","documento")); expToast("Documento descargado"); }catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); } };
+window.toggleExpMenu=(ev)=>{ if(ev)ev.stopPropagation(); const z=$("userZone"); if(!z)return; const open=!z.classList.contains("expopen"); z.classList.toggle("expopen",open);
+  if(open){ const close=(e)=>{ if(!z.contains(e.target)){ z.classList.remove("expopen"); document.removeEventListener("mousedown",close); } }; setTimeout(()=>document.addEventListener("mousedown",close),0); } };
+window.exportDo=(what,fmt)=>{ const z=$("userZone"); if(z)z.classList.remove("expopen"); if(what==="doc")return exportDocPDF(); return fmt==="png"?exportPagePNG():exportPagePDF(); };
 let _expDown=null;
 function expColsOf(rows){ const HIDE=new Set(["ord","sord","colord","roword"]); return Object.keys(rows[0]||{}).filter(c=>!HIDE.has(String(c).toLowerCase())); }
 window.closeExportMenu=()=>{ const m=$("expmenu"); if(m)m.remove(); if(_expDown){document.removeEventListener("mousedown",_expDown);_expDown=null;} };
