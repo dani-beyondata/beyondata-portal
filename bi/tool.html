@@ -547,7 +547,8 @@ function cteBlockHTML(v){ const d=cteDisplay(v); if(!d)return "";
     +`<pre class="sqlro">${hlSQL(d.lines.join("\n"))}</pre>${warn}`
     +`<div class="hint">Lo inyectan los <b>slicers de la página</b> (no editable). Tu SQL hace <code>FROM tabla</code> y ya sale filtrado; para ignorar un filtro, escribe <code>FROM public.tabla</code>.</div></div>`; }
 function applyWhere(sql,year){ let s=String(sql||"").replace(/\{\{filters:\w+(?::\w+)?\}\}/g,"1=1").replaceAll("$YEAR",year==null?"2026":year);
-  const defs=cteDefs(); if(!defs.length)return s;
+  let defs=cteDefs(); if(defs.length) defs=defs.filter(d=> new RegExp("\\b"+d.table.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","i").test(s));  // Fase 3: solo CTEs de tablas que el visual referencia (un CTE inerte no cambia el resultado)
+  if(!defs.length)return s;
   const head="WITH\n  "+defs.map(x=>x.def).join(",\n  "); const body=s.replace(/^\s+/,"");
   // si tu SELECT ya trae su propio WITH, fusionamos (no puede haber dos WITH)
   if(/^with\b/i.test(body)) return head+",\n  "+body.replace(/^with\b/i,"").replace(/^\s+/,"");
@@ -1507,21 +1508,21 @@ window.slSearch=(id,qv)=>{ SLSEARCH[id]=qv; const v=CP().visuals.find(x=>x.id===
 window.slTog=(id,i)=>{ const v=CP().visuals.find(x=>x.id===id); const opt=(SLOPTS[id]||[])[i]; if(!opt)return; const val=opt.value; const f=FILTERS[id]; let cur=(f&&f.values)?f.values.slice():[];
   if(v.selMode==="single"){ cur=(cur.length===1&&cur[0]===val)?[]:[val]; } else { const j=cur.indexOf(val); j<0?cur.push(val):cur.splice(j,1); }
   if(cur.length)FILTERS[id]={kind:"in",table:v.slTable,column:v.slColumn,values:cur,label:v.label,src:"slicer"}; else delete FILTERS[id];
-  renderSlicer(v); if((v.dock||"panel")==="panel")paintPanel(); refreshAll(); };
-window.slAll=id=>{ const v=CP().visuals.find(x=>x.id===id); delete FILTERS[id]; renderSlicer(v); if((v.dock||"panel")==="panel")paintPanel(); refreshAll(); };
+  renderSlicer(v); if((v.dock||"panel")==="panel")paintPanel(); refreshAfterFilter([v.slTable]); };
+window.slAll=id=>{ const v=CP().visuals.find(x=>x.id===id); delete FILTERS[id]; renderSlicer(v); if((v.dock||"panel")==="panel")paintPanel(); refreshAfterFilter([v.slTable]); };
 window.slRange=(id,which,val,dt)=>{ const v=CP().visuals.find(x=>x.id===id); let f=FILTERS[id]; if(!f||f.kind!=="range")f={kind:"range",table:v.slTable,column:v.slColumn,dt:!!dt,label:v.label,src:"slicer"};
   f.dt=!!dt; f[which]= dt?(val||null) : (val===""?null:Number(val));
   if(!dt&&f.min!=null&&f.max!=null&&Number(f.min)>Number(f.max)){ const t=f.min; f.min=f.max; f.max=t; }
   FILTERS[id]=f;
-  if(dt){ renderSlicer(v); if((v.dock||"panel")==="panel")paintPanel(); refreshAll(); }
-  else { const o=SLOPTS[id]||{}; const nl=$("slnl_"+id); if(nl)nl.textContent=`${fmtCell(f.min!=null?f.min:o.min,'num')} – ${fmtCell(f.max!=null?f.max:o.max,'num')}`; clearTimeout(_slT); _slT=setTimeout(()=>{ if((v.dock||"panel")==="panel")paintPanel(); refreshAll(); },200); } };
+  if(dt){ renderSlicer(v); if((v.dock||"panel")==="panel")paintPanel(); refreshAfterFilter([v.slTable]); }
+  else { const o=SLOPTS[id]||{}; const nl=$("slnl_"+id); if(nl)nl.textContent=`${fmtCell(f.min!=null?f.min:o.min,'num')} – ${fmtCell(f.max!=null?f.max:o.max,'num')}`; clearTimeout(_slT); _slT=setTimeout(()=>{ if((v.dock||"panel")==="panel")paintPanel(); refreshAfterFilter([v.slTable]); },200); } };
 const RELSQL=(c,id)=>{ const col=`CAST(${c} AS DATE)`; return ({
     ytd:`${col} >= date_trunc('year',current_date) AND ${col} <= current_date`,
     mtd:`${col} >= date_trunc('month',current_date) AND ${col} <= current_date`,
     last7:`${col} >= current_date - INTERVAL 7 DAY AND ${col} <= current_date`,
     last30:`${col} >= current_date - INTERVAL 30 DAY AND ${col} <= current_date`,
     year:`${col} >= date_trunc('year',current_date) AND ${col} < date_trunc('year',current_date) + INTERVAL 1 YEAR`})[id]||null; };
-window.slRel=(id,rid)=>{ const v=CP().visuals.find(x=>x.id===id); const pred=RELSQL(v.slColumn,rid); if(!pred)delete FILTERS[id]; else FILTERS[id]={kind:"rel",table:v.slTable,column:v.slColumn,pred,relId:rid,label:v.label,src:"slicer"}; renderSlicer(v); if((v.dock||"panel")==="panel")paintPanel(); refreshAll(); };
+window.slRel=(id,rid)=>{ const v=CP().visuals.find(x=>x.id===id); const pred=RELSQL(v.slColumn,rid); if(!pred)delete FILTERS[id]; else FILTERS[id]={kind:"rel",table:v.slTable,column:v.slColumn,pred,relId:rid,label:v.label,src:"slicer"}; renderSlicer(v); if((v.dock||"panel")==="panel")paintPanel(); refreshAfterFilter([v.slTable]); };
 
 /* ─ Panel de filtros colapsable ─ */
 function panelSlicers(){ return CP().visuals.filter(v=>v.type==="slicer"&&(v.dock||"panel")==="panel"); }
@@ -1570,7 +1571,7 @@ window.panelLive=()=>{ const P=PANEL();
   if($("p_alpha"))P.bgAlpha=(+$("p_alpha").value||0)/100;
   saveDash(); paintPanel(); setTimeout(()=>{for(const id in charts)charts[id].resize();},40); };
 window.panelReset=()=>{ const P=PANEL(); delete P.size; saveDash(); paintPanel(); if($("p_size"))$("p_size").value=""; setTimeout(()=>{for(const id in charts)charts[id].resize();},40); };
-window.clearPageFilters=()=>{ const ids=new Set(CP().visuals.map(v=>v.id)); for(const k in FILTERS)if(ids.has(k))delete FILTERS[k]; paintPanel(); CP().visuals.filter(v=>v.type==="slicer"&&(v.dock||"panel")==="canvas").forEach(renderSlicer); refreshAll(); };
+window.clearPageFilters=()=>{ const ids=new Set(CP().visuals.map(v=>v.id)); const tbs=new Set(); for(const k in FILTERS)if(ids.has(k)){ if(FILTERS[k]&&FILTERS[k].table)tbs.add(FILTERS[k].table); delete FILTERS[k]; } paintPanel(); CP().visuals.filter(v=>v.type==="slicer"&&(v.dock||"panel")==="canvas").forEach(renderSlicer); refreshAfterFilter([...tbs]); };
 function paintPanel(){ renderPanel(); if(!PANEL().collapsed) panelSlicers().forEach(renderSlicer); }
 window.togglePanel=()=>{ PANEL().collapsed=!PANEL().collapsed; saveDash(); paintPanel(); setTimeout(()=>{for(const id in charts)charts[id].resize();},50); };
 window.togglePanelOrient=()=>{ PANEL().orient=PANEL().orient==="vertical"?"horizontal":"vertical"; saveDash(); paintPanel(); };
@@ -1967,13 +1968,21 @@ function progStart(n){ const b=$("bd-progbar"),t=$("bd-prog"); if(b){b.style.opa
 function progTick(done,n){ const b=$("bd-progbar"),t=$("bd-prog"); const pct=n?Math.round(done/n*100):100; if(b)b.style.width=pct+"%"; if(t)t.textContent="⟳ Cargando "+done+"/"+n; }
 function progEnd(){ const b=$("bd-progbar"),t=$("bd-prog"); if(b){b.style.width="100%"; setTimeout(()=>{b.style.opacity="0";b.style.width="0%";},300);} if(t){clearTimeout(t._t); t._t=setTimeout(()=>{t.style.opacity="0";t.textContent="";},300);} }
 // Fase 2 · carga en paralelo con pool acotado (respeta el backend) + dedupe (QCACHE) + progreso
-async function refreshAll(opts){ if(opts&&opts.force) clearQCache();   // solo re-consulta la BD si se fuerza (botón Actualizar); si no, reutiliza QCACHE
-  const vis=CP().visuals.slice(); const n=vis.length; if(!n)return; let done=0, i=0; const show=n>1;
+async function _renderPool(vis){ const n=vis.length; if(!n)return; let done=0, i=0; const show=n>1;
   let barOn=false, barT=0;
-  if(show) barT=setTimeout(()=>{ barOn=true; progStart(n); progTick(done,n); },160);  // la barra solo aparece si tarda >160ms (consultas reales); un cambio de página servido de caché no la enseña
+  if(show) barT=setTimeout(()=>{ barOn=true; progStart(n); progTick(done,n); },160);  // la barra solo aparece si tarda >160ms (consultas reales); un cambio servido de caché no la enseña
   const size=Math.min(6,n); const worker=async()=>{ while(i<n){ const v=vis[i++]; try{ await renderVisual(v); }catch(e){} done++; if(barOn)progTick(done,n); } };
   await Promise.all(Array.from({length:size},worker)); clearTimeout(barT); if(barOn)progEnd(); }
+async function refreshAll(opts){ if(opts&&opts.force) clearQCache();   // solo re-consulta la BD si se fuerza (botón Actualizar); si no, reutiliza QCACHE
+  await _renderPool(CP().visuals.slice()); }
 window.refreshData=()=>refreshAll({force:true});   // fuerza re-consulta a la BD (p. ej. tras subir datos nuevos)
+// Fase 3 · tras cambiar filtro(s) de tabla, re-render SOLO los visuales cuyo SQL referencia esa(s) tabla(s).
+// Con applyWhere ya acotado, un visual que no referencia la tabla mantiene su fsql idéntico ⇒ mismo resultado ⇒ no hace falta tocarlo.
+function _visAllSQL(v){ const parts=[v.sql,v.sqlCY,v.sqlTGT,v.html]; if(v.metricSQL)parts.push(...Object.values(v.metricSQL)); return parts.filter(Boolean).join("\n"); }
+function visualUsesTable(v,t){ if(!t)return false; const rx=new RegExp("\\b"+String(t).replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","i"); return rx.test(_visAllSQL(v)); }
+async function refreshAfterFilter(tables){ const ts=(tables||[]).filter(Boolean); if(!ts.length){ await refreshAll(); return; }
+  const vis=CP().visuals.filter(v=> v.type!=="slicer" && ts.some(t=>visualUsesTable(v,t)) );
+  await _renderPool(vis); }
 // Refresh UX · Fase 1: re-render solo el visual editado + sus dependientes (en vez de todas las queries)
 async function refreshVisualDeps(v){ if(!v){ await refreshAll(); return; }
   if(v.type==="slicer"){ await refreshAll(); return; }  // un slicer puede afectar a muchos → refresco completo
