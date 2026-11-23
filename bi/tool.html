@@ -265,7 +265,6 @@
     <button class="hdr" onclick="openJSON()">{ } Config</button>
     <button class="hdr" onclick="openPageJSON()">{ } Página</button>
     <button class="hdr" onclick="openHelp()">? Ayuda</button>
-    <button class="hdr" onclick="resetDash()">↺ Reset</button>
   </div>
 </header>
 
@@ -1763,14 +1762,18 @@ function saveDash(){ try{localStorage.setItem(dashKey(),JSON.stringify(DASH));}c
 // ── Persistencia compartida en Supabase (tabla bi_dashboards, por company) ──
 function biCompany(){ try{ const u=new URLSearchParams(location.search).get("company"); if(u){try{localStorage.setItem("bd_company",u);}catch(_){ } return u;} return localStorage.getItem("bd_company")||""; }catch(e){ return ""; } }
 async function loadDashServer(){ const cid=biCompany(); if(!cid||!window.sbClient)return null; try{ const {data,error}=await window.sbClient.from("bi_dashboards").select("doc").eq("company_id",cid).maybeSingle(); if(error)return null; if(data&&data.doc&&data.doc.pages&&data.doc.pages.length)return data.doc; }catch(e){} return null; }
-let _srvT=null, _srvOn=true;
+let _srvT=null, _srvOn=true, _srvPending=false;
 function saveStatus(txt,col,ttl){ const el=document.getElementById("bd-save"); if(!el)return; el.textContent=txt||""; el.style.color=col||"#bfe0d7"; el.style.opacity=txt?"1":"0"; clearTimeout(el._t); if(ttl)el._t=setTimeout(()=>{el.style.opacity="0";},ttl); }
-function saveDashServer(){ if(!_srvOn)return; const cid=biCompany(); if(!cid||!window.sbClient)return; clearTimeout(_srvT); _srvT=setTimeout(async()=>{
+async function _doSaveDash(){ _srvPending=false; const cid=biCompany(); if(!cid||!window.sbClient)return;
   const showT=setTimeout(()=>saveStatus("⟳ Guardando…","#bfe0d7"),300);  // solo si tarda >300ms
   try{ let uid=null; try{ uid=(await window.sbClient.auth.getSession()).data?.session?.user?.id||null; }catch(_){ }
     const {error}=await window.sbClient.from("bi_dashboards").upsert({company_id:cid,doc:DASH,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:"company_id"});
     clearTimeout(showT); if(error)saveStatus("⚠ Sin guardar","#ffb4ab",5000); else saveStatus("✓ Guardado","#8fe3c8",1600);
-  }catch(e){ clearTimeout(showT); saveStatus("⚠ Sin guardar","#ffb4ab",5000); } },1500); }
+  }catch(e){ clearTimeout(showT); saveStatus("⚠ Sin guardar","#ffb4ab",5000); } }
+function saveDashServer(){ if(!_srvOn)return; if(!biCompany()||!window.sbClient)return; _srvPending=true; clearTimeout(_srvT); _srvT=setTimeout(_doSaveDash,1500); }
+// flush del guardado pendiente al ocultar/cerrar/refrescar la pestaña → no se pierde el último cambio
+try{ document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden"&&_srvPending){ clearTimeout(_srvT); _doSaveDash(); } });
+     window.addEventListener("pagehide",()=>{ if(_srvPending){ clearTimeout(_srvT); _doSaveDash(); } }); }catch(e){}
 /* ─ historial (deshacer / rehacer) ─ */
 let _hist=[],_fut=[];
 function _snap(){ return JSON.stringify(DASH); }
