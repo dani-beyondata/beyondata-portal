@@ -252,6 +252,8 @@
   <div class="tools">
     <span id="bd-conn" style="align-self:center;font-size:12px;font-weight:600;color:#bfe0d7;margin-right:8px" title="estado de sesion">● comprobando…</span>
     <span id="bd-save" style="align-self:center;font-size:12px;font-weight:600;color:#bfe0d7;margin-right:8px;opacity:0;transition:opacity .2s" title="estado de guardado"></span>
+    <span id="bd-prog" style="align-self:center;font-size:12px;font-weight:600;color:#bfe0d7;margin-right:8px;opacity:0;transition:opacity .2s" title="progreso de carga"></span>
+    <div id="bd-progbar" style="position:fixed;top:0;left:0;height:3px;width:0;background:#60a5fa;z-index:99999;opacity:0;transition:width .15s,opacity .3s;pointer-events:none"></div>
     <button class="hdr" onclick="addMenu()">＋ Añadir</button>
     <button class="hdr" onclick="undo()" title="Deshacer (Ctrl+Z)">↶</button>
     <button class="hdr" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)">↷</button>
@@ -581,7 +583,11 @@ function paramRefHTML(v){ const ps=getParams(); if(!ps.length)return ""; const u
 
 /* ─ DuckDB ─ */
 let db,conn,echarts;
-async function q(sql){ sql=subParams(sql); if(!window.sbClient) throw new Error("Sin sesion de Supabase (abre el BI dentro del portal)"); const { data, error } = await window.sbClient.rpc("bi_run_sql",{ q: sql }); if(error) throw new Error(error.message); return Array.isArray(data) ? data : (data==null ? [] : [data]); }
+// Fase 2 · dedupe por SQL: misma SQL final (tras params) → una sola RPC compartida. Caché por lote (se limpia al empezar cada refresh).
+let QCACHE=new Map();
+function clearQCache(){ QCACHE.clear(); }
+async function _qraw(fsql){ if(!window.sbClient) throw new Error("Sin sesion de Supabase (abre el BI dentro del portal)"); const { data, error } = await window.sbClient.rpc("bi_run_sql",{ q: fsql }); if(error) throw new Error(error.message); return Array.isArray(data) ? data : (data==null ? [] : [data]); }
+async function q(sql){ const fsql=subParams(sql); let pr=QCACHE.get(fsql); if(!pr){ pr=_qraw(fsql); QCACHE.set(fsql,pr); pr.catch(()=>QCACHE.delete(fsql)); } const rows=await pr; return rows.slice(); }
 async function initDuckDB(duckdb){ let bundle=LIBS.mode==="local"?await duckdb.selectBundle(LIBS.bundles):await duckdb.selectBundle(duckdb.getJsDelivrBundles());
   const abs=u=>u?new URL(u,location.href).href:u; const wurl=URL.createObjectURL(new Blob([`importScripts("${abs(bundle.mainWorker)}");`],{type:"text/javascript"})); const worker=new Worker(wurl);
   db=new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING),worker); await db.instantiate(abs(bundle.mainModule),abs(bundle.pthreadWorker)); URL.revokeObjectURL(wurl); conn=await db.connect(); }
@@ -2337,9 +2343,16 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v))
   rowvals.forEach(rw=>{h+=`<tr>${tdRow(rw)}`+colvals.map(c=>cellHTML(rw,c)).join("")+`<td class="num tot">${fmtCell(rowTot[rw],v.fmt)}</td></tr>`;});
   h+=`<tr class="tot">${tdTot}`+colvals.map(c=>`<td class="num">${fmtCell(colTot[c],v.fmt)}</td>`).join("")+`<td class="num">${fmtCell(grand,v.fmt)}</td></tr></tbody></table></div>`; el.innerHTML=tableFxCSS(v.id,buildFx(v))+h; }
 
-async function refreshAll(){ for(const v of CP().visuals){await renderVisual(v);} }
+// Fase 2 · barra de progreso x/N
+function progStart(n){ const b=$("bd-progbar"),t=$("bd-prog"); if(b){b.style.opacity="1";b.style.width="0%";} if(t){t.style.opacity="1";t.textContent="⟳ Cargando 0/"+n;} }
+function progTick(done,n){ const b=$("bd-progbar"),t=$("bd-prog"); const pct=n?Math.round(done/n*100):100; if(b)b.style.width=pct+"%"; if(t)t.textContent="⟳ Cargando "+done+"/"+n; }
+function progEnd(){ const b=$("bd-progbar"),t=$("bd-prog"); if(b){b.style.width="100%"; setTimeout(()=>{b.style.opacity="0";b.style.width="0%";},300);} if(t){clearTimeout(t._t); t._t=setTimeout(()=>{t.style.opacity="0";t.textContent="";},300);} }
+// Fase 2 · carga en paralelo con pool acotado (respeta el backend) + dedupe (QCACHE) + progreso
+async function refreshAll(){ clearQCache(); const vis=CP().visuals.slice(); const n=vis.length; if(!n)return; let done=0, i=0; const show=n>1; if(show)progStart(n);
+  const size=Math.min(6,n); const worker=async()=>{ while(i<n){ const v=vis[i++]; try{ await renderVisual(v); }catch(e){} done++; if(show)progTick(done,n); } };
+  await Promise.all(Array.from({length:size},worker)); if(show)progEnd(); }
 // Refresh UX · Fase 1: re-render solo el visual editado + sus dependientes (en vez de todas las queries)
-async function refreshVisualDeps(v){ if(!v){ await refreshAll(); return; }
+async function refreshVisualDeps(v){ if(!v){ await refreshAll(); return; } clearQCache();
   if(v.type==="slicer"){ await refreshAll(); return; }  // un slicer puede afectar a muchos → refresco completo
   await renderVisual(v);
   if(v.type==="metricgroup"){ for(const id of (v.targets||[])){ const t=CP().visuals.find(x=>x.id===id); if(t)await renderVisual(t); } }
