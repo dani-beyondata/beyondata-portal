@@ -1812,7 +1812,7 @@ function buildCardEl(v){
   const card=document.createElement("div"); card.className="gcard "+(['kpi','html','text','slicer','metricgroup','resultfilter'].includes(v.type)?v.type:""); card.dataset.id=v.id;
   card.style.cssText=`left:${v.x}px;top:${v.y}px;width:${v.w}px;height:${v.h}px`;
   applyVisualBox(card,v);
-  card.innerHTML=`<div class="gdrag"></div><div class="gctrl">${(!['kpi','html','text','slicer','metricgroup','resultfilter'].includes(v.type))?`<span onclick="exportMenu(event,'${v.id}')" title="Exportar datos">⬇</span>`:""}${v.type==="slicer"?`<span onclick="moveSlicer('${v.id}','panel')" title="al panel">↙</span>`:""}<span onclick="editVisual('${v.id}')">✎</span><span onclick="dupVisual('${v.id}')">⧉</span><span onclick="delVisual('${v.id}')">🗑</span></div>`+
+  card.innerHTML=`<div class="gdrag"></div><div class="gctrl">${canExportVisual(v)?`<span onclick="exportMenu(event,'${v.id}')" title="Exportar datos">⬇</span>`:""}${v.type==="slicer"?`<span onclick="moveSlicer('${v.id}','panel')" title="al panel">↙</span>`:""}<span onclick="editVisual('${v.id}')">✎</span><span onclick="dupVisual('${v.id}')">⧉</span><span onclick="delVisual('${v.id}')">🗑</span></div>`+
     ((['kpi','html','slicer','text','metricgroup','resultfilter'].includes(v.type))?'':gheadHTML(v))+
     `<div class="vbody" id="body_${v.id}"></div><div class="rz"></div>`;
   return card;
@@ -2158,14 +2158,30 @@ window.exportMenu=(ev,id)=>{ ev.stopPropagation(); closeExportMenu(); const m=do
   document.body.appendChild(m); const x=Math.min(ev.clientX,innerWidth-164), y=Math.min(ev.clientY,innerHeight-86); m.style.left=Math.max(6,x)+"px"; m.style.top=Math.max(6,y)+"px";
   _expDown=e=>{ if(!e.target.closest("#expmenu")) closeExportMenu(); };
   setTimeout(()=>document.addEventListener("mousedown",_expDown),0); };
+/* ¿Es descargable? charts/tablas/matrices sí; html/kpi solo si tienen datos (SQL); text/controles no. */
+function canExportVisual(v){ if(!v)return false;
+  if(["text","slicer","metricgroup","resultfilter"].includes(v.type))return false;
+  if(["html","kpi"].includes(v.type)) return !!((v.sql&&String(v.sql).trim())||v.metricSQL);
+  return true; }
+/* Recorre la <table> ya renderizada en la tarjeta → filas-objeto tal cual se ven (meses, formato…). */
+function scrapeTableRows(v){ const body=$("body_"+v.id); if(!body)return null; const tbl=body.querySelector("table"); if(!tbl)return null;
+  const trs=[...tbl.querySelectorAll("tr")].filter(tr=>tr.querySelector("th,td")); if(trs.length<2)return null;
+  const txt=tr=>[...tr.querySelectorAll("th,td")].map(c=>(c.innerText||c.textContent||"").replace(/\s+/g," ").trim());
+  let header=txt(trs[0]); const data=[]; for(let i=1;i<trs.length;i++){ const c=txt(trs[i]); if(c.some(x=>x!==""))data.push(c); }
+  if(!data.length)return null;
+  const n=Math.max(header.length, ...data.map(r=>r.length)); while(header.length<n)header.push("col"+(header.length+1));
+  const seen={}; header=header.map((h,i)=>{ h=h||("col"+(i+1)); if(seen[h]!=null){ seen[h]++; h=h+"_"+seen[h]; } else seen[h]=0; return h; });  // cabeceras únicas
+  return data.map(r=>{ const o={}; for(let i=0;i<n;i++)o[header[i]]=(r[i]!=null?r[i]:""); return o; }); }
+/* Datos a exportar: html/kpi → la tabla visible si la hay, si no las filas del SQL; el resto, filas del SQL. */
+async function exportRowsFor(v){ if(["html","kpi"].includes(v.type)){ const t=scrapeTableRows(v); if(t&&t.length)return t; } return await expRows(v); }
 window.exportCSV=async id=>{ closeExportMenu(); const v=CP().visuals.find(x=>x.id===id); if(!v)return;
-  try{ const rows=await expRows(v); if(!rows||!rows.length){expToast("Sin datos para exportar");return;}
+  try{ const rows=await exportRowsFor(v); if(!rows||!rows.length){expToast("Sin datos para exportar");return;}
     const cols=expColsOf(rows); const q1=s=>{s=(s==null)?"":String(s); return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
     const csv=[cols.join(","),...rows.map(r=>cols.map(c=>q1(r[c])).join(","))].join("\r\n");
     dlBlob(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}),(v.title||id).replace(/[\\/:*?"<>|]+/g,"_")+".csv"); expToast("CSV descargado"); }
   catch(e){ expToast("No pude exportar: "+e.message); } };
 window.exportCopy=async id=>{ closeExportMenu(); const v=CP().visuals.find(x=>x.id===id); if(!v)return;
-  try{ const rows=await expRows(v); if(!rows||!rows.length){expToast("Sin datos para copiar");return;}
+  try{ const rows=await exportRowsFor(v); if(!rows||!rows.length){expToast("Sin datos para copiar");return;}
     const cols=expColsOf(rows); const tsv=[cols.join("\t"),...rows.map(r=>cols.map(c=>{const s=r[c]==null?"":String(r[c]); return s.replace(/[\t\r\n]/g," ");}).join("\t"))].join("\n");
     try{ await navigator.clipboard.writeText(tsv); }catch(e){ const ta=document.createElement("textarea"); ta.value=tsv; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.focus(); ta.select(); try{document.execCommand("copy");}catch(_){} ta.remove(); }
     expToast(`Copiado · ${rows.length} filas`); }
