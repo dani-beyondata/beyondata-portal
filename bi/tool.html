@@ -68,6 +68,12 @@
   #pagetabs .ptab.add{background:transparent;color:#bfe0da;font-weight:800;padding:6px 12px}
   #pagetabs .ptab.add:hover{color:#fff}
   #canvaswrap{overflow:auto;padding:16px;flex:1 1 auto;min-height:0}
+  #zoomwrap{position:fixed;right:14px;bottom:14px;z-index:500;font-size:12px;color:#1E3A5F}
+  #zoomwrap .zb-handle{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #dbe2ec;border-radius:10px;padding:6px 11px;box-shadow:0 2px 10px rgba(0,0,0,.14);cursor:pointer;font-weight:700;user-select:none;transition:box-shadow .12s}
+  #zoomwrap .zb-handle:hover{box-shadow:0 3px 14px rgba(0,0,0,.2)}
+  #zoomwrap #zoombar{display:none}
+  #zoomwrap:hover .zb-handle,#zoomwrap:focus-within .zb-handle{display:none}
+  #zoomwrap:hover #zoombar,#zoomwrap:focus-within #zoombar{display:flex}
   #stage{position:relative;margin:0 auto;background:
     linear-gradient(90deg,#00000006 1px,transparent 1px) 0 0/20px 20px,
     linear-gradient(#00000006 1px,transparent 1px) 0 0/20px 20px, #f7f9fa;
@@ -291,7 +297,9 @@
 <div id="main">
   <div id="filterpanel"></div>
   <div id="canvaswrap"><div id="stage"><div id="guides"></div></div></div>
-  <div id="zoombar" style="position:fixed;right:14px;bottom:14px;display:flex;gap:2px;align-items:center;background:#fff;border:1px solid #dbe2ec;border-radius:10px;padding:4px 6px;box-shadow:0 2px 10px rgba(0,0,0,.14);z-index:500;font-size:12px;color:#1E3A5F">
+  <div id="zoomwrap">
+    <div class="zb-handle" id="zbHandle" tabindex="0" title="Controles de vista — pasa el ratón para desplegar"><span style="font-size:14px;line-height:1">⛶</span><span id="zlabelMini">100%</span></div>
+    <div id="zoombar" style="gap:2px;align-items:center;background:#fff;border:1px solid #dbe2ec;border-radius:10px;padding:4px 6px;box-shadow:0 2px 10px rgba(0,0,0,.14);font-size:12px;color:#1E3A5F">
     <button onclick="toggleFull()" title="Pantalla completa (presentación)" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:14px;color:#1E3A5F">⤢</button>
     <span style="width:1px;height:16px;background:#dbe2ec;margin:0 2px"></span>
     <button onclick="setFit('width')" title="Ajustar al ancho" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:14px;color:#1E3A5F">↔</button>
@@ -302,6 +310,7 @@
     <span id="zlabel" style="min-width:40px;text-align:center;font-weight:600">100%</span>
     <button onclick="zoomBy(0.1)" title="Acercar" style="cursor:pointer;background:none;border:0;padding:3px 8px;border-radius:6px;font-size:15px;color:#1E3A5F">+</button>
     <button onclick="resetView()" title="Restablecer vista (100%)" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:14px;color:#1E3A5F">↺</button>
+    </div>
   </div>
 </div>
 
@@ -1996,7 +2005,7 @@ function renderPage(){ if(typeof SEL!=="undefined")SEL.clear(); disposeCharts();
 // ── Zoom / ajuste de vista (estilo Power BI) ──
 let VZOOM=1, VFIT='actual';
 function _stageH(){ const s=$("stage"); if(!s)return 600; return Math.max(300, parseInt(s.style.height)||s.scrollHeight||600); }
-function _zlabel(){ const l=$("zlabel"); if(l)l.textContent=Math.round(VZOOM*100)+"%"; }
+function _zlabel(){ const t=Math.round(VZOOM*100)+"%"; const l=$("zlabel"); if(l)l.textContent=t; const m=$("zlabelMini"); if(m)m.textContent=t; }
 function applyZoom(){ const s=$("stage"); if(s)s.style.zoom=String(VZOOM); _zlabel(); }
 function recalcFit(){ const w=$("canvaswrap"); if(!w)return; const availW=w.clientWidth-28;
   if(VFIT==='width') VZOOM=Math.max(0.2,availW/PAGE_W);
