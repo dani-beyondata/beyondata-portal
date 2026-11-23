@@ -2264,6 +2264,17 @@ function colRowHTML(name,cc){ cc=cc||{}; return `<div class="colrow" style="disp
     <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="cr-arrow" ${cc.arrow?"checked":""}>▲▼</label>
     <button class="sm" title="Quitar columna" onclick="this.closest('.colrow').remove()">✕</button></div>`; }
 window.colAddRow=()=>{ const g=$("colgrid"); if(g)g.insertAdjacentHTML("beforeend",colRowHTML("",{})); };
+/* mini-grid de formato por eje (fila/columna) para la matriz: etiqueta (no editable) → fmt/heat/bar/▲▼ */
+function axRowHTML(label,cc){ cc=cc||{}; return `<div class="axrow" data-ax="${esc(label)}" style="display:flex;gap:5px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
+    <span class="ax-name" title="${esc(label)}" style="flex:1 1 130px;min-width:90px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(label)}</span>
+    <select class="ax-fmt" style="width:90px">${["","money","eur","keur","pct","pct1","pp","int","dec"].map(f=>`<option value="${f}" ${(cc.fmt||"")===f?"selected":""}>${f||"fmt…"}</option>`).join("")}</select>
+    <select class="ax-heat" style="width:74px"><option value="">heat…</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${cc.heat===k?"selected":""}>${k}</option>`).join("")}</select>
+    <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="ax-bar" ${cc.bar?"checked":""}>bar</label>
+    <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="ax-arrow" ${cc.arrow?"checked":""}>▲▼</label></div>`; }
+window.mxAxisChanged=(id)=>{ const v=CP().visuals.find(x=>x.id===id); const sel=$("e_fmtaxis"),wrap=$("axgridwrap"),grid=$("axgrid"); if(!v||!sel||!wrap)return;
+  const ax=sel.value; if(ax==="off"){ wrap.style.display="none"; return; } wrap.style.display="";
+  const st=MX_STATE[id]||{}; const labels=(ax==="row"?st.rowLabels:st.colLabels)||[]; const AF=v.axisFmt||{};
+  grid.innerHTML = labels.length?labels.map(l=>axRowHTML(l,AF[l])).join(""):`<div class="hint">No hay etiquetas todavía. Cierra el editor, deja que la matriz se dibuje, y vuelve a abrirlo.</div>`; };
 window.colsFromJSON=()=>{ const g=$("colgrid"),t=$("e_cols"); if(!g||!t)return; let o; try{o=JSON.parse(t.value.trim()||"{}");}catch(e){alert("JSON inválido: "+e.message);return;} g.innerHTML=Object.keys(o).map(k=>colRowHTML(k,o[k])).join(""); };
 window.tblDetectGrid=async id=>{ const v=CP().visuals.find(x=>x.id===id); const g=$("colgrid"); if(!v||!g)return;
   try{ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); if(!rows.length){alert("La query no devuelve filas.");return;}
@@ -2302,7 +2313,10 @@ function fmtMatrix(v){ const grp=groupCtrl(v); const hbCells=grp?"":`<div><label
     ${fmtNumField(v)}
     <div class="row">${hbCells}<div><label>Ordenar filas por total</label><select id="e_sortrows"><option value="none" ${(!v.sortRows||v.sortRows==="none")?"selected":""}>no</option><option value="desc" ${v.sortRows==="desc"?"selected":""}>mayor→menor</option><option value="asc" ${v.sortRows==="asc"?"selected":""}>menor→mayor</option></select></div></div>
     <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_zebra" ${v.zebra?"checked":""}> Filas alternas (zebra)</label><label class="fxrow2"><input type="checkbox" id="e_sticky" ${v.sticky?"checked":""}> Cabecera fija (al hacer scroll)</label><label class="fxrow2"><input type="checkbox" id="e_totfreeze" ${v.totalsFreeze!==false?"checked":""}> Totales fijos al hacer scroll</label></div>
-    <div class="hint">Celdas = la medida; los totales de fila/columna siempre en valores absolutos. Forma SQL: <code>row</code>, <code>col</code>, <code>v</code> (+ <code>colOrd</code> opcional).</div>`; }
+    <div class="row"><div style="flex:1 1 100%"><label>Formato por eje</label><select id="e_fmtaxis" onchange="mxAxisChanged('${v.id}')"><option value="off" ${!v.fmtAxis?"selected":""}>Global (uno para toda la matriz)</option><option value="row" ${v.fmtAxis==="row"?"selected":""}>Por fila</option><option value="col" ${v.fmtAxis==="col"?"selected":""}>Por columna</option></select></div></div>
+    <div id="axgridwrap" style="display:${v.fmtAxis?"":"none"};margin-top:2px"><div class="hint">Formato / heat / barra / ▲▼ por cada etiqueta del eje. Si el SQL trae una columna <code>fmt</code> (y <code>arrow</code>) por fila, se usan como base.</div><div id="axgrid">${(()=>{ if(!v.fmtAxis)return ""; const st=MX_STATE[v.id]||{}; const labels=(v.fmtAxis==="row"?st.rowLabels:st.colLabels)||[]; const AF=v.axisFmt||{}; return labels.length?labels.map(l=>axRowHTML(l,AF[l])).join(""):`<div class="hint">No hay etiquetas todavía. Cierra el editor, deja que la matriz se dibuje, y vuelve a abrirlo.</div>`; })()}</div></div>
+    <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_autototal" ${v.autoTotal!==false?"checked":""}> Añadir Total propio (suma de la matriz). Desactívalo si el Total viene del SQL.</label></div>
+    <div class="hint">Celdas = la medida. Forma SQL: <code>row</code>, <code>col</code>, <code>v</code> (+ <code>colOrd</code>, y opcional <code>fmt</code>/<code>arrow</code> por fila).</div>`; }
 /* lecturas del editor → objeto del visual */
 function readGraphic(v){ if($("e_color"))v.color=$("e_color").value; if($("e_fmt"))v.fmt=$("e_fmt").value;
   if($("e_x2"))v.x2=$("e_x2").value.trim()||"k"; if($("e_y2"))v.y2=$("e_y2").value.trim()||"v"; if($("e_series"))v.series=$("e_series").value.trim()||"series";
@@ -2331,6 +2345,9 @@ function readTable(v){ readMetricFmts(); if($("e_fmt"))v.fmt=$("e_fmt").value; i
 function readMatrix(v){ readMetricFmts(); if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIVE)commitSQLText(v,$("e_sql").value);
   if($("e_mpct"))v.pct=$("e_mpct").value; if($("e_heat"))v.heat=$("e_heat").value||undefined; if($("e_mbar"))v.bar=$("e_mbar").value==="1"; if($("e_sortrows"))v.sortRows=$("e_sortrows").value;
   if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked; if($("e_totfreeze"))v.totalsFreeze=$("e_totfreeze").checked;
+  if($("e_autototal"))v.autoTotal=$("e_autototal").checked;
+  if($("e_fmtaxis")){ const ax=$("e_fmtaxis").value; v.fmtAxis=(ax==="off")?undefined:ax;
+    if(v.fmtAxis){ const af={}; document.querySelectorAll("#axgrid .axrow").forEach(r=>{ const name=r.getAttribute("data-ax"); if(name==null)return; const o={}; const f=r.querySelector(".ax-fmt")?.value; if(f)o.fmt=f; const h=r.querySelector(".ax-heat")?.value; if(h)o.heat=h; if(r.querySelector(".ax-bar")?.checked)o.bar=true; if(r.querySelector(".ax-arrow")?.checked)o.arrow=true; if(Object.keys(o).length)af[name]=o; }); if(Object.keys(af).length)v.axisFmt=af; else delete v.axisFmt; } }
   if(document.querySelector(".fxlist"))readFx(v); }
 function readKpi(v){ v.label=$("e_label")?.value||v.title; v.kind=$("e_kind")?.value||"money"; v.isPct=$("e_pct")?.value==="1"; if($("e_sqlcy")&&!LIVE)v.sqlCY=$("e_sqlcy").value; if($("e_sqltgt")&&!LIVE)v.sqlTGT=$("e_sqltgt").value; }
 function readHtml(v){ if($("e_sql")&&!LIVE)v.sql=$("e_sql").value; }
