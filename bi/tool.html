@@ -251,6 +251,7 @@
 <header>
   <div class="tools">
     <span id="bd-conn" style="align-self:center;font-size:12px;font-weight:600;color:#bfe0d7;margin-right:8px" title="estado de sesion">● comprobando…</span>
+    <span id="bd-save" style="align-self:center;font-size:12px;font-weight:600;color:#bfe0d7;margin-right:8px;opacity:0;transition:opacity .2s" title="estado de guardado"></span>
     <button class="hdr" onclick="addMenu()">＋ Añadir</button>
     <button class="hdr" onclick="undo()" title="Deshacer (Ctrl+Z)">↶</button>
     <button class="hdr" onclick="redo()" title="Rehacer (Ctrl+Shift+Z)">↷</button>
@@ -1757,7 +1758,13 @@ function saveDash(){ try{localStorage.setItem(dashKey(),JSON.stringify(DASH));}c
 function biCompany(){ try{ const u=new URLSearchParams(location.search).get("company"); if(u){try{localStorage.setItem("bd_company",u);}catch(_){ } return u;} return localStorage.getItem("bd_company")||""; }catch(e){ return ""; } }
 async function loadDashServer(){ const cid=biCompany(); if(!cid||!window.sbClient)return null; try{ const {data,error}=await window.sbClient.from("bi_dashboards").select("doc").eq("company_id",cid).maybeSingle(); if(error)return null; if(data&&data.doc&&data.doc.pages&&data.doc.pages.length)return data.doc; }catch(e){} return null; }
 let _srvT=null, _srvOn=true;
-function saveDashServer(){ if(!_srvOn)return; const cid=biCompany(); if(!cid||!window.sbClient)return; clearTimeout(_srvT); _srvT=setTimeout(async()=>{ try{ let uid=null; try{ uid=(await window.sbClient.auth.getSession()).data?.session?.user?.id||null; }catch(_){ } await window.sbClient.from("bi_dashboards").upsert({company_id:cid,doc:DASH,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:"company_id"}); }catch(e){} },1500); }
+function saveStatus(txt,col,ttl){ const el=document.getElementById("bd-save"); if(!el)return; el.textContent=txt||""; el.style.color=col||"#bfe0d7"; el.style.opacity=txt?"1":"0"; clearTimeout(el._t); if(ttl)el._t=setTimeout(()=>{el.style.opacity="0";},ttl); }
+function saveDashServer(){ if(!_srvOn)return; const cid=biCompany(); if(!cid||!window.sbClient)return; clearTimeout(_srvT); _srvT=setTimeout(async()=>{
+  const showT=setTimeout(()=>saveStatus("⟳ Guardando…","#bfe0d7"),300);  // solo si tarda >300ms
+  try{ let uid=null; try{ uid=(await window.sbClient.auth.getSession()).data?.session?.user?.id||null; }catch(_){ }
+    const {error}=await window.sbClient.from("bi_dashboards").upsert({company_id:cid,doc:DASH,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:"company_id"});
+    clearTimeout(showT); if(error)saveStatus("⚠ Sin guardar","#ffb4ab",5000); else saveStatus("✓ Guardado","#8fe3c8",1600);
+  }catch(e){ clearTimeout(showT); saveStatus("⚠ Sin guardar","#ffb4ab",5000); } },1500); }
 /* ─ historial (deshacer / rehacer) ─ */
 let _hist=[],_fut=[];
 function _snap(){ return JSON.stringify(DASH); }
