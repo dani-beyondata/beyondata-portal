@@ -6788,8 +6788,13 @@
   function loadBI() {
     const f = document.getElementById('bi-frame');
     if (f && f.dataset.src && !f.dataset.loaded) {
-      const cid = (currentCompany && currentCompany.id) ? ('?company=' + encodeURIComponent(currentCompany.id)) : '';
-      f.src = f.dataset.src + cid; f.dataset.loaded = '1';
+      const cid = (currentCompany && currentCompany.id) ? ('company=' + encodeURIComponent(currentCompany.id)) : '';
+      // Cache-bust: fuerza recargar tool.html en cada apertura del portal para que
+      // los cambios del BI se vean sin hard-refresh. (Una vez estable, se puede
+      // fijar a una version manual: const bust = 'v=2026-11-23';)
+      const bust = 'v=' + Date.now();
+      const qs = [cid, bust].filter(Boolean).join('&');
+      f.src = f.dataset.src + '?' + qs; f.dataset.loaded = '1';
     }
   }
 

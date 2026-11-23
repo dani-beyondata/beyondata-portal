@@ -68,6 +68,12 @@
   #pagetabs .ptab.add{background:transparent;color:#bfe0da;font-weight:800;padding:6px 12px}
   #pagetabs .ptab.add:hover{color:#fff}
   #canvaswrap{overflow:auto;padding:16px;flex:1 1 auto;min-height:0}
+  #zoomwrap{position:fixed;right:14px;bottom:14px;z-index:500;font-size:12px;color:#1E3A5F}
+  #zoomwrap .zb-handle{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #dbe2ec;border-radius:10px;padding:6px 11px;box-shadow:0 2px 10px rgba(0,0,0,.14);cursor:pointer;font-weight:700;user-select:none;transition:box-shadow .12s}
+  #zoomwrap .zb-handle:hover{box-shadow:0 3px 14px rgba(0,0,0,.2)}
+  #zoomwrap #zoombar{display:none}
+  #zoomwrap:hover .zb-handle,#zoomwrap:focus-within .zb-handle{display:none}
+  #zoomwrap:hover #zoombar,#zoomwrap:focus-within #zoombar{display:flex}
   #stage{position:relative;margin:0 auto;background:
     linear-gradient(90deg,#00000006 1px,transparent 1px) 0 0/20px 20px,
     linear-gradient(#00000006 1px,transparent 1px) 0 0/20px 20px, #f7f9fa;
@@ -260,6 +266,7 @@
     <button class="hdr" onclick="togglePanelHidden()" title="mostrar/ocultar panel de filtros">⚑ Filtros</button>
     <button class="hdr" onclick="openExplorer()">🔎 Explorar</button>
     <button class="hdr" onclick="openData()">🗂 Datos</button>
+    <button class="hdr" onclick="refreshData()" title="Volver a consultar la base de datos (p. ej. tras subir datos nuevos). Normalmente no hace falta: los cambios de página y filtros ya reutilizan lo cargado.">↻ Actualizar</button>
     <button class="hdr" onclick="openModel()">🔗 Modelo</button>
     <button class="hdr" onclick="editCanvas()" title="color de fondo del lienzo de esta página">🎨 Lienzo</button>
     <button class="hdr" onclick="openJSON()">{ } Config</button>
@@ -291,7 +298,9 @@
 <div id="main">
   <div id="filterpanel"></div>
   <div id="canvaswrap"><div id="stage"><div id="guides"></div></div></div>
-  <div id="zoombar" style="position:fixed;right:14px;bottom:14px;display:flex;gap:2px;align-items:center;background:#fff;border:1px solid #dbe2ec;border-radius:10px;padding:4px 6px;box-shadow:0 2px 10px rgba(0,0,0,.14);z-index:500;font-size:12px;color:#1E3A5F">
+  <div id="zoomwrap">
+    <div class="zb-handle" id="zbHandle" tabindex="0" title="Controles de vista — pasa el ratón para desplegar"><span style="font-size:14px;line-height:1">⛶</span><span id="zlabelMini">100%</span></div>
+    <div id="zoombar" style="gap:2px;align-items:center;background:#fff;border:1px solid #dbe2ec;border-radius:10px;padding:4px 6px;box-shadow:0 2px 10px rgba(0,0,0,.14);font-size:12px;color:#1E3A5F">
     <button onclick="toggleFull()" title="Pantalla completa (presentación)" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:14px;color:#1E3A5F">⤢</button>
     <span style="width:1px;height:16px;background:#dbe2ec;margin:0 2px"></span>
     <button onclick="setFit('width')" title="Ajustar al ancho" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:14px;color:#1E3A5F">↔</button>
@@ -302,6 +311,7 @@
     <span id="zlabel" style="min-width:40px;text-align:center;font-weight:600">100%</span>
     <button onclick="zoomBy(0.1)" title="Acercar" style="cursor:pointer;background:none;border:0;padding:3px 8px;border-radius:6px;font-size:15px;color:#1E3A5F">+</button>
     <button onclick="resetView()" title="Restablecer vista (100%)" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:14px;color:#1E3A5F">↺</button>
+    </div>
   </div>
 </div>
 
@@ -595,10 +605,14 @@ function paramRefHTML(v){ const ps=getParams(); if(!ps.length)return ""; const u
 /* ─ DuckDB ─ */
 let db,conn,echarts;
 // Fase 2 · dedupe por SQL: misma SQL final (tras params) → una sola RPC compartida. Caché por lote (se limpia al empezar cada refresh).
-let QCACHE=new Map();
+let QCACHE=new Map(); const QCAP=300;
 function clearQCache(){ QCACHE.clear(); }
 async function _qraw(fsql){ if(!window.sbClient) throw new Error("Sin sesion de Supabase (abre el BI dentro del portal)"); const { data, error } = await window.sbClient.rpc("bi_run_sql",{ q: fsql }); if(error) throw new Error(error.message); return Array.isArray(data) ? data : (data==null ? [] : [data]); }
-async function q(sql){ const fsql=subParams(sql); let pr=QCACHE.get(fsql); if(!pr){ pr=_qraw(fsql); QCACHE.set(fsql,pr); pr.catch(()=>QCACHE.delete(fsql)); } const rows=await pr; return rows.slice(); }
+async function q(sql){ const fsql=subParams(sql); let pr=QCACHE.get(fsql);
+  if(pr){ QCACHE.delete(fsql); QCACHE.set(fsql,pr); }                 // LRU: recolócalo como el más reciente
+  else { pr=_qraw(fsql); QCACHE.set(fsql,pr); pr.catch(()=>QCACHE.delete(fsql));
+         if(QCACHE.size>QCAP){ const oldest=QCACHE.keys().next().value; QCACHE.delete(oldest); } }
+  const rows=await pr; return rows.slice(); }
 async function initDuckDB(duckdb){ let bundle=LIBS.mode==="local"?await duckdb.selectBundle(LIBS.bundles):await duckdb.selectBundle(duckdb.getJsDelivrBundles());
   const abs=u=>u?new URL(u,location.href).href:u; const wurl=URL.createObjectURL(new Blob([`importScripts("${abs(bundle.mainWorker)}");`],{type:"text/javascript"})); const worker=new Worker(wurl);
   db=new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING),worker); await db.instantiate(abs(bundle.mainModule),abs(bundle.pthreadWorker)); URL.revokeObjectURL(wurl); conn=await db.connect(); }
@@ -1996,7 +2010,7 @@ function renderPage(){ if(typeof SEL!=="undefined")SEL.clear(); disposeCharts();
 // ── Zoom / ajuste de vista (estilo Power BI) ──
 let VZOOM=1, VFIT='actual';
 function _stageH(){ const s=$("stage"); if(!s)return 600; return Math.max(300, parseInt(s.style.height)||s.scrollHeight||600); }
-function _zlabel(){ const l=$("zlabel"); if(l)l.textContent=Math.round(VZOOM*100)+"%"; }
+function _zlabel(){ const t=Math.round(VZOOM*100)+"%"; const l=$("zlabel"); if(l)l.textContent=t; const m=$("zlabelMini"); if(m)m.textContent=t; }
 function applyZoom(){ const s=$("stage"); if(s)s.style.zoom=String(VZOOM); _zlabel(); }
 function recalcFit(){ const w=$("canvaswrap"); if(!w)return; const availW=w.clientWidth-28;
   if(VFIT==='width') VZOOM=Math.max(0.2,availW/PAGE_W);
@@ -2378,11 +2392,15 @@ function progStart(n){ const b=$("bd-progbar"),t=$("bd-prog"); if(b){b.style.opa
 function progTick(done,n){ const b=$("bd-progbar"),t=$("bd-prog"); const pct=n?Math.round(done/n*100):100; if(b)b.style.width=pct+"%"; if(t)t.textContent="⟳ Cargando "+done+"/"+n; }
 function progEnd(){ const b=$("bd-progbar"),t=$("bd-prog"); if(b){b.style.width="100%"; setTimeout(()=>{b.style.opacity="0";b.style.width="0%";},300);} if(t){clearTimeout(t._t); t._t=setTimeout(()=>{t.style.opacity="0";t.textContent="";},300);} }
 // Fase 2 · carga en paralelo con pool acotado (respeta el backend) + dedupe (QCACHE) + progreso
-async function refreshAll(){ clearQCache(); const vis=CP().visuals.slice(); const n=vis.length; if(!n)return; let done=0, i=0; const show=n>1; if(show)progStart(n);
-  const size=Math.min(6,n); const worker=async()=>{ while(i<n){ const v=vis[i++]; try{ await renderVisual(v); }catch(e){} done++; if(show)progTick(done,n); } };
-  await Promise.all(Array.from({length:size},worker)); if(show)progEnd(); }
+async function refreshAll(opts){ if(opts&&opts.force) clearQCache();   // solo re-consulta la BD si se fuerza (botón Actualizar); si no, reutiliza QCACHE
+  const vis=CP().visuals.slice(); const n=vis.length; if(!n)return; let done=0, i=0; const show=n>1;
+  let barOn=false, barT=0;
+  if(show) barT=setTimeout(()=>{ barOn=true; progStart(n); progTick(done,n); },160);  // la barra solo aparece si tarda >160ms (consultas reales); un cambio de página servido de caché no la enseña
+  const size=Math.min(6,n); const worker=async()=>{ while(i<n){ const v=vis[i++]; try{ await renderVisual(v); }catch(e){} done++; if(barOn)progTick(done,n); } };
+  await Promise.all(Array.from({length:size},worker)); clearTimeout(barT); if(barOn)progEnd(); }
+window.refreshData=()=>refreshAll({force:true});   // fuerza re-consulta a la BD (p. ej. tras subir datos nuevos)
 // Refresh UX · Fase 1: re-render solo el visual editado + sus dependientes (en vez de todas las queries)
-async function refreshVisualDeps(v){ if(!v){ await refreshAll(); return; } clearQCache();
+async function refreshVisualDeps(v){ if(!v){ await refreshAll(); return; }
   if(v.type==="slicer"){ await refreshAll(); return; }  // un slicer puede afectar a muchos → refresco completo
   await renderVisual(v);
   if(v.type==="metricgroup"){ for(const id of (v.targets||[])){ const t=CP().visuals.find(x=>x.id===id); if(t)await renderVisual(t); } }
