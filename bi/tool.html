@@ -77,6 +77,8 @@
   /* Modo visor (cliente): oculta todo el chrome de edición; deja navegar y filtrar */
   body.mode-view .edit-only{display:none!important}
   body.mode-view .gctrl,body.mode-view .gdrag,body.mode-view .rz{display:none!important}
+  .gexp{position:absolute;top:7px;right:9px;z-index:7;display:none;cursor:pointer;width:26px;height:24px;align-items:center;justify-content:center;background:rgba(255,255,255,.95);border:1px solid var(--border);border-radius:7px;font-size:13px;color:var(--teal-d);box-shadow:0 1px 5px rgba(16,40,50,.14)}
+  body.mode-view .gcard:hover .gexp{display:flex}   /* descarga por visual también en modo visor */
   body.mode-view .gcard{cursor:default}
   body.mode-view .ptab .px,body.mode-view .ptab.add{display:none!important}
   body.mode-view .fslabel .mv{display:none!important}
@@ -400,7 +402,8 @@
 <script>
 const LIBS = window.BD_LIBS || { echarts:"https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js",
   html2canvas:"https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js",
-  jspdf:"https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" };
+  jspdf:"https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
+  xlsx:"https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" };
 const $=id=>document.getElementById(id);
 const esc=s=>(s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 const escA=s=>esc(s).replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -1812,7 +1815,7 @@ function buildCardEl(v){
   const card=document.createElement("div"); card.className="gcard "+(['kpi','html','text','slicer','metricgroup','resultfilter'].includes(v.type)?v.type:""); card.dataset.id=v.id;
   card.style.cssText=`left:${v.x}px;top:${v.y}px;width:${v.w}px;height:${v.h}px`;
   applyVisualBox(card,v);
-  card.innerHTML=`<div class="gdrag"></div><div class="gctrl">${canExportVisual(v)?`<span onclick="exportMenu(event,'${v.id}')" title="Exportar datos">⬇</span>`:""}${v.type==="slicer"?`<span onclick="moveSlicer('${v.id}','panel')" title="al panel">↙</span>`:""}<span onclick="editVisual('${v.id}')">✎</span><span onclick="dupVisual('${v.id}')">⧉</span><span onclick="delVisual('${v.id}')">🗑</span></div>`+
+  card.innerHTML=`<div class="gdrag"></div>${canExportVisual(v)?`<span class="gexp" onclick="exportMenu(event,'${v.id}')" title="Descargar datos">⬇</span>`:""}<div class="gctrl">${canExportVisual(v)?`<span onclick="exportMenu(event,'${v.id}')" title="Exportar datos">⬇</span>`:""}${v.type==="slicer"?`<span onclick="moveSlicer('${v.id}','panel')" title="al panel">↙</span>`:""}<span onclick="editVisual('${v.id}')">✎</span><span onclick="dupVisual('${v.id}')">⧉</span><span onclick="delVisual('${v.id}')">🗑</span></div>`+
     ((['kpi','html','slicer','text','metricgroup','resultfilter'].includes(v.type))?'':gheadHTML(v))+
     `<div class="vbody" id="body_${v.id}"></div><div class="rz"></div>`;
   return card;
@@ -2154,8 +2157,8 @@ let _expDown=null;
 function expColsOf(rows){ const HIDE=new Set(["ord","sord","colord","roword"]); return Object.keys(rows[0]||{}).filter(c=>!HIDE.has(String(c).toLowerCase())); }
 window.closeExportMenu=()=>{ const m=$("expmenu"); if(m)m.remove(); if(_expDown){document.removeEventListener("mousedown",_expDown);_expDown=null;} };
 window.exportMenu=(ev,id)=>{ ev.stopPropagation(); closeExportMenu(); const m=document.createElement("div"); m.id="expmenu";
-  m.innerHTML=`<div class="expitem" onclick="exportCSV('${id}')">⬇ Descargar CSV</div><div class="expitem" onclick="exportCopy('${id}')">⧉ Copiar (pegar en Excel/Sheets)</div>`;
-  document.body.appendChild(m); const x=Math.min(ev.clientX,innerWidth-164), y=Math.min(ev.clientY,innerHeight-86); m.style.left=Math.max(6,x)+"px"; m.style.top=Math.max(6,y)+"px";
+  m.innerHTML=`<div class="expitem" onclick="exportXLSX('${id}')">⬇ Descargar Excel (.xlsx)</div><div class="expitem" onclick="exportCSV('${id}')">⬇ Descargar CSV</div><div class="expitem" onclick="exportCopy('${id}')">⧉ Copiar (pegar en Excel/Sheets)</div>`;
+  document.body.appendChild(m); const x=Math.min(ev.clientX,innerWidth-220), y=Math.min(ev.clientY,innerHeight-120); m.style.left=Math.max(6,x)+"px"; m.style.top=Math.max(6,y)+"px";
   _expDown=e=>{ if(!e.target.closest("#expmenu")) closeExportMenu(); };
   setTimeout(()=>document.addEventListener("mousedown",_expDown),0); };
 /* ¿Es descargable? charts/tablas/matrices sí; html/kpi solo si tienen datos (SQL); text/controles no. */
@@ -2174,6 +2177,16 @@ function scrapeTableRows(v){ const body=$("body_"+v.id); if(!body)return null; c
   return data.map(r=>{ const o={}; for(let i=0;i<n;i++)o[header[i]]=(r[i]!=null?r[i]:""); return o; }); }
 /* Datos a exportar: html/kpi → la tabla visible si la hay, si no las filas del SQL; el resto, filas del SQL. */
 async function exportRowsFor(v){ if(["html","kpi"].includes(v.type)){ const t=scrapeTableRows(v); if(t&&t.length)return t; } return await expRows(v); }
+let _xlsx=null;
+async function ensureXLSX(){ if(_xlsx)return _xlsx; await loadScript(LIBS.xlsx||"https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"); _xlsx=window.XLSX; return _xlsx; }
+window.exportXLSX=async id=>{ closeExportMenu(); const v=CP().visuals.find(x=>x.id===id); if(!v)return;
+  try{ const rows=await exportRowsFor(v); if(!rows||!rows.length){expToast("Sin datos para exportar");return;}
+    expToast("Generando Excel…"); const XLSX=await ensureXLSX(); const cols=expColsOf(rows);
+    const aoa=[cols, ...rows.map(r=>cols.map(c=>{ const x=r[c]; return x==null?"":x; }))];
+    const ws=XLSX.utils.aoa_to_sheet(aoa); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Datos");
+    const buf=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+    dlBlob(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),(v.title||id).replace(/[\\/:*?"<>|]+/g,"_")+".xlsx"); expToast("Excel descargado"); }
+  catch(e){ expToast("No pude exportar: "+(e&&e.message||e)); } };
 window.exportCSV=async id=>{ closeExportMenu(); const v=CP().visuals.find(x=>x.id===id); if(!v)return;
   try{ const rows=await exportRowsFor(v); if(!rows||!rows.length){expToast("Sin datos para exportar");return;}
     const cols=expColsOf(rows); const q1=s=>{s=(s==null)?"":String(s); return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
