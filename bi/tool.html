@@ -353,6 +353,9 @@
     <span id="zlabel" style="min-width:40px;text-align:center;font-weight:600">100%</span>
     <button onclick="zoomBy(0.1)" title="Acercar" style="cursor:pointer;background:none;border:0;padding:3px 8px;border-radius:6px;font-size:15px;color:#1E3A5F">+</button>
     <button onclick="resetView()" title="Restablecer vista (100%)" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:14px;color:#1E3A5F">↺</button>
+    <span style="width:1px;height:16px;background:#dbe2ec;margin:0 2px"></span>
+    <button onclick="exportPagePDF()" title="Descargar la página como PDF" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:11px;font-weight:800;letter-spacing:.3px;color:#1E3A5F">⬇PDF</button>
+    <button onclick="exportPagePNG()" title="Descargar la página como imagen PNG" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:11px;font-weight:800;letter-spacing:.3px;color:#1E3A5F">PNG</button>
     </div>
   </div>
 </div>
@@ -381,7 +384,9 @@
 </div>
 
 <script>
-const LIBS = window.BD_LIBS || { echarts:"https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js" };
+const LIBS = window.BD_LIBS || { echarts:"https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js",
+  html2canvas:"https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js",
+  jspdf:"https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" };
 const $=id=>document.getElementById(id);
 const esc=s=>(s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 const escA=s=>esc(s).replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -2111,6 +2116,16 @@ let SEL=new Set();
 function expRows(v){ return q(applyRF(applyWhere(effSQL(v)),v)); }
 function dlBlob(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},800); }
 function expToast(msg){ let t=$("exptoast"); if(!t){t=document.createElement("div");t.id="exptoast";document.body.appendChild(t);} t.textContent=msg; t.classList.add("on"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),1600); }
+/* ── Exportar la página actual a PDF / PNG (html2canvas + jsPDF, cargadas bajo demanda) ── */
+let _h2c=null,_jspdf=null;
+async function ensureExportLibs(pdf){ if(!_h2c){ await loadScript(LIBS.html2canvas||"https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"); _h2c=window.html2canvas; }
+  if(pdf&&!_jspdf){ await loadScript(LIBS.jspdf||"https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"); _jspdf=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; } }
+async function _capturePage(scale){ const stage=$("stage"); if(!stage)throw new Error("sin lienzo"); const z=stage.style.zoom; stage.style.zoom="1";  // el zoom CSS rompe html2canvas
+  try{ const w=Math.max(stage.scrollWidth,PAGE_W), h=stage.scrollHeight; return await _h2c(stage,{scale:scale||2,backgroundColor:"#ffffff",useCORS:true,logging:false,width:w,height:h,windowWidth:w,windowHeight:h}); }
+  finally{ stage.style.zoom=z; } }
+function _dlName(ext){ const n=(CP()&&CP().name)||"dashboard"; return n.replace(/[^\w\-]+/g,"_")+"."+ext; }
+window.exportPagePNG=async()=>{ try{ expToast("Generando imagen…"); await ensureExportLibs(false); const c=await _capturePage(2); const a=document.createElement("a"); a.href=c.toDataURL("image/png"); a.download=_dlName("png"); a.click(); expToast("Imagen descargada"); }catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); } };
+window.exportPagePDF=async()=>{ try{ expToast("Generando PDF…"); await ensureExportLibs(true); const c=await _capturePage(2); const w=c.width/2, h=c.height/2; const pdf=new _jspdf({orientation:w>=h?"landscape":"portrait",unit:"pt",format:[w,h],compress:true}); pdf.addImage(c.toDataURL("image/png"),"PNG",0,0,w,h); pdf.save(_dlName("pdf")); expToast("PDF descargado"); }catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); } };
 let _expDown=null;
 function expColsOf(rows){ const HIDE=new Set(["ord","sord","colord","roword"]); return Object.keys(rows[0]||{}).filter(c=>!HIDE.has(String(c).toLowerCase())); }
 window.closeExportMenu=()=>{ const m=$("expmenu"); if(m)m.remove(); if(_expDown){document.removeEventListener("mousedown",_expDown);_expDown=null;} };
