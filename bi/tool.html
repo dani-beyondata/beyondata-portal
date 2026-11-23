@@ -291,6 +291,18 @@
 <div id="main">
   <div id="filterpanel"></div>
   <div id="canvaswrap"><div id="stage"><div id="guides"></div></div></div>
+  <div id="zoombar" style="position:fixed;right:14px;bottom:14px;display:flex;gap:2px;align-items:center;background:#fff;border:1px solid #dbe2ec;border-radius:10px;padding:4px 6px;box-shadow:0 2px 10px rgba(0,0,0,.14);z-index:500;font-size:12px;color:#1E3A5F">
+    <button onclick="toggleFull()" title="Pantalla completa (presentación)" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:14px;color:#1E3A5F">⤢</button>
+    <span style="width:1px;height:16px;background:#dbe2ec;margin:0 2px"></span>
+    <button onclick="setFit('width')" title="Ajustar al ancho" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:14px;color:#1E3A5F">↔</button>
+    <button onclick="setFit('page')" title="Página completa" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:14px;color:#1E3A5F">⊡</button>
+    <button onclick="setFit('actual')" title="Tamaño real (100%)" style="cursor:pointer;background:none;border:0;padding:3px 6px;border-radius:6px;font-weight:700;color:#1E3A5F">1:1</button>
+    <span style="width:1px;height:16px;background:#dbe2ec;margin:0 2px"></span>
+    <button onclick="zoomBy(-0.1)" title="Alejar" style="cursor:pointer;background:none;border:0;padding:3px 8px;border-radius:6px;font-size:15px;color:#1E3A5F">−</button>
+    <span id="zlabel" style="min-width:40px;text-align:center;font-weight:600">100%</span>
+    <button onclick="zoomBy(0.1)" title="Acercar" style="cursor:pointer;background:none;border:0;padding:3px 8px;border-radius:6px;font-size:15px;color:#1E3A5F">+</button>
+    <button onclick="resetView()" title="Restablecer vista (100%)" style="cursor:pointer;background:none;border:0;padding:3px 7px;border-radius:6px;font-size:14px;color:#1E3A5F">↺</button>
+  </div>
 </div>
 
 <div id="explorer">
@@ -1980,7 +1992,22 @@ function renderTabs(){ const el=$("pagetabs"); if(!el)return;
   el.innerHTML=DASH.pages.map((p,i)=>`<span class="ptab ${i===DASH.active?'on':''}" onclick="switchPage(${i})" ondblclick="renamePage(${i})" title="doble-clic para renombrar">${esc(p.name)}${DASH.pages.length>1?` <span class="px" title="eliminar página" onclick="event.stopPropagation();delPage(${i})">✕</span>`:""}</span>`).join("")
     +`<span class="ptab add" onclick="addPage()" title="nueva página">＋</span>`; }
 function disposeCharts(){ Object.keys(charts).forEach(k=>{try{charts[k].dispose();}catch(e){} delete charts[k];}); }
-function renderPage(){ if(typeof SEL!=="undefined")SEL.clear(); disposeCharts(); renderTabs(); layoutStage(); paintPanel(); refreshAll(); }
+function renderPage(){ if(typeof SEL!=="undefined")SEL.clear(); disposeCharts(); renderTabs(); layoutStage(); paintPanel(); refreshAll(); if(VFIT==="width"||VFIT==="page")recalcFit(); }
+// ── Zoom / ajuste de vista (estilo Power BI) ──
+let VZOOM=1, VFIT='actual';
+function _stageH(){ const s=$("stage"); if(!s)return 600; return Math.max(300, parseInt(s.style.height)||s.scrollHeight||600); }
+function _zlabel(){ const l=$("zlabel"); if(l)l.textContent=Math.round(VZOOM*100)+"%"; }
+function applyZoom(){ const s=$("stage"); if(s)s.style.zoom=String(VZOOM); _zlabel(); }
+function recalcFit(){ const w=$("canvaswrap"); if(!w)return; const availW=w.clientWidth-28;
+  if(VFIT==='width') VZOOM=Math.max(0.2,availW/PAGE_W);
+  else if(VFIT==='page'){ const availH=w.clientHeight-28; VZOOM=Math.max(0.2,Math.min(availW/PAGE_W, availH/_stageH())); }
+  else VZOOM=1;
+  applyZoom(); }
+window.setFit=m=>{ VFIT=m; recalcFit(); };
+window.zoomBy=d=>{ VFIT='none'; VZOOM=Math.min(4,Math.max(0.2,Math.round((VZOOM+d)*100)/100)); applyZoom(); };
+window.resetView=()=>{ VFIT='actual'; VZOOM=1; applyZoom(); };
+window.toggleFull=()=>{ try{ const d=document; if(!d.fullscreenElement&&!d.webkitFullscreenElement){ const el=d.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el); } else { (d.exitFullscreen||d.webkitExitFullscreen||function(){}).call(d); } }catch(e){} };
+window.addEventListener("resize",()=>{ if(VFIT==='width'||VFIT==='page') recalcFit(); });
 window.switchPage=i=>{ if(i===DASH.active||!DASH.pages[i])return; DASH.active=i; saveDash(); renderPage(); };
 window.addPage=()=>{ const id="pg"+Date.now().toString(36); DASH.pages.push({id,name:"Página "+(DASH.pages.length+1),panel:{collapsed:false,orient:"horizontal"},visuals:[]}); DASH.active=DASH.pages.length-1; saveDash(); renderPage(); };
 window.renamePage=i=>{ const p=DASH.pages[i]; if(!p)return; const nn=prompt("Nombre de la página:",p.name); if(nn==null)return; p.name=nn.trim()||p.name; saveDash(); renderTabs(); };
