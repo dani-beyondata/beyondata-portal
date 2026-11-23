@@ -86,6 +86,10 @@
   .hdrdrop.open .hdrmenu{display:flex}
   .hdrdrop .hdrmenu button{display:block;width:100%;text-align:left;background:none;border:0;padding:8px 11px;border-radius:7px;font-size:13px;color:#1E3A5F;cursor:pointer;white-space:nowrap}
   .hdrdrop .hdrmenu button:hover{background:#eef3fb}
+  /* Visor (cliente): sin barra superior. Solo pestañas + filtros + visuales + zoom flotante. */
+  body.mode-view header{display:none!important}
+  #editReturn{position:fixed;top:12px;right:14px;z-index:550;display:none;align-items:center;gap:6px;background:var(--teal);color:#fff;border:0;border-radius:9px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+  body.mode-view.can-edit #editReturn{display:inline-flex}   /* botón de volver a edición: solo admins en vista previa */
   #stage{position:relative;margin:0 auto;background:
     linear-gradient(90deg,#00000006 1px,transparent 1px) 0 0/20px 20px,
     linear-gradient(#00000006 1px,transparent 1px) 0 0/20px 20px, #f7f9fa;
@@ -292,6 +296,7 @@
     <button class="hdr" onclick="openHelp()">? Ayuda</button>
   </div>
 </header>
+<button id="editReturn" onclick="toggleMode()" title="Volver a edición">✎ Editor</button>
 
 <!-- Portal BI: hereda la sesion de Supabase del portal (same-origin). Prepara window.sbClient para el paso 4. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1551,19 +1556,22 @@ function PANEL(){ if(!DASH.panel)DASH.panel={collapsed:false,orient:"horizontal"
 function renderPanel(){ const P=PANEL(); const el=$("filterpanel"); const main=$("main");
   const pids=new Set(CP().visuals.map(v=>v.id)); const nA=Object.entries(FILTERS).filter(([k,f])=>pids.has(k)&&fActive(f)).length; const cnt=nA?` <span class="cnt">(${nA})</span>`:"";
   el.style.position=""; el.style.top=el.style.left=el.style.right=el.style.bottom=""; el.style.width=""; el.style.height=""; el.style.maxHeight=""; el.style.zIndex=""; el.style.display="";
-  if(P.hidden){ if(main)main.classList.remove("side"); el.style.display="none"; el.innerHTML=""; return; }
-  const side=(P.orient==="vertical")&&!P.collapsed; const sidePush=side&&!P.overlay; if(main)main.classList.toggle("side",sidePush);
-  el.className=(P.collapsed?"collapsed ":"")+(P.orient==="vertical"?"vert":"");
-  el.style.background=P.collapsed?"":hexToRgba(P.bg||"#ffffff",P.bgAlpha==null?1:P.bgAlpha);
-  if(P.collapsed){ el.innerHTML=`<div class="fp-head" onclick="togglePanel()">⚑ Filtros${cnt} &nbsp;▾</div>`; return; }
-  if(P.overlay){ el.style.position="absolute"; el.style.zIndex="36"; el.style.boxShadow="0 2px 10px rgba(16,40,50,.12)";
+  const viewMode=(typeof MODE!=='undefined'&&MODE==='view'); const sls=panelSlicers();
+  if(viewMode && !getParams().length && !sls.length){ if(main)main.classList.remove("side"); el.style.display="none"; el.innerHTML=""; return; }  // visor sin filtros: sin panel
+  if(P.hidden && !viewMode){ if(main)main.classList.remove("side"); el.style.display="none"; el.innerHTML=""; return; }
+  const collapsed=P.collapsed&&!viewMode;   // en visor el panel va siempre expandido
+  const side=(P.orient==="vertical")&&!collapsed; const sidePush=side&&!P.overlay; if(main)main.classList.toggle("side",sidePush);
+  el.className=(collapsed?"collapsed ":"")+(P.orient==="vertical"?"vert":"");
+  el.style.background=collapsed?"":hexToRgba(P.bg||"#ffffff",P.bgAlpha==null?1:P.bgAlpha);
+  if(collapsed){ el.innerHTML=`<div class="fp-head" onclick="togglePanel()">⚑ Filtros${cnt} &nbsp;▾</div>`; return; }
+  if(P.overlay && !viewMode){ el.style.position="absolute"; el.style.zIndex="36"; el.style.boxShadow="0 2px 10px rgba(16,40,50,.12)";
     if(side){ el.style.top="0";el.style.left="0";el.style.bottom="0";el.style.width=(P.size||320)+"px"; } else { el.style.top="0";el.style.left="0";el.style.right="0"; if(P.size)el.style.height=P.size+"px"; } }
   else { el.style.boxShadow=""; if(side) el.style.width=(P.size||320)+"px"; else if(P.size) el.style.height=P.size+"px"; }
-  const sls=panelSlicers();
   const clr=nA?`<span onclick="clearPageFilters()" title="limpiar todos los filtros">⌦ limpiar</span>`:"";
-  el.innerHTML=`<div class="fp-head">⚑ Filtros${cnt}<span class="sp">${clr}<span onclick="togglePanelOrient()" title="arriba (barra) / izquierda (lateral)">⇄ ${P.orient==="vertical"?"lateral":"barra"}</span><span onclick="editPanel()" title="posición, tamaño, color, modo">✎ Editar</span><span onclick="togglePanel()" title="colapsar a pastilla">– colapsar</span><span onclick="togglePanelHidden()" title="ocultar el panel por completo">⊘ ocultar</span></span></div>`+
-    `<div class="fp-body">`+paramsPanelHTML()+(sls.length?sls.map(v=>`<div class="fslc"><div class="fslabel"><span class="ttl">${esc(v.label||v.slColumn)}</span><span style="flex:0 0 auto"><span class="mv" title="editar" onclick="editVisual('${v.id}')">✎</span> <span class="mv" title="sacar al lienzo" onclick="moveSlicer('${v.id}','canvas')">↗</span> <span class="mv" title="quitar" onclick="delVisual('${v.id}')">✕</span></span></div><div id="body_${v.id}"></div></div>`).join(""):`<div class="hint">Panel vacío. Añade un filtro con <b>＋ Añadir → Slicer</b> (ubicación: panel), o saca uno del lienzo con ↙.</div>`)+`</div><div class="fp-rz"></div>`;
-  attachPanelResizer(); }
+  const headSp = viewMode ? (clr?`<span class="sp">${clr}</span>`:"") : `<span class="sp">${clr}<span onclick="togglePanelOrient()" title="arriba (barra) / izquierda (lateral)">⇄ ${P.orient==="vertical"?"lateral":"barra"}</span><span onclick="editPanel()" title="posición, tamaño, color, modo">✎ Editar</span><span onclick="togglePanel()" title="colapsar a pastilla">– colapsar</span><span onclick="togglePanelHidden()" title="ocultar el panel por completo">⊘ ocultar</span></span>`;
+  el.innerHTML=`<div class="fp-head">⚑ Filtros${cnt}${headSp}</div>`+
+    `<div class="fp-body">`+paramsPanelHTML()+(sls.length?sls.map(v=>`<div class="fslc"><div class="fslabel"><span class="ttl">${esc(v.label||v.slColumn)}</span><span style="flex:0 0 auto"><span class="mv" title="editar" onclick="editVisual('${v.id}')">✎</span> <span class="mv" title="sacar al lienzo" onclick="moveSlicer('${v.id}','canvas')">↗</span> <span class="mv" title="quitar" onclick="delVisual('${v.id}')">✕</span></span></div><div id="body_${v.id}"></div></div>`).join(""):(viewMode?"":`<div class="hint">Panel vacío. Añade un filtro con <b>＋ Añadir → Slicer</b> (ubicación: panel), o saca uno del lienzo con ↙.</div>`))+`</div>`+(viewMode?"":`<div class="fp-rz"></div>`);
+  if(!viewMode) attachPanelResizer(); }
 function attachPanelResizer(){ const el=$("filterpanel"); const h=el.querySelector(".fp-rz"); if(!h)return; const P=PANEL(); const vertical=P.orient==="vertical";
   h.onpointerdown=ev=>{ ev.preventDefault(); ev.stopPropagation(); h.classList.add("drag"); const sx=ev.clientX,sy=ev.clientY; const r=el.getBoundingClientRect(); const start=vertical?r.width:r.height;
     const mv=e=>{ let s=vertical?start+(e.clientX-sx):start+(e.clientY-sy); s=Math.max(48,Math.min(vertical?window.innerWidth*0.8:window.innerHeight*0.8,s)); P.size=Math.round(s); if(vertical)el.style.width=P.size+"px"; else el.style.height=P.size+"px"; const si=$("p_size"); if(si)si.value=P.size; for(const id in charts)charts[id].resize(); };
@@ -1590,20 +1598,21 @@ window.panelLive=()=>{ const P=PANEL();
   saveDash(); paintPanel(); setTimeout(()=>{for(const id in charts)charts[id].resize();},40); };
 window.panelReset=()=>{ const P=PANEL(); delete P.size; saveDash(); paintPanel(); if($("p_size"))$("p_size").value=""; setTimeout(()=>{for(const id in charts)charts[id].resize();},40); };
 window.clearPageFilters=()=>{ const ids=new Set(CP().visuals.map(v=>v.id)); const tbs=new Set(); for(const k in FILTERS)if(ids.has(k)){ if(FILTERS[k]&&FILTERS[k].table)tbs.add(FILTERS[k].table); delete FILTERS[k]; } paintPanel(); CP().visuals.filter(v=>v.type==="slicer"&&(v.dock||"panel")==="canvas").forEach(renderSlicer); refreshAfterFilter([...tbs]); };
-function paintPanel(){ renderPanel(); if(!PANEL().collapsed) panelSlicers().forEach(renderSlicer); }
+function paintPanel(){ renderPanel(); if(!PANEL().collapsed || MODE==='view') panelSlicers().forEach(renderSlicer); }
 window.togglePanel=()=>{ PANEL().collapsed=!PANEL().collapsed; saveDash(); paintPanel(); setTimeout(()=>{for(const id in charts)charts[id].resize();},50); };
 window.togglePanelOrient=()=>{ PANEL().orient=PANEL().orient==="vertical"?"horizontal":"vertical"; saveDash(); paintPanel(); };
 window.moveSlicer=(id,dock)=>{ const v=CP().visuals.find(x=>x.id===id); v.dock=dock; if(dock==="canvas"){v.w=Math.max(v.w,300);v.h=Math.max(v.h,90);} saveDash(); layoutStage(); paintPanel(); refreshAll(); };
 
 /* ═ Pestañas de página ═ */
 function renderTabs(){ const el=$("pagetabs"); if(!el)return;
+  el.style.display=(MODE==='view'&&DASH.pages.length<=1)?"none":"";   // visor con 1 sola página: sin barra de pestañas
   el.innerHTML=DASH.pages.map((p,i)=>`<span class="ptab ${i===DASH.active?'on':''}" onclick="switchPage(${i})" ondblclick="renamePage(${i})" title="doble-clic para renombrar">${esc(p.name)}${DASH.pages.length>1?` <span class="px" title="eliminar página" onclick="event.stopPropagation();delPage(${i})">✕</span>`:""}</span>`).join("")
     +`<span class="ptab add" onclick="addPage()" title="nueva página">＋</span>`; }
 function disposeCharts(){ Object.keys(charts).forEach(k=>{try{charts[k].dispose();}catch(e){} delete charts[k];}); }
 /* ═ Modo Editor / Visor (cliente) ═ Derivado del rol; seguridad real la da el RLS de bi_dashboards. */
 let MODE='view';   // fail-safe: sin rol resuelto, vista de cliente (read-only)
 function canEditRole(r){ return r==='system_admin'||r==='company_admin'; }
-function applyMode(){ const ed=MODE==='edit'; document.body.classList.toggle('mode-edit',ed); document.body.classList.toggle('mode-view',!ed);
+function applyMode(){ const ed=MODE==='edit'; document.body.classList.toggle('mode-edit',ed); document.body.classList.toggle('mode-view',!ed); document.body.classList.toggle('can-edit',!!window.BD_CANEDIT);
   const t=$('modeToggle'); if(t){ t.style.display=window.BD_CANEDIT?'':'none'; t.textContent=ed?'👁 Vista cliente':'✎ Editor'; t.title=ed?'Previsualizar como cliente':'Volver a edición'; } }
 window.toggleMode=()=>{ if(!window.BD_CANEDIT)return; MODE=(MODE==='edit')?'view':'edit'; applyMode(); if(typeof selClear==='function')selClear(); };
 async function detectMode(){ try{ if(window.sbClient){ const {data:{session}}=await window.sbClient.auth.getSession(); if(session){ const {data:pr}=await window.sbClient.from('profiles').select('role').eq('id',session.user.id).maybeSingle(); window.BD_ROLE=(pr&&pr.role)||''; } } }catch(e){} window.BD_CANEDIT=canEditRole(window.BD_ROLE||''); MODE=window.BD_CANEDIT?'edit':'view'; }
