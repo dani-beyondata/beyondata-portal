@@ -266,6 +266,7 @@
     <button class="hdr" onclick="togglePanelHidden()" title="mostrar/ocultar panel de filtros">⚑ Filtros</button>
     <button class="hdr" onclick="openExplorer()">🔎 Explorar</button>
     <button class="hdr" onclick="openData()">🗂 Datos</button>
+    <button class="hdr" onclick="refreshData()" title="Volver a consultar la base de datos (p. ej. tras subir datos nuevos). Normalmente no hace falta: los cambios de página y filtros ya reutilizan lo cargado.">↻ Actualizar</button>
     <button class="hdr" onclick="openModel()">🔗 Modelo</button>
     <button class="hdr" onclick="editCanvas()" title="color de fondo del lienzo de esta página">🎨 Lienzo</button>
     <button class="hdr" onclick="openJSON()">{ } Config</button>
@@ -604,10 +605,14 @@ function paramRefHTML(v){ const ps=getParams(); if(!ps.length)return ""; const u
 /* ─ DuckDB ─ */
 let db,conn,echarts;
 // Fase 2 · dedupe por SQL: misma SQL final (tras params) → una sola RPC compartida. Caché por lote (se limpia al empezar cada refresh).
-let QCACHE=new Map();
+let QCACHE=new Map(); const QCAP=300;
 function clearQCache(){ QCACHE.clear(); }
 async function _qraw(fsql){ if(!window.sbClient) throw new Error("Sin sesion de Supabase (abre el BI dentro del portal)"); const { data, error } = await window.sbClient.rpc("bi_run_sql",{ q: fsql }); if(error) throw new Error(error.message); return Array.isArray(data) ? data : (data==null ? [] : [data]); }
-async function q(sql){ const fsql=subParams(sql); let pr=QCACHE.get(fsql); if(!pr){ pr=_qraw(fsql); QCACHE.set(fsql,pr); pr.catch(()=>QCACHE.delete(fsql)); } const rows=await pr; return rows.slice(); }
+async function q(sql){ const fsql=subParams(sql); let pr=QCACHE.get(fsql);
+  if(pr){ QCACHE.delete(fsql); QCACHE.set(fsql,pr); }                 // LRU: recolócalo como el más reciente
+  else { pr=_qraw(fsql); QCACHE.set(fsql,pr); pr.catch(()=>QCACHE.delete(fsql));
+         if(QCACHE.size>QCAP){ const oldest=QCACHE.keys().next().value; QCACHE.delete(oldest); } }
+  const rows=await pr; return rows.slice(); }
 async function initDuckDB(duckdb){ let bundle=LIBS.mode==="local"?await duckdb.selectBundle(LIBS.bundles):await duckdb.selectBundle(duckdb.getJsDelivrBundles());
   const abs=u=>u?new URL(u,location.href).href:u; const wurl=URL.createObjectURL(new Blob([`importScripts("${abs(bundle.mainWorker)}");`],{type:"text/javascript"})); const worker=new Worker(wurl);
   db=new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING),worker); await db.instantiate(abs(bundle.mainModule),abs(bundle.pthreadWorker)); URL.revokeObjectURL(wurl); conn=await db.connect(); }
@@ -2387,11 +2392,15 @@ function progStart(n){ const b=$("bd-progbar"),t=$("bd-prog"); if(b){b.style.opa
 function progTick(done,n){ const b=$("bd-progbar"),t=$("bd-prog"); const pct=n?Math.round(done/n*100):100; if(b)b.style.width=pct+"%"; if(t)t.textContent="⟳ Cargando "+done+"/"+n; }
 function progEnd(){ const b=$("bd-progbar"),t=$("bd-prog"); if(b){b.style.width="100%"; setTimeout(()=>{b.style.opacity="0";b.style.width="0%";},300);} if(t){clearTimeout(t._t); t._t=setTimeout(()=>{t.style.opacity="0";t.textContent="";},300);} }
 // Fase 2 · carga en paralelo con pool acotado (respeta el backend) + dedupe (QCACHE) + progreso
-async function refreshAll(){ clearQCache(); const vis=CP().visuals.slice(); const n=vis.length; if(!n)return; let done=0, i=0; const show=n>1; if(show)progStart(n);
-  const size=Math.min(6,n); const worker=async()=>{ while(i<n){ const v=vis[i++]; try{ await renderVisual(v); }catch(e){} done++; if(show)progTick(done,n); } };
-  await Promise.all(Array.from({length:size},worker)); if(show)progEnd(); }
+async function refreshAll(opts){ if(opts&&opts.force) clearQCache();   // solo re-consulta la BD si se fuerza (botón Actualizar); si no, reutiliza QCACHE
+  const vis=CP().visuals.slice(); const n=vis.length; if(!n)return; let done=0, i=0; const show=n>1;
+  let barOn=false, barT=0;
+  if(show) barT=setTimeout(()=>{ barOn=true; progStart(n); progTick(done,n); },160);  // la barra solo aparece si tarda >160ms (consultas reales); un cambio de página servido de caché no la enseña
+  const size=Math.min(6,n); const worker=async()=>{ while(i<n){ const v=vis[i++]; try{ await renderVisual(v); }catch(e){} done++; if(barOn)progTick(done,n); } };
+  await Promise.all(Array.from({length:size},worker)); clearTimeout(barT); if(barOn)progEnd(); }
+window.refreshData=()=>refreshAll({force:true});   // fuerza re-consulta a la BD (p. ej. tras subir datos nuevos)
 // Refresh UX · Fase 1: re-render solo el visual editado + sus dependientes (en vez de todas las queries)
-async function refreshVisualDeps(v){ if(!v){ await refreshAll(); return; } clearQCache();
+async function refreshVisualDeps(v){ if(!v){ await refreshAll(); return; }
   if(v.type==="slicer"){ await refreshAll(); return; }  // un slicer puede afectar a muchos → refresco completo
   await renderVisual(v);
   if(v.type==="metricgroup"){ for(const id of (v.targets||[])){ const t=CP().visuals.find(x=>x.id===id); if(t)await renderVisual(t); } }
