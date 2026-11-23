@@ -92,12 +92,29 @@
   body.mode-view.can-edit #editReturn{display:inline-flex}   /* botón de volver a edición: solo admins en vista previa */
   body.mode-view .ptok{display:none}   /* en visor no se enseña el token $CY del parámetro (es cosa de editor) */
   /* Chip de usuario (solo visor): colapsado a un icono abajo-izquierda, se expande al pasar por encima */
-  #userChip{position:fixed;left:14px;bottom:14px;z-index:500;display:none;align-items:center;background:#fff;border:1px solid #dbe2ec;border-radius:20px;padding:5px;box-shadow:0 2px 10px rgba(0,0,0,.14);font-size:12px;color:#1E3A5F;overflow:hidden;max-width:34px;transition:max-width .22s ease}
-  body.mode-view #userChip{display:flex}
-  #userChip:hover{max-width:340px}
+  #userZone{position:fixed;left:14px;bottom:14px;z-index:500;display:none;flex-direction:column;align-items:flex-start;gap:6px}
+  body.mode-view #userZone{display:flex}
+  #userChip{display:flex;align-items:center;background:#fff;border:1px solid #dbe2ec;border-radius:20px;padding:5px;box-shadow:0 2px 10px rgba(0,0,0,.14);font-size:12px;color:#1E3A5F;overflow:hidden;max-width:34px;transition:max-width .22s ease}
+  #userZone:hover #userChip{max-width:340px}
   #userChip .uc-ic{width:24px;text-align:center;flex:0 0 auto;font-size:14px}
   #userChip .uc-name{white-space:nowrap;padding:0 10px 0 2px;opacity:0;transition:opacity .2s}
-  #userChip:hover .uc-name{opacity:1}
+  #userZone:hover #userChip .uc-name{opacity:1}
+  #expBtn{display:none;align-items:center;gap:5px;background:#fff;border:1px solid #dbe2ec;border-radius:9px;padding:6px 11px;box-shadow:0 2px 10px rgba(0,0,0,.14);font-size:12px;font-weight:700;color:#1E3A5F;cursor:pointer}
+  #userZone:hover #expBtn,#userZone.expopen #expBtn{display:inline-flex}
+  #expMenu{display:none;flex-direction:column;gap:2px;background:#fff;border:1px solid #dbe2ec;border-radius:10px;box-shadow:0 8px 26px rgba(16,40,50,.18);padding:5px;min-width:160px}
+  #userZone.expopen #expMenu{display:flex}
+  #expMenu button{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 10px;border-radius:7px;font-size:12px;color:#1E3A5F;cursor:pointer;white-space:nowrap}
+  #expMenu button:hover{background:#eef3fb}
+  /* Controles de estilo de caja/título en el editor */
+  .bxgrid{display:flex;flex-direction:column;gap:7px;margin-top:5px}
+  .bxrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .bxrow .bxlbl,.bxrow .bxck{font-size:12px;color:var(--muted);font-weight:600;min-width:70px;display:flex;align-items:center;gap:5px}
+  .bxrow input[type=range]{flex:1 1 110px}
+  .bxrow .bxnum{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px}
+  .bxrow .bxnum input{width:52px}
+  .bxrow output{font-size:12px;color:var(--teal-d);min-width:40px;text-align:right}
+  .bxrow input[type=color]{width:40px;height:28px;padding:0;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer}
+  .bxrow select{height:30px}
   #stage{position:relative;margin:0 auto;background:
     linear-gradient(90deg,#00000006 1px,transparent 1px) 0 0/20px 20px,
     linear-gradient(#00000006 1px,transparent 1px) 0 0/20px 20px, #f7f9fa;
@@ -299,13 +316,23 @@
         <button onclick="toolsDo(editCanvas)">🎨 Lienzo (fondo de página)</button>
         <button onclick="toolsDo(openJSON)">{ } Config dashboard</button>
         <button onclick="toolsDo(openPageJSON)">{ } Config página</button>
+        <button onclick="toolsDo(exportPagePDF)">⬇ Exportar página (PDF)</button>
+        <button onclick="toolsDo(exportDocPDF)">⬇ Exportar documento (PDF)</button>
       </div>
     </div>
     <button class="hdr" onclick="openHelp()">? Ayuda</button>
   </div>
 </header>
 <button id="editReturn" onclick="toggleMode()" title="Volver a edición">✎ Editor</button>
-<div id="userChip" title="Sesión"><span class="uc-ic">👤</span><span class="uc-name"></span></div>
+<div id="userZone">
+  <div id="expMenu">
+    <button onclick="exportDo('page','pdf')">⬇ Página · PDF</button>
+    <button onclick="exportDo('page','png')">⬇ Página · PNG</button>
+    <button onclick="exportDo('doc','pdf')">⬇ Documento · PDF</button>
+  </div>
+  <button id="expBtn" onclick="toggleExpMenu(event)" title="Exportar">⬆ Exportar</button>
+  <div id="userChip" title="Sesión"><span class="uc-ic">👤</span><span class="uc-name"></span></div>
+</div>
 
 <!-- Portal BI: hereda la sesion de Supabase del portal (same-origin). Prepara window.sbClient para el paso 4. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -371,7 +398,9 @@
 </div>
 
 <script>
-const LIBS = window.BD_LIBS || { echarts:"https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js" };
+const LIBS = window.BD_LIBS || { echarts:"https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js",
+  html2canvas:"https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js",
+  jspdf:"https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" };
 const $=id=>document.getElementById(id);
 const esc=s=>(s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 const escA=s=>esc(s).replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -1671,12 +1700,44 @@ function applyVisualBox(card,v){ const b=vBox(v); if(!b)return; const s=card.sty
   if(b.shadow!=null) s.boxShadow=b.shadow===false?"none":b.shadow;
   if(b.opacity!=null) s.opacity=b.opacity;
   if(b.bg!=null||b.border!=null) s.overflow="hidden"; }
-window.boxPreset=k=>{ const m={
-    grey:'{"bg":"#f7f9fa","border":1,"borderColor":"#e2e7ea","radius":12}',
-    card:'{"bg":"#ffffff","border":1,"borderColor":"#d7dbe0","radius":14,"shadow":"0 2px 10px rgba(16,40,50,.08)"}',
-    outline:'{"border":1,"borderColor":"#c7d0d6","radius":12}',
-    none:'' };
-  const t=document.getElementById("e_box"); if(t){ t.value=m[k]!=null?m[k]:""; t.dispatchEvent(new Event("input",{bubbles:true})); } };
+/* ── Estilo del título (va en .ghead) y estilo de caja por visual, con controles (no JSON) ── */
+const BARE_TYPES=['kpi','html','text','slicer','metricgroup','resultfilter'];
+function titleStyle(v){ let s=""; if(v.titleAlign)s+="text-align:"+v.titleAlign+";"; if(v.titleColor)s+="color:"+v.titleColor+";"; if(v.titleSize)s+="font-size:"+v.titleSize+"px;"; return s; }
+function gheadHTML(v){ const ts=titleStyle(v); return `<div class="ghead"><div class="t" style="${ts}">${esc(v.title||"")}</div>${v.subtitle?`<div class="st" style="${v.titleAlign?"text-align:"+v.titleAlign+";":""}">${esc(v.subtitle)}</div>`:""}</div>`; }
+const BOX_SHADOWS={none:"none",suave:"0 1px 3px rgba(16,40,50,.08)",media:"0 2px 10px rgba(16,40,50,.12)",fuerte:"0 6px 22px rgba(16,40,50,.18)"};
+function shadowLevel(val){ if(val==null)return null; for(const k in BOX_SHADOWS)if(BOX_SHADOWS[k]===val)return k; return "custom"; }
+function boxDefaults(v){ const bare=BARE_TYPES.includes(v.type);
+  return bare?{bg:"transparent",bgOn:false,border:0,borderColor:"#d7dbe0",radius:12,shadow:"none",opacity:1}
+             :{bg:"#ffffff",bgOn:true,border:1,borderColor:"#e2e7ea",radius:12,shadow:"0 1px 3px rgba(16,40,50,.08)",opacity:1}; }
+function boxCurrent(v){ const cur={...boxDefaults(v)}; const b=vBox(v)||{};
+  if(b.bg!=null){ cur.bg=b.bg; cur.bgOn=(b.bg!=="transparent"); }
+  if(b.border!=null)cur.border=b.border; if(b.borderColor!=null)cur.borderColor=b.borderColor;
+  if(b.radius!=null)cur.radius=b.radius; if(b.shadow!=null)cur.shadow=(b.shadow===false?"none":b.shadow);
+  if(b.opacity!=null)cur.opacity=b.opacity; return cur; }
+function boxControlsHTML(v){ const c=boxCurrent(v); const lvl=shadowLevel(c.shadow)||"none"; const hasTitle=!BARE_TYPES.includes(v.type);
+  const shOpt=(k,l)=>`<option value="${k}" ${lvl===k?"selected":""}>${l}</option>`; const ta=v.titleAlign||"left"; const taOpt=(k,l)=>`<option value="${k}" ${ta===k?"selected":""}>${l}</option>`;
+  const op=Math.round((c.opacity==null?1:c.opacity)*100);
+  return `<div style="margin-top:7px"><label>Estilo de la caja</label>
+    <div class="bxgrid">
+      <div class="bxrow"><label class="bxck"><input type="checkbox" id="e_bx_bgOn" ${c.bgOn?"checked":""}> Fondo</label><input type="color" id="e_bx_bg" value="${esc(c.bgOn&&c.bg!=="transparent"?c.bg:"#ffffff")}"></div>
+      <div class="bxrow"><label class="bxck"><input type="checkbox" id="e_bx_borderOn" ${c.border>0?"checked":""}> Borde</label><input type="color" id="e_bx_bordercolor" value="${esc(c.borderColor||"#e2e7ea")}"><span class="bxnum">grosor <input type="number" id="e_bx_borderw" min="0" max="6" step="1" value="${c.border||1}"> px</span></div>
+      <div class="bxrow"><span class="bxlbl">Esquinas</span><input type="range" id="e_bx_radius" min="0" max="28" step="1" value="${c.radius}" oninput="this.nextElementSibling.textContent=this.value+'px'"><output>${c.radius}px</output></div>
+      <div class="bxrow"><span class="bxlbl">Sombra</span><select id="e_bx_shadow">${shOpt("none","Ninguna")}${shOpt("suave","Suave")}${shOpt("media","Media")}${shOpt("fuerte","Pronunciada")}${lvl==="custom"?`<option value="custom" selected>Personalizada</option>`:""}</select></div>
+      <div class="bxrow"><span class="bxlbl">Opacidad</span><input type="range" id="e_bx_opacity" min="20" max="100" step="5" value="${op}" oninput="this.nextElementSibling.textContent=this.value+'%'"><output>${op}%</output></div>
+      ${hasTitle?`<div class="bxrow"><span class="bxlbl">Título</span><select id="e_bx_talign">${taOpt("left","Izquierda")}${taOpt("center","Centro")}${taOpt("right","Derecha")}</select><label class="bxck"><input type="checkbox" id="e_bx_tcolorOn" ${v.titleColor?"checked":""}> color</label><input type="color" id="e_bx_tcolor" value="${esc(v.titleColor||"#1E3A5F")}"><span class="bxnum">tam <input type="number" id="e_bx_tsize" min="9" max="28" step="1" value="${v.titleSize||""}" placeholder="auto"> px</span></div>`:""}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" class="sm" onclick="boxReset()">↺ Restablecer</button><button type="button" class="sm" onclick="boxApplyAll()">⇊ Aplicar a todos los visuales</button></div></div>`; }
+window.boxReset=()=>{ const v=CP().visuals[_editIdx]; if(!v)return; delete v.box; delete v.titleAlign; delete v.titleColor; delete v.titleSize; attachFsEditor(v,v.id); fsPreview(); };
+window.boxApplyAll=async()=>{ const v=CP().visuals[_editIdx]; if(!v)return; LIVE=true; try{await readEditor(v);}catch(e){} LIVE=false;
+  const others=CP().visuals.filter(x=>x.id!==v.id); if(!others.length){ alert("No hay otros visuales en esta página."); return; }
+  if(!confirm(`¿Aplicar este estilo (caja y título) a los otros ${others.length} visuales de la página?`))return;
+  const box=v.box?JSON.parse(JSON.stringify(v.box)):null;
+  others.forEach(x=>{ if(box)x.box=JSON.parse(JSON.stringify(box)); else delete x.box;
+    if(v.titleAlign!=null)x.titleAlign=v.titleAlign; else delete x.titleAlign;
+    if(v.titleColor!=null)x.titleColor=v.titleColor; else delete x.titleColor;
+    if(v.titleSize!=null)x.titleSize=v.titleSize; else delete x.titleSize; });
+  saveDash(); const stage=$("stage");
+  if(stage)CP().visuals.forEach(x=>{ const card=stage.querySelector('.gcard[data-id="'+(window.CSS&&CSS.escape?CSS.escape(x.id):x.id)+'"]'); if(card){ applyVisualBox(card,x); const t=card.querySelector(".ghead .t"); if(t)t.style.cssText=titleStyle(x); } }); };
 /* ── Fondo del lienzo, por página (CP().canvas): color / gradiente / imagen (URL) + opacidad + cuadrícula.
    Aditivo y retrocompatible: sin canvas (ni el antiguo CP().bg) el lienzo se ve como siempre. ── */
 function canvasModel(p){
@@ -1752,7 +1813,7 @@ function buildCardEl(v){
   card.style.cssText=`left:${v.x}px;top:${v.y}px;width:${v.w}px;height:${v.h}px`;
   applyVisualBox(card,v);
   card.innerHTML=`<div class="gdrag"></div><div class="gctrl">${(!['kpi','html','text','slicer','metricgroup','resultfilter'].includes(v.type))?`<span onclick="exportMenu(event,'${v.id}')" title="Exportar datos">⬇</span>`:""}${v.type==="slicer"?`<span onclick="moveSlicer('${v.id}','panel')" title="al panel">↙</span>`:""}<span onclick="editVisual('${v.id}')">✎</span><span onclick="dupVisual('${v.id}')">⧉</span><span onclick="delVisual('${v.id}')">🗑</span></div>`+
-    ((['kpi','html','slicer','text','metricgroup','resultfilter'].includes(v.type))?'':`<div class="ghead"><div class="t">${esc(v.title||'')}</div>${v.subtitle?`<div class="st">${esc(v.subtitle)}</div>`:''}</div>`)+
+    ((['kpi','html','slicer','text','metricgroup','resultfilter'].includes(v.type))?'':gheadHTML(v))+
     `<div class="vbody" id="body_${v.id}"></div><div class="rz"></div>`;
   return card;
 }
@@ -2069,6 +2130,26 @@ let SEL=new Set();
 function expRows(v){ return q(applyRF(applyWhere(effSQL(v)),v)); }
 function dlBlob(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},800); }
 function expToast(msg){ let t=$("exptoast"); if(!t){t=document.createElement("div");t.id="exptoast";document.body.appendChild(t);} t.textContent=msg; t.classList.add("on"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),1600); }
+/* ── Exportar la página actual a PDF / PNG (html2canvas + jsPDF, cargadas bajo demanda) ── */
+let _h2c=null,_jspdf=null;
+async function ensureExportLibs(pdf){ if(!_h2c){ await loadScript(LIBS.html2canvas||"https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"); _h2c=window.html2canvas; }
+  if(pdf&&!_jspdf){ await loadScript(LIBS.jspdf||"https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"); _jspdf=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; } }
+async function _capturePage(scale){ const stage=$("stage"); if(!stage)throw new Error("sin lienzo"); const z=stage.style.zoom; stage.style.zoom="1";  // el zoom CSS rompe html2canvas
+  try{ const w=Math.max(stage.scrollWidth,PAGE_W), h=stage.scrollHeight; return await _h2c(stage,{scale:scale||2,backgroundColor:"#ffffff",useCORS:true,logging:false,width:w,height:h,windowWidth:w,windowHeight:h}); }
+  finally{ stage.style.zoom=z; } }
+function _dlName(ext,base){ const n=base||(CP()&&CP().name)||"dashboard"; return String(n).replace(/[^\w\-]+/g,"_")+"."+ext; }
+window.exportPagePNG=async()=>{ try{ expToast("Generando imagen…"); await ensureExportLibs(false); const c=await _capturePage(2); const a=document.createElement("a"); a.href=c.toDataURL("image/png"); a.download=_dlName("png"); a.click(); expToast("Imagen descargada"); }catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); } };
+window.exportPagePDF=async()=>{ try{ expToast("Generando PDF…"); await ensureExportLibs(true); const c=await _capturePage(2); const w=c.width/2, h=c.height/2; const pdf=new _jspdf({orientation:w>=h?"landscape":"portrait",unit:"pt",format:[w,h],compress:true}); pdf.addImage(c.toDataURL("image/png"),"PNG",0,0,w,h); pdf.save(_dlName("pdf")); expToast("PDF descargado"); }catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); } };
+window.exportDocPDF=async()=>{ try{ await ensureExportLibs(true); const orig=DASH.active, n=DASH.pages.length; let pdf=null;
+  for(let i=0;i<n;i++){ expToast(`Generando documento… ${i+1}/${n}`); DASH.active=i; renderTabs(); layoutStage(); paintPanel(); await refreshAll(); await new Promise(r=>setTimeout(r,180));
+    const c=await _capturePage(2); const w=c.width/2, h=c.height/2, ori=w>=h?"landscape":"portrait";
+    if(!pdf) pdf=new _jspdf({orientation:ori,unit:"pt",format:[w,h],compress:true}); else pdf.addPage([w,h],ori);
+    pdf.addImage(c.toDataURL("image/png"),"PNG",0,0,w,h); }
+  DASH.active=orig; renderTabs(); layoutStage(); paintPanel(); await refreshAll();
+  pdf.save(_dlName("pdf","documento")); expToast("Documento descargado"); }catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); } };
+window.toggleExpMenu=(ev)=>{ if(ev)ev.stopPropagation(); const z=$("userZone"); if(!z)return; const open=!z.classList.contains("expopen"); z.classList.toggle("expopen",open);
+  if(open){ const close=(e)=>{ if(!z.contains(e.target)){ z.classList.remove("expopen"); document.removeEventListener("mousedown",close); } }; setTimeout(()=>document.addEventListener("mousedown",close),0); } };
+window.exportDo=(what,fmt)=>{ const z=$("userZone"); if(z)z.classList.remove("expopen"); if(what==="doc")return exportDocPDF(); return fmt==="png"?exportPagePNG():exportPagePDF(); };
 let _expDown=null;
 function expColsOf(rows){ const HIDE=new Set(["ord","sord","colord","roword"]); return Object.keys(rows[0]||{}).filter(c=>!HIDE.has(String(c).toLowerCase())); }
 window.closeExportMenu=()=>{ const m=$("expmenu"); if(m)m.remove(); if(_expDown){document.removeEventListener("mousedown",_expDown);_expDown=null;} };
@@ -2298,11 +2379,7 @@ function editorFormHTML(v,id){ const def=VIS[v.type]||{};
     <div class="hint"><b>Rango de fechas</b> y <b>relativas</b> (YTD, últimos 7/30…) necesitan una columna de fecha (p.ej. <code>checkin_date</code>, <code>stay_date</code>). <b>Rango numérico</b>, una columna numérica (<code>production</code>, <code>booking_window</code>). Selección <b>única</b>, recuentos y buscador aplican al modo lista.</div>
     ${(()=>{ const aff=slicerAffects(v.slTable); return `<div class="${aff.length?"cte-note":"cte-warn"}" style="margin-top:7px">${aff.length?`Este slicer filtra <b>${aff.length}</b> visual(es) que usan <code>${esc(v.slTable||"")}</code>: ${aff.map(x=>esc(x.title||x.id)).join(", ")}.`:`⚠ Ningún visual de esta página usa <code>${esc(v.slTable||"")}</code>, así que este slicer <b>no filtra nada</b> todavía. Usa <code>FROM ${esc(v.slTable||"tabla")}</code> en algún visual.`}</div>`; })()}`:"";
   const titleFields=def.title==="none"?"":(def.title==="only"?`<div><label>Título</label><input id="e_title" type="text" value="${esc(v.title||"")}"></div>`:`<div class="row"><div><label>Título</label><input id="e_title" type="text" value="${esc(v.title||"")}"></div><div><label>Subtítulo</label><input id="e_sub" type="text" value="${esc(v.subtitle||"")}"></div></div>`);
-  const boxVal=v.box?(typeof v.box==="string"?v.box:JSON.stringify(v.box)):"";
-  const boxField=`<div style="margin-top:7px"><label>Caja del visual · fondo / borde / esquinas (JSON, opcional)</label>
-    <textarea id="e_box" class="fxjson" style="min-height:52px;width:100%;white-space:pre" placeholder='{"bg":"#f7f9fa","border":1,"borderColor":"#d7dbe0","radius":12,"shadow":"0 1px 3px rgba(16,40,50,.08)"}'>${esc(boxVal)}</textarea>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><button type="button" class="sm" onclick="boxPreset('grey')">Fondo gris</button><button type="button" class="sm" onclick="boxPreset('card')">Tarjeta + sombra</button><button type="button" class="sm" onclick="boxPreset('outline')">Solo borde</button><button type="button" class="sm" onclick="boxPreset('none')">Quitar</button></div>
-    <div class="hint">Claves: <code>bg</code> · <code>border</code> (px) · <code>borderColor</code> · <code>radius</code> (px) · <code>shadow</code> (CSS) · <code>opacity</code>. Vacío = estilo por defecto (no cambia nada).</div></div>`;
+  const boxField=boxControlsHTML(v);
   const generalSec=`<div class="sec"><div class="sech">General</div>${dims}${slFields}${titleFields}${boxField}</div>`;
   let fmtInner=def.formato?def.formato(v,id):"";
   if(def.effects){ const isTbl=def.engine!=="echarts"; fmtInner+=`<div style="margin-top:8px"><label>${isTbl?"Estilo / efectos":"Efectos"} <span class="hint" style="font-weight:400">(marca el checkbox; el JSON de cada uno es editable)</span></label><div class="fxlist">${fxRows(v)}</div>${isTbl?`<div class="hint">Controlan cómo se ve la tabla (ancho, fuente, densidad, alto de fila, ancho de columna, cabecera…). Se aplican como CSS; no cambian los datos.</div>`:""}</div>`;
@@ -2394,7 +2471,7 @@ async function fsPreview(){ const v=CP().visuals[_editIdx]; if(!v)return; if(v.t
   const pv=JSON.parse(JSON.stringify(v)); pv.id="__pv";
   if(v.type==="slicer")SLOPTS["__pv"]=SLOPTS[v.id];
   if(pv.group){ const gg=metricGroupOf(v); const chip=gg&&(gg.chips||[]).find(c=>c.id===(_editMetricId||gg.selected)); if(chip&&chip.fmt)pv.fmt=chip.fmt; if(v.type==="matrix"&&chip){ pv.heat=('heat' in chip)?chip.heat:undefined; pv.bar=('bar' in chip)?chip.bar:undefined; pv.arrow=('arrow' in chip)?chip.arrow:undefined; } const stored=(v.metricSQL||{})[_editMetricId]; pv.sql=(stored!=null&&stored!=="")?stored:(v.sql||""); pv.group=undefined; } // la preview muestra el chip que editas, con su formato y heat/barra
-  host.innerHTML=`<div class="gcard ${bare?v.type:''} ${fill?'fsfill':''}" style="${fill?'':`width:${v.w}px;height:${v.h}px`}">${bare?'':`<div class="ghead"><div class="t">${esc(v.title||'')}</div>${v.subtitle?`<div class="st">${esc(v.subtitle)}</div>`:''}</div>`}<div class="vbody" id="body___pv"></div></div>`;
+  host.innerHTML=`<div class="gcard ${bare?v.type:''} ${fill?'fsfill':''}" style="${fill?'':`width:${v.w}px;height:${v.h}px`}">${bare?'':gheadHTML(v)}<div class="vbody" id="body___pv"></div></div>`;
   { const pvCard=host.querySelector(".gcard"); if(pvCard)applyVisualBox(pvCard,v); }
   if(def.engine==="echarts"){ $("body___pv").innerHTML=`<div class="echart" id="ch___pv"></div>`; charts["__pv"]=echarts.init($("ch___pv")); }
   try{ await renderVisual(pv); if(charts["__pv"])charts["__pv"].resize(); $("fs_pvnote").textContent=""; }
@@ -2415,7 +2492,16 @@ function fsClose(){ if(charts["__pv"]){try{charts["__pv"].dispose()}catch(e){} d
 window.eslCols=()=>{ const t=$("e_sltable").value; $("e_slcol").innerHTML=(tableCols[t]||[]).map(c=>`<option>${c}</option>`).join(""); };
 async function readEditor(v){ if($("e_w"))v.w=Math.max(120,+$("e_w").value||v.w); if($("e_h"))v.h=Math.max(48,+$("e_h").value||v.h); if($("e_x"))v.x=Math.max(0,+$("e_x").value||v.x); if($("e_y"))v.y=Math.max(0,+$("e_y").value||v.y);
   if($("e_title"))v.title=$("e_title").value; if($("e_sub"))v.subtitle=$("e_sub").value;
-  if($("e_box")){ const t=$("e_box").value.trim(); if(!t)delete v.box; else{ try{ v.box=JSON.parse(t); }catch(e){ if(!LIVE)alert("Caja del visual: JSON inválido, se mantiene el anterior.\n"+e.message); } } }
+  if($("e_bx_radius")){ const box={};
+    box.radius=+$("e_bx_radius").value;
+    box.bg=$("e_bx_bgOn").checked?$("e_bx_bg").value:"transparent";
+    if($("e_bx_borderOn").checked){ box.border=Math.max(1,+$("e_bx_borderw").value||1); box.borderColor=$("e_bx_bordercolor").value; } else box.border=0;
+    const shv=$("e_bx_shadow").value; box.shadow = shv==="custom" ? ((vBox(v)&&vBox(v).shadow)||"none") : (BOX_SHADOWS[shv]!=null?BOX_SHADOWS[shv]:"none");
+    box.opacity=(+$("e_bx_opacity").value||100)/100;
+    v.box=box;
+    if($("e_bx_talign")){ v.titleAlign=($("e_bx_talign").value==="left")?undefined:$("e_bx_talign").value;
+      v.titleColor=$("e_bx_tcolorOn").checked?$("e_bx_tcolor").value:undefined;
+      const tsz=+$("e_bx_tsize").value; v.titleSize=tsz>0?tsz:undefined; } }
   if($("e_wysiwyg"))v.html=$("e_wysiwyg").innerHTML; else if($("e_html"))v.html=$("e_html").value;
   if($("e_bgmode"))v.bg=$("e_bgmode").value==="color"?$("e_bg").value:undefined; else if($("e_bg"))v.bg=$("e_bg").value||undefined;
   if($("e_wysiwyg"))$("e_wysiwyg").style.background=v.bg||"#fff";
