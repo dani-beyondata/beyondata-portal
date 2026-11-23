@@ -6787,7 +6787,10 @@
   // BI: carga perezosa del iframe la primera vez que se abre la seccion.
   function loadBI() {
     const f = document.getElementById('bi-frame');
-    if (f && f.dataset.src && !f.dataset.loaded) { f.src = f.dataset.src; f.dataset.loaded = '1'; }
+    if (f && f.dataset.src && !f.dataset.loaded) {
+      const cid = (currentCompany && currentCompany.id) ? ('?company=' + encodeURIComponent(currentCompany.id)) : '';
+      f.src = f.dataset.src + cid; f.dataset.loaded = '1';
+    }
   }
 
   function getSectionLoaders() {

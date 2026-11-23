@@ -1752,13 +1752,18 @@ function CP(){ return DASH.pages[DASH.active]; }
 /* clave de guardado distinta para datos reales vs fake, para que no choquen las cachés */
 function dashKey(){ return window.REAL?"bd_dash_real_v1":"bd_dash_v8"; }
 function loadDash(){ try{const s=localStorage.getItem(dashKey()); if(s){const d=JSON.parse(s); if(d&&d.pages&&d.pages.length)return d; if(d&&d.visuals)return {pages:[{id:"pg_main",name:"Página 1",panel:d.panel||{collapsed:false,orient:"horizontal"},visuals:d.visuals}],active:0};}}catch(e){} return defaultDoc(); }
-function saveDash(){ try{localStorage.setItem(dashKey(),JSON.stringify(DASH));}catch(e){} recordHist(); }
+function saveDash(){ try{localStorage.setItem(dashKey(),JSON.stringify(DASH));}catch(e){} saveDashServer(); recordHist(); }
+// ── Persistencia compartida en Supabase (tabla bi_dashboards, por company) ──
+function biCompany(){ try{ const u=new URLSearchParams(location.search).get("company"); if(u){try{localStorage.setItem("bd_company",u);}catch(_){ } return u;} return localStorage.getItem("bd_company")||""; }catch(e){ return ""; } }
+async function loadDashServer(){ const cid=biCompany(); if(!cid||!window.sbClient)return null; try{ const {data,error}=await window.sbClient.from("bi_dashboards").select("doc").eq("company_id",cid).maybeSingle(); if(error)return null; if(data&&data.doc&&data.doc.pages&&data.doc.pages.length)return data.doc; }catch(e){} return null; }
+let _srvT=null, _srvOn=true;
+function saveDashServer(){ if(!_srvOn)return; const cid=biCompany(); if(!cid||!window.sbClient)return; clearTimeout(_srvT); _srvT=setTimeout(async()=>{ try{ let uid=null; try{ uid=(await window.sbClient.auth.getSession()).data?.session?.user?.id||null; }catch(_){ } await window.sbClient.from("bi_dashboards").upsert({company_id:cid,doc:DASH,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:"company_id"}); }catch(e){} },1500); }
 /* ─ historial (deshacer / rehacer) ─ */
 let _hist=[],_fut=[];
 function _snap(){ return JSON.stringify(DASH); }
 function seedHist(){ _hist=[_snap()]; _fut=[]; }
 function recordHist(){ const s=_snap(); if(_hist.length&&_hist[_hist.length-1]===s)return; _hist.push(s); if(_hist.length>80)_hist.shift(); _fut=[]; }
-async function applyDoc(str){ DASH=JSON.parse(str); ensureParams(); if(DASH.active==null||DASH.active>=DASH.pages.length)DASH.active=0; try{localStorage.setItem(dashKey(),str);}catch(e){} disposeCharts(); await buildSlicerOpts(); renderTabs(); layoutStage(); paintPanel(); await refreshAll(); }
+async function applyDoc(str){ DASH=JSON.parse(str); ensureParams(); if(DASH.active==null||DASH.active>=DASH.pages.length)DASH.active=0; try{localStorage.setItem(dashKey(),str);}catch(e){} saveDashServer(); disposeCharts(); await buildSlicerOpts(); renderTabs(); layoutStage(); paintPanel(); await refreshAll(); }
 window.undo=async()=>{ if(_hist.length<2)return; _fut.push(_hist.pop()); await applyDoc(_hist[_hist.length-1]); };
 window.redo=async()=>{ if(!_fut.length)return; const s=_fut.pop(); _hist.push(s); await applyDoc(s); };
 
@@ -2781,7 +2786,11 @@ async function loadTableCols(){
 /* ─ Arranque ─ */
 async function boot(){
   await loadScript(LIBS.echarts); echarts=window.echarts;
-  /* Portal: sin DuckDB — q() consulta Postgres via RPC bi_run_sql (RLS del usuario). */ DASH=loadDash(); ensureParams(); await loadTableCols(); await buildSlicerOpts();
+  /* Portal: sin DuckDB — q() consulta Postgres via RPC bi_run_sql (RLS del usuario). Dashboard: Supabase (compartido) → fallback localStorage → migra local a Supabase la 1ª vez. */
+  const _srvDoc=await loadDashServer();
+  if(_srvDoc){ DASH=_srvDoc; }
+  else { DASH=loadDash(); try{ const _ls=localStorage.getItem(dashKey()); if(_ls){ const _d=JSON.parse(_ls); if(_d&&_d.pages&&_d.pages.length) saveDashServer(); } }catch(e){} }
+  ensureParams(); await loadTableCols(); await buildSlicerOpts();
   window.addEventListener("resize",()=>{for(const id in charts)charts[id].resize();});
   try{ const dw=localStorage.getItem("drawer_w"); if(dw)$("drawer").style.width=dw; const ew=localStorage.getItem("explorer_w"); if(ew)$("explorer").style.width=ew; }catch(e){}
   makeResizer("d_resize","drawer","right"); makeResizer("exp_resize","explorer","left");
