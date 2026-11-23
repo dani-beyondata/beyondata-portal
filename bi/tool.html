@@ -2073,17 +2073,31 @@ window.editCanvas=()=>{ const p=CP(); const c=canvasModel(p)||canvasDefault(); c
     <button onclick="cvAllPages()">Aplicar a todas las páginas</button>
     <button class="danger" onclick="clearCanvas()">Quitar (default)</button></div>`);
   const d=$("cv_type"); if(d){ d.value=b.type||"none"; } cvTypeUI(); };
+function buildCardEl(v){
+  const card=document.createElement("div"); card.className="gcard "+(['kpi','html','text','slicer','metricgroup','resultfilter'].includes(v.type)?v.type:""); card.dataset.id=v.id;
+  card.style.cssText=`left:${v.x}px;top:${v.y}px;width:${v.w}px;height:${v.h}px`;
+  applyVisualBox(card,v);
+  card.innerHTML=`<div class="gdrag"></div><div class="gctrl">${(!['kpi','html','text','slicer','metricgroup','resultfilter'].includes(v.type))?`<span onclick="exportMenu(event,'${v.id}')" title="Exportar datos">⬇</span>`:""}${v.type==="slicer"?`<span onclick="moveSlicer('${v.id}','panel')" title="al panel">↙</span>`:""}<span onclick="editVisual('${v.id}')">✎</span><span onclick="dupVisual('${v.id}')">⧉</span><span onclick="delVisual('${v.id}')">🗑</span></div>`+
+    ((['kpi','html','slicer','text','metricgroup','resultfilter'].includes(v.type))?'':`<div class="ghead"><div class="t">${esc(v.title||'')}</div>${v.subtitle?`<div class="st">${esc(v.subtitle)}</div>`:''}</div>`)+
+    `<div class="vbody" id="body_${v.id}"></div><div class="rz"></div>`;
+  return card;
+}
+// Refresh UX · Fase 1: reconstruye SOLO la tarjeta de un visual (geometría/caja/título), sin tocar las demás
+function relayoutOne(v){ const stage=$("stage"); if(!stage||!v)return;
+  if(charts[v.id]){try{charts[v.id].dispose();}catch(e){} delete charts[v.id];}
+  const old=stage.querySelector('.gcard[data-id="'+(window.CSS&&CSS.escape?CSS.escape(v.id):v.id)+'"]');
+  if(v.type==="slicer"&&(v.dock||"panel")==="panel"){ if(old)old.remove(); paintPanel(); return; }
+  const card=buildCardEl(v); if(old)old.replaceWith(card); else stage.appendChild(card);
+  let maxB=300; CP().visuals.forEach(x=>maxB=Math.max(maxB,x.y+x.h)); stage.style.height=(maxB+40)+"px";
+  if(VIS[v.type]&&VIS[v.type].engine==="echarts"){ $("body_"+v.id).innerHTML=`<div class="echart" id="ch_${v.id}"></div>`; charts[v.id]=echarts.init($("ch_"+v.id)); }
+  attachInteract();
+}
 function layoutStage(){ const stage=$("stage"); let maxB=300;
   applyCanvas();   // fondo del lienzo por página (CP().canvas): color / gradiente / imagen + opacidad + cuadrícula
   Object.keys(charts).forEach(k=>{try{charts[k].dispose();}catch(e){} delete charts[k];});
   stage.querySelectorAll(".gcard").forEach(e=>e.remove());
   CP().visuals.filter(v=>!(v.type==="slicer"&&(v.dock||"panel")==="panel")).forEach(v=>{ maxB=Math.max(maxB,v.y+v.h);
-    const card=document.createElement("div"); card.className="gcard "+(['kpi','html','text','slicer','metricgroup','resultfilter'].includes(v.type)?v.type:""); card.dataset.id=v.id;
-    card.style.cssText=`left:${v.x}px;top:${v.y}px;width:${v.w}px;height:${v.h}px`;
-    applyVisualBox(card,v);
-    card.innerHTML=`<div class="gdrag"></div><div class="gctrl">${(!['kpi','html','text','slicer','metricgroup','resultfilter'].includes(v.type))?`<span onclick="exportMenu(event,'${v.id}')" title="Exportar datos">⬇</span>`:""}${v.type==="slicer"?`<span onclick="moveSlicer('${v.id}','panel')" title="al panel">↙</span>`:""}<span onclick="editVisual('${v.id}')">✎</span><span onclick="dupVisual('${v.id}')">⧉</span><span onclick="delVisual('${v.id}')">🗑</span></div>`+
-      ((['kpi','html','slicer','text','metricgroup','resultfilter'].includes(v.type))?'':`<div class="ghead"><div class="t">${esc(v.title||'')}</div>${v.subtitle?`<div class="st">${esc(v.subtitle)}</div>`:''}</div>`)+
-      `<div class="vbody" id="body_${v.id}"></div><div class="rz"></div>`;
+    const card=buildCardEl(v);
     stage.appendChild(card); });
   stage.style.width=PAGE_W+"px"; stage.style.height=(maxB+40)+"px";
   CP().visuals.forEach(v=>{ if(VIS[v.type]&&VIS[v.type].engine==="echarts"){ $("body_"+v.id).innerHTML=`<div class="echart" id="ch_${v.id}"></div>`; charts[v.id]=echarts.init($("ch_"+v.id)); }});
@@ -2702,7 +2716,7 @@ async function renderResultGrid(pv){ const host=$("fs_result"); if(!host)return;
   try{ const rows=await q(sql); const cols=rows.length?Object.keys(rows[0]):[];
     host.innerHTML=`<div class="rinfo">${rows.length} fila(s) · ${cols.length} columna(s)${rows.length>200?" · mostrando 200":""}</div><table class="dt"><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>`+rows.slice(0,200).map(r=>`<tr>${cols.map(c=>`<td>${esc(typeof r[c]==="number"?nf(r[c],Number.isInteger(r[c])?0:2):(r[c]==null?"":String(r[c])))}</td>`).join("")}</tr>`).join("")+`</tbody></table>`;
   }catch(e){ host.innerHTML=`<div class="rinfo" style="color:#b4322a">Error: ${esc(e.message)}</div>`; } }
-window.fsSave=async()=>{ const v=CP().visuals[_editIdx]; if(!v){fsClose();return;} LIVE=false; try{ await readEditor(v); }catch(e){} saveDash(); const t=v.type, id=v.id; fsClose(); delete charts[id]; if(t==="slicer")await buildSlicerOpts(); layoutStage(); paintPanel(); await refreshVisualDeps(v); };
+window.fsSave=async()=>{ const v=CP().visuals[_editIdx]; if(!v){fsClose();return;} LIVE=false; try{ await readEditor(v); }catch(e){} saveDash(); const t=v.type, id=v.id; fsClose(); delete charts[id]; if(t==="slicer")await buildSlicerOpts(); relayoutOne(v); paintPanel(); await refreshVisualDeps(v); };
 window.fsCancel=async()=>{ if(_editIdx>=0&&_editBackup){ CP().visuals[_editIdx]=JSON.parse(_editBackup); } fsClose(); layoutStage(); paintPanel(); await refreshAll(); };
 function fsClose(){ if(charts["__pv"]){try{charts["__pv"].dispose()}catch(e){} delete charts["__pv"];} $("fsedit").classList.remove("open"); $("fs_right").innerHTML=""; $("fs_preview").innerHTML=""; EDIT_ID=null; _editIdx=-1; _editBackup=null; LIVE=false; }
 window.eslCols=()=>{ const t=$("e_sltable").value; $("e_slcol").innerHTML=(tableCols[t]||[]).map(c=>`<option>${c}</option>`).join(""); };
@@ -2716,13 +2730,13 @@ async function readEditor(v){ if($("e_w"))v.w=Math.max(120,+$("e_w").value||v.w)
   const def=VIS[v.type]; if(def&&def.read)await def.read(v); }
 window.pieColorToggle=()=>{ const p=$("e_pal")&&$("e_pal").value; if($("e_colorwrap"))$("e_colorwrap").style.display=p==="single"?"":"none"; if($("e_cswrap"))$("e_cswrap").style.display=p==="scale"?"":"none"; };
 window.fmtEditorSQL=()=>{ const ta=$("e_sql")||$("e_sqlcy"); if(!ta)return; ta.value=formatSQL(ta.value); ta.dispatchEvent(new Event("input")); };
-window.applyEdit=async id=>{ const v=CP().visuals.find(x=>x.id===id); await readEditor(v); saveDash(); layoutStage(); paintPanel();
+window.applyEdit=async id=>{ const v=CP().visuals.find(x=>x.id===id); await readEditor(v); saveDash(); relayoutOne(v); paintPanel();
   try{ await refreshVisualDeps(v); if($("e_err")){$("e_err").style.color="#2F7A34";$("e_err").textContent="✓ Aplicado (el editor sigue abierto)";setTimeout(()=>{const e=$("e_err");if(e){e.textContent="";e.style.color="";}},1600);} }
   catch(e){ if($("e_err")){$("e_err").style.color="";$("e_err").textContent=e.message;} } };
 window.tryQuery=async id=>{ const v=CP().visuals.find(x=>x.id===id); await readEditor(v); const sql=v.type==="kpi"?applyWhere(v.sqlCY,2026):applyRF(applyWhere(v.sql),v); if(!sql){$("e_prev").innerHTML="";return;}
   try{ const rows=await q(sql); const cols=rows.length?Object.keys(rows[0]):[]; $("e_prev").innerHTML=`<div class="hint" style="margin-top:4px">${rows.length} fila(s). Columnas: ${cols.map(c=>`<code>${esc(c)}</code>`).join(" ")||"—"}</div><div class="qprev"><table class="dt"><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>`+rows.slice(0,6).map(r=>`<tr>${cols.map(c=>`<td>${esc(typeof r[c]==="number"?nf(r[c],Number.isInteger(r[c])?0:2):r[c])}</td>`).join("")}</tr>`).join("")+`</tbody></table></div>`;
   }catch(e){ $("e_prev").innerHTML=`<div class="hint" style="color:#b4322a">Error: ${esc(e.message)}</div>`; } };
-window.applyVisualJSON=async id=>{ try{ const nv=JSON.parse($("e_json").value); nv.id=id; const i=CP().visuals.findIndex(x=>x.id===id); CP().visuals[i]=nv; saveDash(); delete charts[id]; if(nv.type==="slicer")await buildSlicerOpts(); layoutStage(); paintPanel(); await refreshVisualDeps(nv); editVisual(id); }catch(e){ $("e_err").textContent="JSON inválido: "+e.message; } };
+window.applyVisualJSON=async id=>{ try{ const nv=JSON.parse($("e_json").value); nv.id=id; const i=CP().visuals.findIndex(x=>x.id===id); CP().visuals[i]=nv; saveDash(); delete charts[id]; if(nv.type==="slicer")await buildSlicerOpts(); relayoutOne(nv); paintPanel(); await refreshVisualDeps(nv); editVisual(id); }catch(e){ $("e_err").textContent="JSON inválido: "+e.message; } };
 window.delVisual=id=>{ CP().visuals=CP().visuals.filter(x=>x.id!==id); delete charts[id]; delete FILTERS[id]; saveDash(); fsClose(); closeDrawer(); layoutStage(); paintPanel(); refreshAll(); };
 window.delVisualConfirm=id=>{ const v=CP().visuals.find(x=>x.id===id); const nm=v&&v.title?` “${v.title}”`:""; if(confirm(`¿Seguro que quieres eliminar este visual${nm}?\nNo se puede deshacer.`))delVisual(id); };
 window.dupVisual=id=>{ const v=CP().visuals.find(x=>x.id===id); const c=JSON.parse(JSON.stringify(v)); c.id="v"+Date.now().toString(36); c.x=v.x+20; c.y=v.y+20; c.title=(v.title||"")+" (copia)"; CP().visuals.push(c); if(c.type==="slicer")SLOPTS[c.id]=SLOPTS[id]; saveDash(); layoutStage(); paintPanel(); refreshAll(); };
