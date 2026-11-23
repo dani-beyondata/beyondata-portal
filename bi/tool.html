@@ -90,6 +90,14 @@
   body.mode-view header{display:none!important}
   #editReturn{position:fixed;top:12px;right:14px;z-index:550;display:none;align-items:center;gap:6px;background:var(--teal);color:#fff;border:0;border-radius:9px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.18)}
   body.mode-view.can-edit #editReturn{display:inline-flex}   /* botón de volver a edición: solo admins en vista previa */
+  body.mode-view .ptok{display:none}   /* en visor no se enseña el token $CY del parámetro (es cosa de editor) */
+  /* Chip de usuario (solo visor): colapsado a un icono abajo-izquierda, se expande al pasar por encima */
+  #userChip{position:fixed;left:14px;bottom:14px;z-index:500;display:none;align-items:center;background:#fff;border:1px solid #dbe2ec;border-radius:20px;padding:5px;box-shadow:0 2px 10px rgba(0,0,0,.14);font-size:12px;color:#1E3A5F;overflow:hidden;max-width:34px;transition:max-width .22s ease}
+  body.mode-view #userChip{display:flex}
+  #userChip:hover{max-width:340px}
+  #userChip .uc-ic{width:24px;text-align:center;flex:0 0 auto;font-size:14px}
+  #userChip .uc-name{white-space:nowrap;padding:0 10px 0 2px;opacity:0;transition:opacity .2s}
+  #userChip:hover .uc-name{opacity:1}
   #stage{position:relative;margin:0 auto;background:
     linear-gradient(90deg,#00000006 1px,transparent 1px) 0 0/20px 20px,
     linear-gradient(#00000006 1px,transparent 1px) 0 0/20px 20px, #f7f9fa;
@@ -297,6 +305,7 @@
   </div>
 </header>
 <button id="editReturn" onclick="toggleMode()" title="Volver a edición">✎ Editor</button>
+<div id="userChip" title="Sesión"><span class="uc-ic">👤</span><span class="uc-name"></span></div>
 
 <!-- Portal BI: hereda la sesion de Supabase del portal (same-origin). Prepara window.sbClient para el paso 4. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1613,9 +1622,10 @@ function disposeCharts(){ Object.keys(charts).forEach(k=>{try{charts[k].dispose(
 let MODE='view';   // fail-safe: sin rol resuelto, vista de cliente (read-only)
 function canEditRole(r){ return r==='system_admin'||r==='company_admin'; }
 function applyMode(){ const ed=MODE==='edit'; document.body.classList.toggle('mode-edit',ed); document.body.classList.toggle('mode-view',!ed); document.body.classList.toggle('can-edit',!!window.BD_CANEDIT);
+  const uc=$('userChip'); if(uc){ const nm=uc.querySelector('.uc-name'); if(nm)nm.textContent='Conectado como '+(window.BD_USER||'usuario'); }
   const t=$('modeToggle'); if(t){ t.style.display=window.BD_CANEDIT?'':'none'; t.textContent=ed?'👁 Vista cliente':'✎ Editor'; t.title=ed?'Previsualizar como cliente':'Volver a edición'; } }
 window.toggleMode=()=>{ if(!window.BD_CANEDIT)return; MODE=(MODE==='edit')?'view':'edit'; applyMode(); if(typeof selClear==='function')selClear(); };
-async function detectMode(){ try{ if(window.sbClient){ const {data:{session}}=await window.sbClient.auth.getSession(); if(session){ const {data:pr}=await window.sbClient.from('profiles').select('role').eq('id',session.user.id).maybeSingle(); window.BD_ROLE=(pr&&pr.role)||''; } } }catch(e){} window.BD_CANEDIT=canEditRole(window.BD_ROLE||''); MODE=window.BD_CANEDIT?'edit':'view'; }
+async function detectMode(){ let email=''; try{ if(window.sbClient){ const {data:{session}}=await window.sbClient.auth.getSession(); if(session){ email=session.user.email||''; const {data:pr}=await window.sbClient.from('profiles').select('role,full_name').eq('id',session.user.id).maybeSingle(); window.BD_ROLE=(pr&&pr.role)||''; window.BD_USER=(pr&&pr.full_name)||email||''; } } }catch(e){} if(!window.BD_USER)window.BD_USER=email||''; window.BD_CANEDIT=canEditRole(window.BD_ROLE||''); MODE=window.BD_CANEDIT?'edit':'view'; }
 /* Menú "⋯ Herramientas": despliega/oculta y cierra al clicar fuera */
 window.toggleTools=(ev)=>{ if(ev)ev.stopPropagation(); const d=$('toolsDrop'); if(!d)return; const willOpen=!d.classList.contains('open'); d.classList.toggle('open',willOpen);
   if(willOpen){ const close=(e)=>{ if(!d.contains(e.target)){ d.classList.remove('open'); document.removeEventListener('mousedown',close); } }; setTimeout(()=>document.addEventListener('mousedown',close),0); } };
