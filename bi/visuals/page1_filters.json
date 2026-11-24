@@ -42,7 +42,8 @@
    "slColumn": "property_name",
    "label": "Property",
    "slKind": "distinct",
-   "pw": 300
+   "pw": 300,
+   "optSQL": "SELECT property_name AS val FROM properties WHERE company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' ORDER BY property_name"
   },
   {
    "id": "p1_sl_q",
