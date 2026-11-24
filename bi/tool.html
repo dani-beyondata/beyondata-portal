@@ -2088,8 +2088,12 @@ function renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels){
   st._allGroups=nodeList.map(n=>n.pathKey); st._nodeIndex=nodeList;
   st.expanded=st.expanded||new Set(); const exp=st.expanded;
   const sortLeaves=arr=>{ if(st.sortCol&&valueCols.includes(st.sortCol)){ const d=st.sortDir==="asc"?1:-1; return arr.slice().sort((a,b)=>{ const x=a[st.sortCol],y=b[st.sortCol]; if(x==null)return 1; if(y==null)return -1; return (x>y?1:x<y?-1:0)*d; }); } return arr; };
+  // ordena los GRUPOS (padres) por su agregado de la columna ordenada; si la columna no es sumable
+  // (media/pct/flecha) usa la media de sus hojas como clave de orden. Así el grupo más grande (p.ej. EUROPA) sube.
+  const grpKey=(n,c)=>{ const s=_subtot(n.rows,c,isNum,cfg[c]||{}); if(s!=null)return s; const vs=n.rows.map(r=>r[c]).filter(x=>typeof x==="number"); return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:null; };
+  const sortNodes=nodes=>{ if(st.sortCol&&valueCols.includes(st.sortCol)){ const d=st.sortDir==="asc"?1:-1; return nodes.slice().sort((a,b)=>{ const x=grpKey(a,st.sortCol),y=grpKey(b,st.sortCol); if(x==null)return 1; if(y==null)return -1; return (x>y?1:x<y?-1:0)*d; }); } return nodes; };
   const out=[];
-  (function walk(nodes,depth,parent){ nodes.forEach(n=>{ const pk=(parent?parent+SEP:"")+n.key; const open=exp.has(pk); const pad=depth*18;
+  (function walk(nodes,depth,parent){ sortNodes(nodes).forEach(n=>{ const pk=(parent?parent+SEP:"")+n.key; const open=exp.has(pk); const pad=depth*18;
     const sub=valueCols.map(c=>{ const s=_subtot(n.rows,c,isNum,cfg[c]||{}); return `<td class="num">${s==null?"":fmtCell(s,fmtOf(c))}</td>`; }).join("");
     out.push(`<tr style="background:#f3f6f8"><td style="padding-left:${pad}px;cursor:pointer" onclick="tblToggle('${v.id}','${escA(pk)}')"><span style="display:inline-block;width:12px;color:#6d7683">${open?"▾":"▸"}</span> <b>${esc(n.key)}</b> <span style="color:#9aa4ab;font-weight:400">(${n.rows.length})</span></td>${sub}</tr>`);
     if(open){ if(n.kids)walk(n.kids,depth+1,pk); else sortLeaves(n.rows).forEach(r=>{ const cells=valueCols.map(c=>{ const cc=cfg[c]||{}; const val=r[c]; const num=isNum(c)&&typeof val==="number"; let style="",inner;
