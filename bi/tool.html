@@ -183,9 +183,10 @@
   .tbl-wrap{overflow:auto;max-height:100%}
   .tbl-wrap.sticky table.dt thead th{position:sticky;top:0;background:#fff;z-index:1}
   .tbl-wrap.zebra table.dt tbody tr:nth-child(even) td{background:rgba(15,110,99,.045)}
-  table.dt tr.tbl-tot td{border-top:2px solid var(--border);font-weight:800;background:#f4f8f8}
+  table.dt tr.tbl-tot td{border-top:2px solid #aab8c2;font-weight:800;background:#e9eff5;color:#1E3A5F}
   .tbl-wrap.totfreeze table.dt tbody tr.tbl-tot td,.tbl-wrap.totfreeze table.dt.mx tbody tr.tot td{position:sticky;bottom:0;z-index:2}
-  .tbl-wrap.totfreeze table.dt.mx tbody tr.tot td{background:#f0f5f5}
+  .tbl-wrap.totfreeze table.dt.mx tbody tr.tot td{background:#e9eff5}
+  table.dt td.totcol,table.dt th.totcol{border-left:2px solid #aab8c2;font-weight:800;background:#e9eff5;color:#1E3A5F}
   table.dt tr.tbl-top td{box-shadow:inset 3px 0 0 #E0A800}
   .tbar{position:relative;display:flex;align-items:center;justify-content:flex-end;min-width:54px}
   .tbar-f{position:absolute;left:0;top:2px;bottom:2px;border-radius:3px;opacity:.5}
@@ -194,7 +195,8 @@
   .optbox{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:9px;padding:6px 11px;background:#fff;margin-top:4px}
   .fxrow2{display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;cursor:pointer}
   .fxrow2 input[type=checkbox]{width:15px;height:15px}
-  table.mx .tot{font-weight:700;background:#f4f7f7}
+  table.mx tr.tot>td,table.mx tr.tot>th{font-weight:800;background:#e9eff5;color:#1E3A5F;border-top:2px solid #aab8c2}
+  table.mx td.tot,table.mx th.tot{font-weight:800;background:#e9eff5;color:#1E3A5F}
   #drawer{position:fixed;top:0;right:0;height:100%;width:560px;max-width:97vw;background:#fff;border-left:1px solid var(--border);box-shadow:-6px 0 24px rgba(16,40,50,.12);transform:translateX(100%);transition:transform .18s;z-index:70;display:flex;flex-direction:column}
   #drawer.open{transform:none}
   #drawer .dhead{background:var(--teal);color:#fff;padding:11px 15px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
@@ -2148,6 +2150,7 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v))
   const dataFmt={}, dataArrow={}; rows.forEach(r=>{ if(r.fmt!=null)dataFmt[r.row]=r.fmt; if(r.arrow!=null)dataArrow[r.row]=(r.arrow===true||r.arrow==="true"||r.arrow===1||r.arrow==="1"); });
   const showTot = v.autoTotal!==false;   // total propio (suma); apágalo para tablas con total desde el SQL
   const st=MX_STATE[v.id]=MX_STATE[v.id]||{}; st.rowLabels=[...new Set(rows.map(r=>r.row))]; st.colLabels=[...new Set(rows.map(r=>r.col))]; const clickable=v.sortable!==false;
+  const isTotCol=c=>/^total(es)?$/i.test(String(c)); const isTotRow=rw=>/^total(es)?$/i.test(String(rw));  // columna/fila "Total" venida del SQL
   if(clickable&&st.colSort&&st.colSort.by){ const by=st.colSort.by,d=st.colSort.dir==="asc"?1:-1; const kf=by==="__total__"?(c=>colTot[c]):(c=>{const k=by+"||"+c;return (k in cell)?cell[k]:-Infinity;}); colvals.sort((a,b)=>{const x=kf(a),y=kf(b);return (x>y?1:x<y?-1:0)*d;}); }
   if(clickable&&st.rowSort&&st.rowSort.by){ const by=st.rowSort.by,d=st.rowSort.dir==="asc"?1:-1; const kf=by==="__total__"?(rw=>rowTot[rw]):(rw=>{const k=rw+"||"+by;return (k in cell)?cell[k]:-Infinity;}); rowvals.sort((a,b)=>{const x=kf(a),y=kf(b);return (x>y?1:x<y?-1:0)*d;}); }
   else if(v.sortRows==="desc")rowvals.sort((a,b)=>rowTot[b]-rowTot[a]); else if(v.sortRows==="asc")rowvals.sort((a,b)=>rowTot[a]-rowTot[b]);
@@ -2162,26 +2165,27 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v))
     if(AX==="col"){ const m=AF[c]||{}; return {fmt:m.fmt||v.fmt, heat:('heat'in m)?m.heat:_heat, bar:('bar'in m)?m.bar:_bar, arrow:('arrow'in m)?m.arrow:_arrow}; }
     return {fmt:cfmt,heat:_heat,bar:_bar,arrow:_arrow}; };
   // rangos de heat: por fila / por columna / global según el eje (para que la escala de color tenga sentido)
-  const gR=(()=>{let mn=Infinity,mx=-Infinity; rowvals.forEach(rw=>colvals.forEach(c=>{const d=disp(rw,c); if(d!=null){if(d<mn)mn=d;if(d>mx)mx=d;}})); if(!isFinite(mn)){mn=0;mx=1;} return {mn,mx};})();
+  const gR=(()=>{let mn=Infinity,mx=-Infinity; rowvals.forEach(rw=>colvals.forEach(c=>{if(isTotCol(c)||isTotRow(rw))return; const d=disp(rw,c); if(d!=null){if(d<mn)mn=d;if(d>mx)mx=d;}})); if(!isFinite(mn)){mn=0;mx=1;} return {mn,mx};})();
   const rng={};
-  if(AX==="row")rowvals.forEach(rw=>{let mn=Infinity,mx=-Infinity;colvals.forEach(c=>{const d=disp(rw,c);if(d!=null){if(d<mn)mn=d;if(d>mx)mx=d;}});rng["r:"+rw]={mn:isFinite(mn)?mn:0,mx:isFinite(mx)?mx:1};});
-  else if(AX==="col")colvals.forEach(c=>{let mn=Infinity,mx=-Infinity;rowvals.forEach(rw=>{const d=disp(rw,c);if(d!=null){if(d<mn)mn=d;if(d>mx)mx=d;}});rng["c:"+c]={mn:isFinite(mn)?mn:0,mx:isFinite(mx)?mx:1};});
+  if(AX==="row")rowvals.forEach(rw=>{let mn=Infinity,mx=-Infinity;colvals.forEach(c=>{if(isTotCol(c))return; const d=disp(rw,c);if(d!=null){if(d<mn)mn=d;if(d>mx)mx=d;}});rng["r:"+rw]={mn:isFinite(mn)?mn:0,mx:isFinite(mx)?mx:1};});
+  else if(AX==="col")colvals.forEach(c=>{let mn=Infinity,mx=-Infinity;rowvals.forEach(rw=>{if(isTotRow(rw))return; const d=disp(rw,c);if(d!=null){if(d<mn)mn=d;if(d>mx)mx=d;}});rng["c:"+c]={mn:isFinite(mn)?mn:0,mx:isFinite(mx)?mx:1};});
   const rangeFor=(rw,c)=> AX==="row"?(rng["r:"+rw]||gR) : AX==="col"?(rng["c:"+c]||gR) : gR;
-  const cellHTML=(rw,c)=>{ const key=rw+"||"+c; if(!(key in cell))return `<td class="num"></td>`; const d=disp(rw,c); const F=fmtFor(rw,c); const R=rangeFor(rw,c); let style="",inner=fmtCell(d,F.fmt);
+  const tcls=(rw,c)=>(isTotCol(c)?" tot totcol":"")+(isTotRow(rw)&&!isTotCol(c)?" tot":"");
+  const cellHTML=(rw,c)=>{ const key=rw+"||"+c; if(!(key in cell))return `<td class="num${tcls(rw,c)}"></td>`; const isT=isTotCol(c)||isTotRow(rw); const d=disp(rw,c); const F=fmtFor(rw,c); const R=rangeFor(rw,c); let style="",inner=fmtCell(d,F.fmt);
     if(F.arrow){ const up=d>=0; inner=`<span style="color:${up?'#2F7A34':'#b4322a'}">${up?'▲':'▼'} ${fmtCell(Math.abs(d),F.fmt)}</span>`; }
-    if(F.heat)style+=condStyle(d,R.mn,R.mx,F.heat);
-    if(F.bar)inner=condBar(inner,d,R.mn,R.mx,F.bar);
-    return `<td class="num" style="${style}">${inner}</td>`; };
+    if(F.heat&&!isT)style+=condStyle(d,R.mn,R.mx,F.heat);
+    if(F.bar&&!isT)inner=condBar(inner,d,R.mn,R.mx,F.bar);
+    return `<td class="num${tcls(rw,c)}" style="${style}">${inner}</td>`; };
   const arrR=by=>(st.rowSort&&st.rowSort.by===by)?(st.rowSort.dir==="asc"?" ▲":" ▼"):""; const arrC=by=>(st.colSort&&st.colSort.by===by)?(st.colSort.dir==="asc"?" ▲":" ▼"):""; const cp=s=>esc(String(s));
   const active=st.rowSort||st.colSort;
   const corner=(clickable&&active)?`<th style="cursor:pointer;text-align:center" title="Restablecer orden" onclick="mxReset('${v.id}')">↺</th>`:`<th></th>`;
-  const thCol=c=>clickable?`<th class="num" style="cursor:pointer" title="Ordenar filas por esta columna" onclick="mxSortRows('${v.id}','${cp(c)}')">${esc(c)}${arrR(c)}</th>`:`<th class="num">${esc(c)}</th>`;
-  const thTot=clickable?`<th class="num tot" style="cursor:pointer" title="Ordenar filas por el total" onclick="mxSortRows('${v.id}','__total__')">Total${arrR("__total__")}</th>`:`<th class="num tot">Total</th>`;
-  const tdRow=rw=>clickable?`<td style="cursor:pointer" title="Ordenar columnas por esta fila" onclick="mxSortCols('${v.id}','${cp(rw)}')">${esc(rw)}${arrC(rw)}</td>`:`<td>${esc(rw)}</td>`;
+  const thCol=c=>{ const tc=isTotCol(c)?" tot totcol":""; return clickable?`<th class="num${tc}" style="cursor:pointer" title="Ordenar filas por esta columna" onclick="mxSortRows('${v.id}','${cp(c)}')">${esc(c)}${arrR(c)}</th>`:`<th class="num${tc}">${esc(c)}</th>`; };
+  const thTot=clickable?`<th class="num tot totcol" style="cursor:pointer" title="Ordenar filas por el total" onclick="mxSortRows('${v.id}','__total__')">Total${arrR("__total__")}</th>`:`<th class="num tot totcol">Total</th>`;
+  const tdRow=rw=>{ const tc=isTotRow(rw)?" tot":""; return clickable?`<td class="${tc.trim()}" style="cursor:pointer" title="Ordenar columnas por esta fila" onclick="mxSortCols('${v.id}','${cp(rw)}')">${esc(rw)}${arrC(rw)}</td>`:`<td class="${tc.trim()}">${esc(rw)}</td>`; };
   const tdTot=clickable?`<td style="cursor:pointer" title="Ordenar columnas por el total" onclick="mxSortCols('${v.id}','__total__')">Total${arrC("__total__")}</td>`:`<td>Total</td>`;
   let h=`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}${v.totalsFreeze!==false?' totfreeze':''}"><table class="dt mx"><thead><tr>${corner}`+colvals.map(thCol).join("")+(showTot?thTot:"")+`</tr></thead><tbody>`;
-  rowvals.forEach(rw=>{h+=`<tr>${tdRow(rw)}`+colvals.map(c=>cellHTML(rw,c)).join("")+(showTot?`<td class="num tot">${fmtCell(rowTot[rw],v.fmt)}</td>`:"")+`</tr>`;});
-  if(showTot)h+=`<tr class="tot">${tdTot}`+colvals.map(c=>`<td class="num">${fmtCell(colTot[c],v.fmt)}</td>`).join("")+`<td class="num">${fmtCell(grand,v.fmt)}</td></tr>`;
+  rowvals.forEach(rw=>{h+=`<tr${isTotRow(rw)?' class="tot"':''}>${tdRow(rw)}`+colvals.map(c=>cellHTML(rw,c)).join("")+(showTot?`<td class="num tot totcol">${fmtCell(rowTot[rw],v.fmt)}</td>`:"")+`</tr>`;});
+  if(showTot)h+=`<tr class="tot">${tdTot}`+colvals.map(c=>`<td class="num">${fmtCell(colTot[c],v.fmt)}</td>`).join("")+`<td class="num totcol">${fmtCell(grand,v.fmt)}</td></tr>`;
   h+=`</tbody></table></div>`; el.innerHTML=tableFxCSS(v.id,buildFx(v))+h; }
 
 // Fase 2 · barra de progreso x/N
