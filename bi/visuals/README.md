@@ -42,3 +42,40 @@ Columnas: `row` (métrica), `col` (`Ene`…`Dic` o `Total`), `colOrd` (1..12, 99
 `Bednights`·Total se abrevia a "55,8 K" con `fmt=int` (los meses van sin abreviar;
 mismo criterio que la KPI card). Si lo quieres entero completo ("55.824"), cambio esa
 fila a `fmt='dec'`.
+
+---
+
+# Visual `p5_ctrl` — "Controlling por categoría" (pág. 5) en formato ESCALONADO
+
+Convierte la tabla `p5_ctrl` (antes `type:"table"`, con la categoría repetida como
+columna) en un **controlling escalonado** tipo página 1: cada **categoría** es una
+fila-título (`<tr class="ctsec">`) y debajo van **YTD / LYTD / Δ YoY**, con las 6
+métricas en columnas (Prod Total, Prod Acc, Prod Extras, ADB, Bednights, RevPab).
+
+## Cómo funciona el escalonado
+- `type:"html"` + **`post:"ctrl"`** → `ctrlAssemble()` inserta una fila-cabecera a lo
+  ancho cada vez que cambia la columna `section` del SQL.
+- El SQL devuelve, por cada (categoría × período): `section` (categoría), `lbl`
+  (YTD/LYTD/Δ YoY), `rowcls` (ytd/lytd/delta, para el estilo), `cs` (7 = nº de
+  columnas, para el `colspan` de la cabecera) y las 6 celdas de métrica ya
+  formateadas (€, ▲▼ %). Ordenado por categoría y período.
+- La plantilla HTML pinta `[[&sechtml]]` (la fila-título) + la fila de datos.
+
+## Reutiliza los CTEs del original
+Los bloques `ytd`/`lytd` son **idénticos** a los de `p5_ctrl` (ya validados en
+producción). Sólo cambia el `SELECT` final (a formato escalonado) y **un arreglo**:
+
+> **Fix Bednights Δ.** En el original, el Δ% de Bednights salía siempre "▲ 0,0%"
+> porque `bn` es entero y Postgres hacía división entera (`9370/13049 → 0`). Se
+> castea a `::numeric`, así que ahora el Δ de Bednights es real (p. ej. Hab 4 =
+> ▼ -28,2%). Es el único cambio de cálculo respecto a la tabla vieja.
+
+## Aplicarlo
+Modo editor → abre el visual **p5_ctrl** → sección **"JSON del visual (editable)"**
+abajo → pega `p5_ctrl_step.json` → **Aplicar JSON**. (Altura subida a 760 para que
+quepan las filas-título; ajústala si quieres.)
+
+## Opcional
+Los ▲▼ van en texto plano (como la tabla original). Si quieres el Δ en **verde/rojo**,
+se añade envolviendo la celda en un `<span style="color…">` desde el SQL — dímelo y
+lo hago.
