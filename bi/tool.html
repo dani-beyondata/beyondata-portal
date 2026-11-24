@@ -183,10 +183,11 @@
   .tbl-wrap{overflow:auto;max-height:100%}
   .tbl-wrap.sticky table.dt thead th{position:sticky;top:0;background:#fff;z-index:1}
   .tbl-wrap.zebra table.dt tbody tr:nth-child(even) td{background:rgba(15,110,99,.045)}
-  table.dt tr.tbl-tot td{border-top:2px solid #aab8c2;font-weight:800;background:#e9eff5;color:#1E3A5F}
+  table.dt tr.tbl-tot td{border-top:var(--tot-bd,2px solid #aab8c2);font-weight:var(--tot-w,800);background:var(--tot-bg,#e9eff5);color:var(--tot-fg,#1E3A5F)}
+  table.dt tr.tbl-sub td{border-top:var(--sub-bd,0);font-weight:var(--sub-w,700);background:var(--sub-bg,#f3f6f8);color:var(--sub-fg,#55606e)}
   .tbl-wrap.totfreeze table.dt tbody tr.tbl-tot td,.tbl-wrap.totfreeze table.dt.mx tbody tr.tot td{position:sticky;bottom:0;z-index:2}
   .tbl-wrap.totfreeze table.dt.mx tbody tr.tot td{background:#e9eff5}
-  table.dt td.totcol,table.dt th.totcol{border-left:2px solid #aab8c2;font-weight:800;background:#e9eff5;color:#1E3A5F}
+  table.dt td.totcol,table.dt th.totcol{border-left:var(--tot-bd,2px solid #aab8c2);font-weight:var(--tot-w,800);background:var(--tot-bg,#e9eff5);color:var(--tot-fg,#1E3A5F)}
   table.dt tr.tbl-top td{box-shadow:inset 3px 0 0 #E0A800}
   .tbar{position:relative;display:flex;align-items:center;justify-content:flex-end;min-width:54px}
   .tbar-f{position:absolute;left:0;top:2px;bottom:2px;border-radius:3px;opacity:.5}
@@ -195,8 +196,8 @@
   .optbox{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:9px;padding:6px 11px;background:#fff;margin-top:4px}
   .fxrow2{display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;cursor:pointer}
   .fxrow2 input[type=checkbox]{width:15px;height:15px}
-  table.mx tr.tot>td,table.mx tr.tot>th{font-weight:800;background:#e9eff5;color:#1E3A5F;border-top:2px solid #aab8c2}
-  table.mx td.tot,table.mx th.tot{font-weight:800;background:#e9eff5;color:#1E3A5F}
+  table.mx tr.tot>td,table.mx tr.tot>th{font-weight:var(--tot-w,800);background:var(--tot-bg,#e9eff5);color:var(--tot-fg,#1E3A5F);border-top:var(--tot-bd,2px solid #aab8c2)}
+  table.mx td.tot,table.mx th.tot{font-weight:var(--tot-w,800);background:var(--tot-bg,#e9eff5);color:var(--tot-fg,#1E3A5F)}
   #drawer{position:fixed;top:0;right:0;height:100%;width:560px;max-width:97vw;background:#fff;border-left:1px solid var(--border);box-shadow:-6px 0 24px rgba(16,40,50,.12);transform:translateX(100%);transition:transform .18s;z-index:70;display:flex;flex-direction:column}
   #drawer.open{transform:none}
   #drawer .dhead{background:var(--teal);color:#fff;padding:11px 15px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
@@ -2100,6 +2101,12 @@ function _aggCol(rowsArr,c,isNum,cc){
   }
 }
 function _subtot(rowsArr,c,isNum,cc){ return _aggCol(rowsArr,c,isNum,cc); }
+// Estilo configurable de totales por visual -> variables CSS (--tot-* / --sub-*).
+// Sin config, caen a los defaults del CSS. v.totStyle={total:{bg,fg,bold,border}, sub:{...}}.
+function totVars(v){ const cfg=v&&v.totStyle; if(!cfg)return ""; let o=""; const add=(k,x)=>{o+=k+":"+x+";";};
+  if(cfg.total){ const t=cfg.total; if(t.bg)add("--tot-bg",t.bg); if(t.fg)add("--tot-fg",t.fg); if(t.bold!=null)add("--tot-w",t.bold?800:500); if(t.border!=null)add("--tot-bd",t.border?"2px solid #aab8c2":"0"); }
+  if(cfg.sub){ const s=cfg.sub; if(s.bg)add("--sub-bg",s.bg); if(s.fg)add("--sub-fg",s.fg); if(s.bold!=null)add("--sub-w",s.bold?800:500); if(s.border!=null)add("--sub-bd",s.border?"1px solid #c9d3db":"0"); }
+  return o?` style="${o}"`:""; }
 function renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels){
   const SEP="␟"; const groupLevels=levels.slice(0,-1); const leafLabel=levels[levels.length-1]; const valueCols=cols.filter(c=>!levels.includes(c));
   const stats={}; valueCols.forEach(c=>{ if(isNum(c)){ const vs=rows.map(r=>r[c]).filter(x=>typeof x==="number"); if(vs.length)stats[c]={mn:Math.min(...vs),mx:Math.max(...vs)}; }});
@@ -2116,7 +2123,7 @@ function renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels){
   const out=[];
   (function walk(nodes,depth,parent){ sortNodes(nodes).forEach(n=>{ const pk=(parent?parent+SEP:"")+n.key; const open=exp.has(pk); const pad=depth*18;
     const sub=valueCols.map(c=>{ const s=_subtot(n.rows,c,isNum,cfg[c]||{}); return `<td class="num">${s==null?"":fmtCell(s,fmtOf(c))}</td>`; }).join("");
-    out.push(`<tr style="background:#f3f6f8"><td style="padding-left:${pad}px;cursor:pointer" onclick="tblToggle('${v.id}','${escA(pk)}')"><span style="display:inline-block;width:12px;color:#6d7683">${open?"▾":"▸"}</span> <b>${esc(n.key)}</b> <span style="color:#9aa4ab;font-weight:400">(${n.rows.length})</span></td>${sub}</tr>`);
+    out.push(`<tr class="tbl-sub"><td style="padding-left:${pad}px;cursor:pointer" onclick="tblToggle('${v.id}','${escA(pk)}')"><span style="display:inline-block;width:12px;color:#6d7683">${open?"▾":"▸"}</span> <b>${esc(n.key)}</b> <span style="color:#9aa4ab;font-weight:400">(${n.rows.length})</span></td>${sub}</tr>`);
     if(open){ if(n.kids)walk(n.kids,depth+1,pk); else sortLeaves(n.rows).forEach(r=>{ const cells=valueCols.map(c=>{ const cc=cfg[c]||{}; const val=r[c]; const num=isNum(c)&&typeof val==="number"; let style="",inner;
         if(cc.spark)inner=sparkCell(val);
         else if(num){ const f=fmtOf(c); if(cc.arrow){const up=val>=0;inner=`<span style="color:${up?'#2F7A34':'#b4322a'}">${up?'▲':'▼'} ${fmtCell(Math.abs(val),f)}</span>`;} else inner=fmtCell(val,f); if(cc.heat&&stats[c])style+=condStyle(val,stats[c].mn,stats[c].mx,cc.heat); if(cc.bar&&stats[c])inner=condBar(inner,val,stats[c].mn,stats[c].mx,cc.bar); }
@@ -2127,7 +2134,7 @@ function renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels){
   const head=`<tr><th>${esc(levels.join(" / "))}</th>${valueCols.map(c=>`<th class="${isNum(c)?'num':''}" ${v.sortable!==false?`onclick="tblSort('${v.id}','${escA(c)}')" style="cursor:pointer"`:""}>${esc(c)}${st.sortCol===c?(st.sortDir==="asc"?" ▲":" ▼"):""}</th>`).join("")}</tr>`;
   let totals=""; if(v.totals){ totals=`<tr class="tbl-tot"><td>Total</td>${valueCols.map(c=>{ const s=_subtot(rows,c,isNum,cfg[c]||{}); return `<td class="num">${s==null?"":fmtCell(s,fmtOf(c))}</td>`; }).join("")}</tr>`; }
   const bar=`<div style="display:flex;gap:6px;margin-bottom:6px"><button class="sm" onclick="tblExpandAll('${v.id}')">⊞ Expandir todo</button><button class="sm" onclick="tblCollapseAll('${v.id}')">⊟ Colapsar todo</button><button class="sm" onclick="tblExpandNext('${v.id}')">▸ Siguiente nivel</button></div>`;
-  el.innerHTML=tableFxCSS(v.id,buildFx(v))+bar+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}"><table class="dt"><thead>${head}</thead><tbody>${out.join("")}${totals}</tbody></table></div>`;
+  el.innerHTML=tableFxCSS(v.id,buildFx(v))+bar+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}"><table class="dt"${totVars(v)}><thead>${head}</thead><tbody>${out.join("")}${totals}</tbody></table></div>`;
 }
 async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
   const cols=Object.keys(rows[0]); COLORDER[v.id]=cols; const isNum=c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number");
@@ -2155,7 +2162,7 @@ async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),
       return `<td class="${isNum(c)?'num':''}" style="${style}">${inner}</td>`; }).join("")}</tr>`; }).join("");
   let totals=""; if(v.totals){ totals=`<tr class="tbl-tot">${cols.map((c,i)=>{ if(i===0)return `<td>Total</td>`; const cc=cfg[c]||{}; const s=_aggCol(data,c,isNum,cc); return `<td class="num">${s==null?"":fmtCell(s,fmtOf(c))}</td>`; }).join("")}</tr>`; }
   let pager=""; if(ps>0&&total>ps){ const pages=Math.ceil(total/ps); pager=`<div class="tbl-pager">${page>0?`<button class="sm" onclick="tblPage('${v.id}',${page-1})">‹</button>`:""}<span>${page+1} / ${pages} · ${total} filas</span>${page<pages-1?`<button class="sm" onclick="tblPage('${v.id}',${page+1})">›</button>`:""}</div>`; }
-  el.innerHTML=tableFxCSS(v.id,buildFx(v))+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}${(v.totals&&v.totalsFreeze!==false)?' totfreeze':''}"><table class="dt"><thead>${head}</thead><tbody>${body}${totals}</tbody></table></div>${pager}`; }
+  el.innerHTML=tableFxCSS(v.id,buildFx(v))+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}${(v.totals&&v.totalsFreeze!==false)?' totfreeze':''}"><table class="dt"${totVars(v)}><thead>${head}</thead><tbody>${body}${totals}</tbody></table></div>${pager}`; }
 window.tblDetect=async id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; try{ const rows=await q(applyWhere(v.sql)); if(!rows.length){alert("La query no devuelve filas.");return;} const cols=Object.keys(rows[0]); const num=cols.filter(c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number")); const sk=Object.assign({},v.cols||{}); num.forEach(c=>{ if(!sk[c])sk[c]={fmt:v.fmt||"num"}; }); $("e_cols").value=JSON.stringify(sk,null,2); }catch(e){ alert("No pude detectar columnas: "+e.message); } };
 /* Orden interactivo de matriz (cliente, por sesión): filas por columna, columnas por fila, reset.
    Tri-estado: desc → asc → sin orden (vuelve al orden del SQL / colOrd). */
@@ -2202,7 +2209,7 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v))
   const thTot=clickable?`<th class="num tot totcol" style="cursor:pointer" title="Ordenar filas por el total" onclick="mxSortRows('${v.id}','__total__')">Total${arrR("__total__")}</th>`:`<th class="num tot totcol">Total</th>`;
   const tdRow=rw=>{ const tc=isTotRow(rw)?" tot":""; return clickable?`<td class="${tc.trim()}" style="cursor:pointer" title="Ordenar columnas por esta fila" onclick="mxSortCols('${v.id}','${cp(rw)}')">${esc(rw)}${arrC(rw)}</td>`:`<td class="${tc.trim()}">${esc(rw)}</td>`; };
   const tdTot=clickable?`<td style="cursor:pointer" title="Ordenar columnas por el total" onclick="mxSortCols('${v.id}','__total__')">Total${arrC("__total__")}</td>`:`<td>Total</td>`;
-  let h=`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}${v.totalsFreeze!==false?' totfreeze':''}"><table class="dt mx"><thead><tr>${corner}`+colvals.map(thCol).join("")+(showTot?thTot:"")+`</tr></thead><tbody>`;
+  let h=`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}${v.totalsFreeze!==false?' totfreeze':''}"><table class="dt mx"${totVars(v)}><thead><tr>${corner}`+colvals.map(thCol).join("")+(showTot?thTot:"")+`</tr></thead><tbody>`;
   rowvals.forEach(rw=>{h+=`<tr${isTotRow(rw)?' class="tot"':''}>${tdRow(rw)}`+colvals.map(c=>cellHTML(rw,c)).join("")+(showTot?`<td class="num tot totcol">${fmtCell(rowTot[rw],v.fmt)}</td>`:"")+`</tr>`;});
   if(showTot)h+=`<tr class="tot">${tdTot}`+colvals.map(c=>`<td class="num">${fmtCell(colTot[c],v.fmt)}</td>`).join("")+`<td class="num totcol">${fmtCell(grand,v.fmt)}</td></tr>`;
   h+=`</tbody></table></div>`; el.innerHTML=tableFxCSS(v.id,buildFx(v))+h; }
