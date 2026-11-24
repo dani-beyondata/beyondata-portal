@@ -215,6 +215,16 @@
   #boot{position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;z-index:100;color:var(--muted)}
   .spin{width:28px;height:28px;border:3px solid #dfe6e9;border-top-color:var(--teal);border-radius:50%;animation:sp 1s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
+  /* Estados por visual (cargando / error / sin datos) — centrados exactos en la tarjeta */
+  .vbody:has(> .vstate){display:flex;align-items:center;justify-content:center;padding:0}
+  .vstate{height:100%;width:100%;min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:var(--muted);text-align:center;padding:12px;box-sizing:border-box}
+  .vstate .vs-ic{font-size:22px;line-height:1}
+  .vstate .vs-txt{font-size:12px}
+  .vstate.err{color:#8a3d3d}
+  .vstate .vs-detail{font-size:11px;color:var(--muted);max-width:92%;word-break:break-word;opacity:.85}
+  .vstate .vs-retry{margin-top:3px;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:12px;color:var(--teal-d);font-weight:600}
+  .vstate .vs-retry:hover{background:#eef3fb}
+  .vspin{width:24px;height:24px;border:3px solid #dfe6e9;border-top-color:var(--teal);border-radius:50%;animation:sp 1s linear infinite}
   .tk-key{color:#8fd3ff}
   /* secciones del editor */
   .sec{border:1px solid var(--border);border-radius:10px;padding:11px 12px 12px;background:#fcfdfd}
@@ -1839,10 +1849,25 @@ function layoutStage(){ const stage=$("stage"); let maxB=300;
   CP().visuals.forEach(v=>{ if(VIS[v.type]&&VIS[v.type].engine==="echarts"){ $("body_"+v.id).innerHTML=`<div class="echart" id="ch_${v.id}"></div>`; charts[v.id]=echarts.init($("ch_"+v.id)); }});
   attachInteract(); }
 
-async function renderVisual(v){ try{ const def=VIS[v.type]; if(!def)return;
-  if(def.needsRows){ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); return await def.render(v,rows); }
-  return await def.render(v);
-}catch(e){ const el=$("body_"+v.id); if(el)el.insertAdjacentHTML("beforeend",`<div class="hint" style="color:#b4322a">SQL: ${esc(e.message)}</div>`); } }
+/* Estados por visual: cargando (diferido), error+reintentar, sin datos. */
+const VSTATE_EMPTY_TYPES=new Set(["bar","line","area","combo","donut","pie","map","table"]);
+function vstateLoading(){ return `<div class="vstate"><div class="vspin"></div><div class="vs-txt">Cargando…</div></div>`; }
+function vstateEmpty(){ return `<div class="vstate"><div class="vs-ic">∅</div><div class="vs-txt">Sin datos</div></div>`; }
+function setVisualError(v,e){ const el=$("body_"+v.id); if(!el)return; const msg=esc(String((e&&e.message)||e||"error"));
+  el.innerHTML=`<div class="vstate err"><div class="vs-ic">⚠</div><div class="vs-txt">No se pudieron cargar los datos</div><div class="vs-detail">${msg}</div><button class="vs-retry" onclick="retryVisual('${v.id}')">↻ Reintentar</button></div>`; }
+window.retryVisual=id=>{ const v=CP().visuals.find(x=>x.id===id); if(v)renderVisual(v); };
+async function renderVisual(v){ const def=VIS[v.type]; if(!def)return; const el=$("body_"+v.id);
+  let loadT=0;
+  if(el && def.needsRows){ loadT=setTimeout(()=>{ el.innerHTML=vstateLoading(); },120); }   // diferido 120ms: un cache hit no enseña spinner
+  const clearState=()=>{ if(el){ const c=el.firstElementChild; if(c&&c.classList&&c.classList.contains("vstate")) el.innerHTML=""; } };  // quita placeholder (carga/error/vacío) antes de pintar; no toca un visual real (reuso en recargas)
+  try{
+    if(def.needsRows){ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); clearTimeout(loadT);
+      if(el && (!rows||!rows.length) && VSTATE_EMPTY_TYPES.has(v.type)){ el.innerHTML=vstateEmpty(); return; }
+      clearState();
+      return await def.render(v,rows); }
+    clearState();
+    return await def.render(v);
+  }catch(e){ clearTimeout(loadT); setVisualError(v,e); } }
 /* Visual HTML = plantilla + 1 SQL. Tokens: [[col]] (escapado), [[col:money]] (formato),
    [[&col]] (HTML sin escapar), y sección repetible [[#rows]]…[[/rows]] (una vez por fila). */
 function bindTokens(s,row){ return s.replace(/\[\[(&)?(\w+)(?::(\w+))?\]\]/g,(_,raw,col,fmt)=>{ const val=row?row[col]:undefined; if(val==null||val==="")return ""; if(fmt)return fmtValue(val,fmt); return raw?String(val):esc(val); }); }
