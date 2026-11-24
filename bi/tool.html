@@ -1469,7 +1469,9 @@ function slicerMode(v){ return v.slMode||(v.slKind==="month"?"month":(v.slKind==
 async function slicerOpts(v){ const mode=slicerMode(v);
   if(mode==="month") return MN.map((m,i)=>({value:i+1,label:m}));
   if(mode==="prop"){ const r=await q("SELECT property_id,property_name FROM properties ORDER BY property_name"); return r.map(p=>({value:p.property_id,label:p.property_name})); }
-  if(mode==="list"||mode==="search"){ try{ const ob=v.slOrderBy; const ord=ob?`MIN(${ob})`:`1`;
+  if(mode==="list"||mode==="search"){ try{
+      if(v.optSQL&&v.optSQL.trim()){ const r=await q(v.optSQL); const isM=v.slColumn==="m"; return r.map(x=>{ const val=(x.val!==undefined?x.val:Object.values(x)[0]); const lab=(x.label!==undefined&&x.label!==null)?String(x.label):(isM?(MN[Number(val)-1]||String(val)):String(val)); const cnt=x.n!=null?Number(x.n):(x.count!=null?Number(x.count):undefined); return {value:val,label:lab,count:cnt}; }); }
+      const ob=v.slOrderBy; const ord=ob?`MIN(${ob})`:`1`;
       const sel=v.showCounts
       ? `SELECT ${v.slColumn} AS val, COUNT(*) AS n FROM ${v.slTable} WHERE ${v.slColumn} IS NOT NULL GROUP BY ${v.slColumn} ORDER BY ${ord} LIMIT 300`
       : (ob ? `SELECT ${v.slColumn} AS val FROM ${v.slTable} WHERE ${v.slColumn} IS NOT NULL GROUP BY ${v.slColumn} ORDER BY ${ord} LIMIT 300`
@@ -2354,6 +2356,7 @@ function slicerFormHTML(){ return `<div style="font-weight:700;color:var(--teal-
     <div class="row"><div><label>Tabla</label><select id="as_table" onchange="fillCols()">${Object.keys(tableCols).map(t=>`<option>${t}</option>`).join("")}</select></div><div><label>Columna</label><select id="as_col"></select></div>
       <div><label>Ubicación</label><select id="as_dock"><option value="panel">panel de filtros</option><option value="canvas">suelto en el lienzo</option></select></div></div>
     <div><label>Etiqueta (opcional)</label><input id="as_label" type="text"></div>
+    <div style="margin-top:6px"><label>Query de opciones (opcional)</label><textarea id="as_optsql" class="fxjson" style="min-height:52px;width:100%" placeholder="SELECT property_name AS val FROM properties WHERE company_id='…' ORDER BY property_name"></textarea><div class="hint">Si la rellenas, las opciones salen de esta query (devuelve <code>val</code> y opcional <code>label</code>) en vez de la columna. Útil para acotar por company.</div></div>
     <button class="primary" style="margin-top:8px" onclick="addSlicer()">Añadir slicer</button>`; }
 window.newFilter=()=>{ openDrawer("Nuevo filtro",`<div class="hint">Crea un filtro (slicer). Por defecto se añade al panel de filtros.</div>${slicerFormHTML()}`); fillCols(); };
 window.fillCols=()=>{ const t=$("as_table").value; $("as_col").innerHTML=(tableCols[t]||[]).map(c=>`<option>${c}</option>`).join(""); };
@@ -2361,9 +2364,9 @@ function addAt(){ let y=12; CP().visuals.forEach(v=>y=Math.max(y,v.y)); return {
 window.addVisual=(type="bar")=>{ const def=VIS[type]; if(!def||!def.defaults)return; const id="v"+Date.now().toString(36); const p=addAt();
   const base={id,x:p.x,y:p.y,w:620,h:300,title:"Nuevo "+type}; Object.assign(base,def.defaults(type));
   CP().visuals.push(base); saveDash(); layoutStage(); refreshAll(); closeDrawer(); if(type!=="text")editVisual(id); };
-window.addSlicer=async()=>{ const slTable=$("as_table").value,slColumn=$("as_col").value,label=$("as_label").value.trim()||slColumn,dock=$("as_dock").value; const p=addAt();
-  const id="sl_"+Date.now().toString(36); const slKind=(slColumn==="m"&&slTable==="reservations")?"month":"distinct"; const v={id,type:"slicer",dock,x:16,y:p.y+8,w:360,h:90,slTable,slColumn,label,slKind}; CP().visuals.push(v); saveDash();
-  if(slKind==="month")SLOPTS[id]=MN.map((m,i)=>({value:i+1,label:m})); else try{ const r=await q(`SELECT DISTINCT ${slColumn} AS val FROM ${slTable} WHERE ${slColumn} IS NOT NULL ORDER BY 1 LIMIT 80`); SLOPTS[id]=r.map(x=>({value:x.val,label:String(x.val)})); }catch(e){ SLOPTS[id]=[]; }
+window.addSlicer=async()=>{ const slTable=$("as_table").value,slColumn=$("as_col").value,label=$("as_label").value.trim()||slColumn,dock=$("as_dock").value; const optSQL=($("as_optsql")?$("as_optsql").value.trim():"")||undefined; const p=addAt();
+  const id="sl_"+Date.now().toString(36); const slKind=(slColumn==="m"&&slTable==="reservations")?"month":"distinct"; const v={id,type:"slicer",dock,x:16,y:p.y+8,w:360,h:90,slTable,slColumn,label,slKind}; if(optSQL)v.optSQL=optSQL; CP().visuals.push(v); saveDash();
+  try{ SLOPTS[id]=await slicerOpts(v); }catch(e){ SLOPTS[id]=[]; }
   layoutStage(); paintPanel(); refreshAll(); closeDrawer(); };
 /* ═══════════ Registro de tipos de visual (VIS) ═══════════
    Añadir un tipo = añadir UNA entrada en VIS (engine, shape, defaults, formato, read, render).
@@ -2481,6 +2484,7 @@ function readMatrix(v){ readMetricFmts(); if($("e_fmt"))v.fmt=$("e_fmt").value; 
 function readKpi(v){ v.label=$("e_label")?.value||v.title; v.kind=$("e_kind")?.value||"money"; v.isPct=$("e_pct")?.value==="1"; if($("e_sqlcy")&&!LIVE)v.sqlCY=$("e_sqlcy").value; if($("e_sqltgt")&&!LIVE)v.sqlTGT=$("e_sqltgt").value; }
 function readHtml(v){ if($("e_sql")&&!LIVE)v.sql=$("e_sql").value; }
 async function readSlicer(v){ if($("e_sltable"))v.slTable=$("e_sltable").value; if($("e_slcol"))v.slColumn=$("e_slcol").value; if($("e_sllabel"))v.label=$("e_sllabel").value; if($("e_sldock"))v.dock=$("e_sldock").value;
+  if($("e_sloptsql")){ const t=$("e_sloptsql").value.trim(); if(t)v.optSQL=t; else delete v.optSQL; }
   if($("e_slmode"))v.slMode=$("e_slmode").value; if($("e_slsel"))v.selMode=$("e_slsel").value; if($("e_slcounts"))v.showCounts=$("e_slcounts").checked;
   if($("e_sldef")){ const t=$("e_sldef").value.trim(); v.slDefault=t?t.split(",").map(s=>s.trim()).filter(Boolean):undefined; }
   v.slKind=(v.slColumn==="m"&&v.slTable==="reservations")?"month":"distinct";
@@ -2535,6 +2539,7 @@ function editorFormHTML(v,id){ const def=VIS[v.type]||{};
   const slMode=v.slMode||(v.slKind==="month"?"list":"list"); const slModeOpt=(val,lab)=>`<option value="${val}" ${slMode===val?"selected":""}>${lab}</option>`;
   const slFields=def.slicer?`<div class="row"><div><label>Tabla</label><select id="e_sltable" onchange="eslCols()">${Object.keys(tableCols).map(t=>`<option ${v.slTable===t?"selected":""}>${t}</option>`).join("")}</select></div><div><label>Columna</label><select id="e_slcol">${(tableCols[v.slTable]||[]).map(c=>`<option ${v.slColumn===c?"selected":""}>${c}</option>`).join("")}</select></div><div><label>Ubicación</label><select id="e_sldock"><option value="panel" ${(v.dock||"panel")==="panel"?"selected":""}>panel</option><option value="canvas" ${v.dock==="canvas"?"selected":""}>lienzo</option></select></div></div>
     <div><label>Etiqueta</label><input id="e_sllabel" type="text" value="${esc(v.label||"")}"></div>
+    <div style="margin-top:6px"><label>Query de opciones (opcional)</label><textarea id="e_sloptsql" class="fxjson" style="min-height:52px;width:100%" placeholder="SELECT property_name AS val FROM properties WHERE company_id='…' ORDER BY property_name">${esc(v.optSQL||"")}</textarea><div class="hint">Si la rellenas, las opciones del filtro salen de esta query (devuelve <code>val</code> y opcional <code>label</code>) en vez de la columna. Útil para acotar por company.</div></div>
     <div class="row" style="margin-top:6px"><div><label>Modo</label><select id="e_slmode">${slModeOpt("list","Lista")}${slModeOpt("search","Lista + buscador")}${slModeOpt("daterange","Rango de fechas")}${slModeOpt("relative","Fechas relativas")}${slModeOpt("numrange","Rango numérico")}</select></div><div><label>Selección</label><select id="e_slsel"><option value="multi" ${v.selMode!=="single"?"selected":""}>Múltiple</option><option value="single" ${v.selMode==="single"?"selected":""}>Única</option></select></div><div><label>Recuentos</label><label style="display:flex;align-items:center;gap:6px;height:32px"><input type="checkbox" id="e_slcounts" ${v.showCounts?"checked":""}> mostrar (n)</label></div></div>
     <div><label>Selección por defecto (valores separados por coma)</label><input id="e_sldef" type="text" value="${esc((v.slDefault||[]).join(", "))}"></div>
     <div class="hint"><b>Rango de fechas</b> y <b>relativas</b> (YTD, últimos 7/30…) necesitan una columna de fecha (p.ej. <code>checkin_date</code>, <code>stay_date</code>). <b>Rango numérico</b>, una columna numérica (<code>production</code>, <code>booking_window</code>). Selección <b>única</b>, recuentos y buscador aplican al modo lista.</div>
