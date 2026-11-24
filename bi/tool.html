@@ -2465,11 +2465,15 @@ function colRowHTML(name,cc){ cc=cc||{}; return `<div class="colrow" style="disp
     <select class="cr-heat" style="width:78px"><option value="">heat…</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${cc.heat===k?"selected":""}>${k}</option>`).join("")}</select>
     <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="cr-bar" ${cc.bar?"checked":""}>bar</label>
     <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="cr-arrow" ${cc.arrow?"checked":""}>▲▼</label>
-    <select class="cr-agg" title="Regla del total/subtotal" style="width:96px">${[["","tot: auto"],["sum","Suma"],["avg","Media"],["wavg","Ponderada"],["max","Máx"],["min","Mín"],["median","Mediana"],["none","Ninguno"]].map(([k,l])=>`<option value="${k}" ${(cc.agg||"")===k?"selected":""}>${l}</option>`).join("")}</select>
-    <input class="cr-num" type="text" value="${escA(cc.num||"")}" placeholder="num" title="Numerador (media ponderada)" style="width:58px">
-    <input class="cr-den" type="text" value="${escA(cc.den||"")}" placeholder="den" title="Denominador (media ponderada)" style="width:58px">
-    <label class="fxrow2" style="white-space:nowrap;margin:0" title="Aplicar heat/barra a la celda de total"><input type="checkbox" class="cr-totcond" ${cc.totalCond?"checked":""}>heat⅀</label>
     <button class="sm" title="Quitar columna" onclick="this.closest('.colrow').remove()">✕</button></div>`; }
+// Fila de la mini-rejilla de "Regla del total" (dentro del desplegable Totales). data-field fija el nombre.
+function aggRowHTML(name,cc){ cc=cc||{}; const w=cc.agg==="wavg"; return `<div class="aggrow" data-field="${escA(name)}" style="display:flex;gap:6px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
+    <span style="flex:0 0 140px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escA(name)}">${esc(name)}</span>
+    <select class="ag-rule" style="width:104px" onchange="aggToggle(this)">${[["","Auto"],["sum","Suma"],["avg","Media"],["wavg","Ponderada"],["max","Máx"],["min","Mín"],["median","Mediana"],["none","Ninguno"]].map(([k,l])=>`<option value="${k}" ${(cc.agg||"")===k?"selected":""}>${l}</option>`).join("")}</select>
+    <input class="ag-num" type="text" value="${escA(cc.num||"")}" placeholder="num" title="Numerador (ponderada)" style="width:66px;display:${w?"":"none"}">
+    <input class="ag-den" type="text" value="${escA(cc.den||"")}" placeholder="den" title="Denominador (ponderada)" style="width:66px;display:${w?"":"none"}">
+    <label class="fxrow2" style="white-space:nowrap;margin:0" title="Aplicar heat/barra a la celda de total"><input type="checkbox" class="ag-totcond" ${cc.totalCond?"checked":""}>heat⅀</label></div>`; }
+window.aggToggle=sel=>{ const r=sel.closest(".aggrow"); if(!r)return; const w=sel.value==="wavg"; const n=r.querySelector(".ag-num"),d=r.querySelector(".ag-den"); if(n)n.style.display=w?"":"none"; if(d)d.style.display=w?"":"none"; };
 window.colAddRow=()=>{ const g=$("colgrid"); if(g)g.insertAdjacentHTML("beforeend",colRowHTML("",{})); };
 /* mini-grid de formato por eje (fila/columna) para la matriz: etiqueta (no editable) → fmt/heat/bar/▲▼ */
 function axRowHTML(label,cc){ cc=cc||{}; return `<div class="axrow" data-ax="${esc(label)}" style="display:flex;gap:5px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
@@ -2506,16 +2510,20 @@ function fmtTable(v,id){ return `<div class="row">${fmtNumField(v)}<div><label>F
     <div style="margin-top:8px"><label>Formato por columna <button class="sm" style="float:right;padding:2px 9px" onclick="tblDetectGrid('${id}')">detectar columnas</button></label>
       <div id="colgrid">${(()=>{const ord=COLORDER[v.id]||[];const keys=[...ord,...Object.keys(v.cols||{}).filter(k=>!ord.includes(k))];return keys.map(k=>colRowHTML(k,(v.cols||{})[k])).join("");})()}</div>
       <button class="sm" onclick="colAddRow()">＋ columna</button>
-      <div class="hint">Por columna: formato del número · <code>heat</code> (color de celda por valor) · <code>bar</code> (barra de datos) · <code>▲▼</code> (flecha por signo). El nombre debe coincidir con la columna de la SQL.</div>
+      <div class="hint">Por columna: formato del número · <code>heat</code> · <code>bar</code> · <code>▲▼</code>. El nombre debe coincidir con la columna de la SQL (usa «detectar columnas»).</div>
       <details style="margin-top:6px"><summary class="hint" style="cursor:pointer">JSON avanzado (spark, barra con color hex, pegar/exportar)</summary>
         <textarea id="e_cols" class="fxjson" style="min-height:100px;width:100%;margin-top:5px">${esc(v.cols?JSON.stringify(v.cols,null,2):"{}")}</textarea>
-        <button class="sm" onclick="colsFromJSON()">aplicar JSON al grid</button></details>
-      <div class="hint" style="margin-top:6px">Regla del <b>total</b>: Suma (aditivos) · Media · <b>Ponderada</b> (ratios: pon <code>num</code>/<code>den</code>, ej. %Ocup → Bednights/Capacidad) · Máx/Mín/Mediana · Ninguno. <code>heat⅀</code> = pintar heat/barra también en la celda de total.</div></div>
-    <div style="margin-top:10px"><label>Estilo de totales <span class="hint" style="font-weight:400">(vacío = azul-gris por defecto)</span></label>
-      <div class="optbox" style="display:flex;flex-direction:column;gap:6px">
-        ${totStyleRow("Total general","tot",(v.totStyle&&v.totStyle.total)||{},!!(v.totStyle&&v.totStyle.total))}
-        ${totStyleRow("Subtotal","sub",(v.totStyle&&v.totStyle.sub)||{},!!(v.totStyle&&v.totStyle.sub))}
-      </div></div>
+        <button class="sm" onclick="colsFromJSON()">aplicar JSON al grid</button></details></div>
+    <details class="optbox" style="margin-top:10px" open><summary style="cursor:pointer;font-weight:600;font-size:13px">Totales</summary>
+      <div style="margin-top:8px"><label style="font-size:12px">Regla del total por campo</label>
+        <div class="hint" style="margin:2px 0 5px">Suma (aditivos) · Media · <b>Ponderada</b> (ratios: num/den, ej. %Ocup → Bednights/Capacidad) · Máx/Mín/Mediana · Ninguno. <code>heat⅀</code> = heat/barra también en el total.</div>
+        <div id="agggrid">${(()=>{const ord=COLORDER[v.id]||[];const keys=[...ord,...Object.keys(v.cols||{}).filter(k=>!ord.includes(k))];return keys.length?keys.map(k=>aggRowHTML(k,(v.cols||{})[k])).join(""):`<div class="hint">Pulsa «detectar columnas» arriba para listar los campos.</div>`;})()}</div></div>
+      <div style="margin-top:10px"><label style="font-size:12px">Estilo <span class="hint" style="font-weight:400">(vacío = azul-gris por defecto)</span></label>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+          ${totStyleRow("Total general","tot",(v.totStyle&&v.totStyle.total)||{},!!(v.totStyle&&v.totStyle.total))}
+          ${totStyleRow("Subtotal","sub",(v.totStyle&&v.totStyle.sub)||{},!!(v.totStyle&&v.totStyle.sub))}
+        </div></div>
+    </details>
     <div style="margin-top:6px"><label>Resaltar top-N (JSON, opcional)</label><input id="e_topn" type="text" class="fxjson" value="${escA(v.topN?JSON.stringify(v.topN):"")}" placeholder='{"col":"production","n":3}'></div>
     <div style="margin-top:8px"><label>Niveles de fila · jerarquía (una columna por línea, de arriba a abajo)</label>
       <textarea id="e_rowlevels" class="fxjson" style="min-height:48px;width:100%" placeholder="Market Group&#10;Market">${esc((v.rowLevels||[]).join("\n"))}</textarea>
@@ -2561,15 +2569,20 @@ function readTable(v){ readMetricFmts(); if($("e_fmt"))v.fmt=$("e_fmt").value; i
       const h=r.querySelector(".cr-heat")?.value; if(h)o.heat=h;
       if(r.querySelector(".cr-bar")?.checked)o.bar=(typeof prev[name]?.bar==="string")?prev[name].bar:true;
       if(r.querySelector(".cr-arrow")?.checked)o.arrow=true;
-      const ag=r.querySelector(".cr-agg")?.value; if(ag)o.agg=ag;
-      const nu=(r.querySelector(".cr-num")?.value||"").trim(); if(nu)o.num=nu;
-      const de=(r.querySelector(".cr-den")?.value||"").trim(); if(de)o.den=de;
-      if(r.querySelector(".cr-totcond")?.checked)o.totalCond=true;
-      if(prev[name]&&prev[name].spark)o.spark=prev[name].spark;
-      if(prev[name]&&prev[name].noTotal)o.noTotal=prev[name].noTotal;
+      // conserva la regla de total y otros ajustes que no edita el grid de columnas
+      const p=prev[name]||{}; ["agg","num","den","totalCond","spark","noTotal"].forEach(k=>{ if(p[k]!=null)o[k]=p[k]; });
       if(Object.keys(o).length)cols[name]=o; });
     if(Object.keys(cols).length)v.cols=cols; else delete v.cols; }
   else if($("e_cols")){ const t=$("e_cols").value.trim(); if(!t||t==="{}")delete v.cols; else{ try{v.cols=JSON.parse(t);}catch(e){if(!LIVE)alert("Formato por columna: JSON inválido, se mantiene el anterior.\n"+e.message);} } }
+  const arows=document.querySelectorAll("#agggrid .aggrow");
+  if(arows.length){ const cols=v.cols||{};
+    arows.forEach(r=>{ const f=r.getAttribute("data-field"); if(!f)return; const c=cols[f]||{};
+      const rule=r.querySelector(".ag-rule")?.value; if(rule)c.agg=rule; else delete c.agg;
+      const nu=(r.querySelector(".ag-num")?.value||"").trim(); if(nu)c.num=nu; else delete c.num;
+      const de=(r.querySelector(".ag-den")?.value||"").trim(); if(de)c.den=de; else delete c.den;
+      if(r.querySelector(".ag-totcond")?.checked)c.totalCond=true; else delete c.totalCond;
+      if(Object.keys(c).length)cols[f]=c; });
+    if(Object.keys(cols).length)v.cols=cols; else delete v.cols; }
   if($("ts_tot_on")||$("ts_sub_on")){ const ts={};
     if($("ts_tot_on")?.checked)ts.total={bg:$("ts_tot_bg").value,fg:$("ts_tot_fg").value,bold:$("ts_tot_bold").checked,border:$("ts_tot_bd").checked};
     if($("ts_sub_on")?.checked)ts.sub={bg:$("ts_sub_bg").value,fg:$("ts_sub_fg").value,bold:$("ts_sub_bold").checked,border:$("ts_sub_bd").checked};
