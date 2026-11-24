@@ -41,7 +41,10 @@
   #filterpanel.vert .fp-rz{top:0;bottom:0;right:0;width:9px;cursor:ew-resize} #filterpanel.vert .fp-rz::after{top:50%;right:2px;height:46px;width:3px;transform:translateY(-50%)}
   .fp-rz:hover,.fp-rz.drag{background:rgba(15,110,99,.10)} .fp-rz:hover::after,.fp-rz.drag::after{background:var(--teal)}
   #filterpanel.vert .fp-body{flex-direction:column;flex-wrap:nowrap;width:auto}
-  #filterpanel .fslc{min-width:172px;max-width:280px;flex:0 1 auto;display:flex;flex-direction:column}
+  #filterpanel .fslc{min-width:172px;max-width:280px;flex:0 1 auto;display:flex;flex-direction:column;position:relative}
+  #filterpanel .fslc-rz{position:absolute;top:6px;bottom:6px;right:-4px;width:9px;cursor:ew-resize;z-index:5;opacity:0;transition:opacity .12s}
+  #filterpanel .fslc-rz::after{content:"";position:absolute;top:50%;right:3px;width:3px;height:40%;transform:translateY(-50%);background:var(--border);border-radius:3px}
+  #filterpanel .fslc:hover .fslc-rz{opacity:1} #filterpanel .fslc-rz:hover::after{background:var(--teal)}
   #filterpanel.vert .fslc,#main.side #filterpanel .fslc{min-width:0;max-width:none;width:100%}
   #filterpanel .fslc .pills{max-height:98px;overflow:auto}
   #filterpanel.vert .fslc .pills,#main.side #filterpanel .fslc .pills{max-height:160px}
@@ -1466,9 +1469,11 @@ function slicerMode(v){ return v.slMode||(v.slKind==="month"?"month":(v.slKind==
 async function slicerOpts(v){ const mode=slicerMode(v);
   if(mode==="month") return MN.map((m,i)=>({value:i+1,label:m}));
   if(mode==="prop"){ const r=await q("SELECT property_id,property_name FROM properties ORDER BY property_name"); return r.map(p=>({value:p.property_id,label:p.property_name})); }
-  if(mode==="list"||mode==="search"){ try{ const sel=v.showCounts
-      ? `SELECT ${v.slColumn} AS val, COUNT(*) AS n FROM ${v.slTable} WHERE ${v.slColumn} IS NOT NULL GROUP BY 1 ORDER BY 1 LIMIT 300`
-      : `SELECT DISTINCT ${v.slColumn} AS val FROM ${v.slTable} WHERE ${v.slColumn} IS NOT NULL ORDER BY 1 LIMIT 300`;
+  if(mode==="list"||mode==="search"){ try{ const ob=v.slOrderBy; const ord=ob?`MIN(${ob})`:`1`;
+      const sel=v.showCounts
+      ? `SELECT ${v.slColumn} AS val, COUNT(*) AS n FROM ${v.slTable} WHERE ${v.slColumn} IS NOT NULL GROUP BY ${v.slColumn} ORDER BY ${ord} LIMIT 300`
+      : (ob ? `SELECT ${v.slColumn} AS val FROM ${v.slTable} WHERE ${v.slColumn} IS NOT NULL GROUP BY ${v.slColumn} ORDER BY ${ord} LIMIT 300`
+            : `SELECT DISTINCT ${v.slColumn} AS val FROM ${v.slTable} WHERE ${v.slColumn} IS NOT NULL ORDER BY 1 LIMIT 300`);
       const r=await q(sel); const isM=v.slColumn==="m"; return r.map(x=>({value:x.val,label:isM?(MN[Number(x.val)-1]||String(x.val)):String(x.val),count:x.n!=null?Number(x.n):undefined})); }catch(e){ return []; } }
   if(mode==="numrange"||mode==="daterange"){ try{ const r=await q(`SELECT MIN(${v.slColumn}) lo, MAX(${v.slColumn}) hi FROM ${v.slTable} WHERE ${v.slColumn} IS NOT NULL`); return {min:r[0].lo,max:r[0].hi}; }catch(e){ return {min:0,max:0}; } }
   return []; }
@@ -1622,8 +1627,15 @@ function renderPanel(){ const P=PANEL(); const el=$("filterpanel"); const main=$
   const clr=nA?`<span onclick="clearPageFilters()" title="limpiar todos los filtros">⌦ limpiar</span>`:"";
   const headSp = viewMode ? (clr?`<span class="sp">${clr}</span>`:"") : `<span class="sp">${clr}<span onclick="togglePanelOrient()" title="arriba (barra) / izquierda (lateral)">⇄ ${P.orient==="vertical"?"lateral":"barra"}</span><span onclick="editPanel()" title="posición, tamaño, color, modo">✎ Editar</span><span onclick="togglePanel()" title="colapsar a pastilla">– colapsar</span><span onclick="togglePanelHidden()" title="ocultar el panel por completo">⊘ ocultar</span></span>`;
   el.innerHTML=`<div class="fp-head">⚑ Filtros${cnt}${headSp}</div>`+
-    `<div class="fp-body">`+paramsPanelHTML()+(sls.length?sls.map(v=>`<div class="fslc"><div class="fslabel"><span class="ttl">${esc(v.label||v.slColumn)}</span><span style="flex:0 0 auto"><span class="mv" title="editar" onclick="editVisual('${v.id}')">✎</span> <span class="mv" title="sacar al lienzo" onclick="moveSlicer('${v.id}','canvas')">↗</span> <span class="mv" title="quitar" onclick="delVisual('${v.id}')">✕</span></span></div><div id="body_${v.id}"></div></div>`).join(""):(viewMode?"":`<div class="hint">Panel vacío. Añade un filtro con <b>＋ Filtro</b>, o saca uno del lienzo con ↗.</div>`))+(viewMode?"":`<button class="sm pxadd" style="margin-top:6px" onclick="newFilter()">＋ Filtro</button>`)+`</div>`+(viewMode?"":`<div class="fp-rz"></div>`);
-  if(!viewMode) attachPanelResizer(); }
+    `<div class="fp-body">`+paramsPanelHTML()+(sls.length?sls.map(v=>`<div class="fslc" data-id="${v.id}"${v.pw?` style="flex:0 0 ${v.pw}px;width:${v.pw}px;max-width:none"`:""}><div class="fslabel"><span class="ttl">${esc(v.label||v.slColumn)}</span><span style="flex:0 0 auto"><span class="mv" title="editar" onclick="editVisual('${v.id}')">✎</span> <span class="mv" title="sacar al lienzo" onclick="moveSlicer('${v.id}','canvas')">↗</span> <span class="mv" title="quitar" onclick="delVisual('${v.id}')">✕</span></span></div><div id="body_${v.id}"></div>${viewMode?"":`<div class="fslc-rz" title="arrastrar para ensanchar"></div>`}</div>`).join(""):(viewMode?"":`<div class="hint">Panel vacío. Añade un filtro con <b>＋ Filtro</b>, o saca uno del lienzo con ↗.</div>`))+(viewMode?"":`<button class="sm pxadd" style="margin-top:6px" onclick="newFilter()">＋ Filtro</button>`)+`</div>`+(viewMode?"":`<div class="fp-rz"></div>`);
+  if(!viewMode){ attachPanelResizer(); attachSlicerResizers(); } }
+function attachSlicerResizers(){ const el=$("filterpanel"); if(!el)return;
+  el.querySelectorAll(".fslc-rz").forEach(h=>{ const fslc=h.closest(".fslc"); const id=fslc&&fslc.getAttribute("data-id"); if(!id)return;
+    h.onpointerdown=ev=>{ ev.preventDefault(); ev.stopPropagation(); const v=CP().visuals.find(x=>x.id===id); if(!v)return;
+      const sx=ev.clientX, ow=fslc.getBoundingClientRect().width;
+      const mv=e=>{ const w=Math.max(150,Math.min(1100,ow+(e.clientX-sx))); v.pw=Math.round(w); fslc.style.flex="0 0 "+v.pw+"px"; fslc.style.width=v.pw+"px"; fslc.style.maxWidth="none"; };
+      const up=()=>{ window.removeEventListener("pointermove",mv); window.removeEventListener("pointerup",up); saveDash(); };
+      window.addEventListener("pointermove",mv); window.addEventListener("pointerup",up); }; }); }
 function attachPanelResizer(){ const el=$("filterpanel"); const h=el.querySelector(".fp-rz"); if(!h)return; const P=PANEL(); const vertical=P.orient==="vertical";
   h.onpointerdown=ev=>{ ev.preventDefault(); ev.stopPropagation(); h.classList.add("drag"); const sx=ev.clientX,sy=ev.clientY; const r=el.getBoundingClientRect(); const start=vertical?r.width:r.height;
     const mv=e=>{ let s=vertical?start+(e.clientX-sx):start+(e.clientY-sy); s=Math.max(48,Math.min(vertical?window.innerWidth*0.8:window.innerHeight*0.8,s)); P.size=Math.round(s); if(vertical)el.style.width=P.size+"px"; else el.style.height=P.size+"px"; const si=$("p_size"); if(si)si.value=P.size; for(const id in charts)charts[id].resize(); };
