@@ -40,12 +40,13 @@
   #filterpanel:not(.vert) .fp-rz{left:0;right:0;bottom:0;height:9px;cursor:ns-resize} #filterpanel:not(.vert) .fp-rz::after{left:50%;bottom:2px;width:46px;height:3px;transform:translateX(-50%)}
   #filterpanel.vert .fp-rz{top:0;bottom:0;right:0;width:9px;cursor:ew-resize} #filterpanel.vert .fp-rz::after{top:50%;right:2px;height:46px;width:3px;transform:translateY(-50%)}
   .fp-rz:hover,.fp-rz.drag{background:rgba(15,110,99,.10)} .fp-rz:hover::after,.fp-rz.drag::after{background:var(--teal)}
-  #filterpanel.vert .fp-body{flex-direction:column;flex-wrap:nowrap;width:auto}
+  #filterpanel.vert .fp-body{flex-flow:row wrap;align-content:flex-start;width:auto}
   #filterpanel .fslc{min-width:172px;max-width:280px;flex:0 1 auto;display:flex;flex-direction:column;position:relative}
-  #filterpanel .fslc-rz{position:absolute;top:6px;bottom:6px;right:-4px;width:9px;cursor:ew-resize;z-index:5;opacity:0;transition:opacity .12s}
-  #filterpanel .fslc-rz::after{content:"";position:absolute;top:50%;right:3px;width:3px;height:40%;transform:translateY(-50%);background:var(--border);border-radius:3px}
-  #filterpanel .fslc:hover .fslc-rz{opacity:1} #filterpanel .fslc-rz:hover::after{background:var(--teal)}
-  #filterpanel.vert .fslc,#main.side #filterpanel .fslc{min-width:0;max-width:none;width:100%}
+  #filterpanel .fslc-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;z-index:5;opacity:0;transition:opacity .12s;touch-action:none}
+  #filterpanel .fslc-rz::after{content:"";position:absolute;right:3px;bottom:3px;width:7px;height:7px;border-right:2px solid var(--border);border-bottom:2px solid var(--border);border-bottom-right-radius:2px}
+  #filterpanel .fslc:hover .fslc-rz{opacity:1} #filterpanel .fslc-rz:hover::after{border-color:var(--teal)}
+  #filterpanel .fslc[data-ph] .pills{max-height:var(--slph)}
+  #filterpanel.vert .fslc,#main.side #filterpanel .fslc{min-width:150px;max-width:none;flex:1 1 170px}
   #filterpanel .fslc .pills{max-height:98px;overflow:auto}
   #filterpanel.vert .fslc .pills,#main.side #filterpanel .fslc .pills{max-height:160px}
   #filterpanel .fslabel{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700;margin-bottom:5px;display:flex;justify-content:space-between;gap:10px;align-items:center}
@@ -258,7 +259,7 @@
   #main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;position:relative}
   #main.side{flex-direction:row}
   #main.side #filterpanel{border-bottom:none;border-right:1px solid var(--border);height:100%;overflow:auto;flex:0 0 auto}
-  #main.side #filterpanel .fp-body{flex-direction:column;flex-wrap:nowrap;max-height:none;width:auto}
+  #main.side #filterpanel .fp-body{flex-flow:row wrap;align-content:flex-start;max-height:none;width:auto}
   /* explorador de datos (panel izquierdo) */
   #explorer{position:fixed;top:0;left:0;height:100%;width:480px;max-width:96vw;background:#fff;border-right:1px solid var(--border);box-shadow:6px 0 24px rgba(16,40,50,.12);transform:translateX(-100%);transition:transform .18s;z-index:68;display:flex;flex-direction:column}
   #explorer.open{transform:none}
@@ -1629,13 +1630,19 @@ function renderPanel(){ const P=PANEL(); const el=$("filterpanel"); const main=$
   const clr=nA?`<span onclick="clearPageFilters()" title="limpiar todos los filtros">⌦ limpiar</span>`:"";
   const headSp = viewMode ? (clr?`<span class="sp">${clr}</span>`:"") : `<span class="sp">${clr}<span onclick="togglePanelOrient()" title="arriba (barra) / izquierda (lateral)">⇄ ${P.orient==="vertical"?"lateral":"barra"}</span><span onclick="editPanel()" title="posición, tamaño, color, modo">✎ Editar</span><span onclick="togglePanel()" title="colapsar a pastilla">– colapsar</span><span onclick="togglePanelHidden()" title="ocultar el panel por completo">⊘ ocultar</span></span>`;
   el.innerHTML=`<div class="fp-head">⚑ Filtros${cnt}${headSp}</div>`+
-    `<div class="fp-body">`+paramsPanelHTML()+(sls.length?sls.map(v=>`<div class="fslc" data-id="${v.id}"${v.pw?` style="flex:0 0 ${v.pw}px;width:${v.pw}px;max-width:none"`:""}><div class="fslabel"><span class="ttl">${esc(v.label||v.slColumn)}</span><span style="flex:0 0 auto"><span class="mv" title="editar" onclick="editVisual('${v.id}')">✎</span> <span class="mv" title="sacar al lienzo" onclick="moveSlicer('${v.id}','canvas')">↗</span> <span class="mv" title="quitar" onclick="delVisual('${v.id}')">✕</span></span></div><div id="body_${v.id}"></div>${viewMode?"":`<div class="fslc-rz" title="arrastrar para ensanchar"></div>`}</div>`).join(""):(viewMode?"":`<div class="hint">Panel vacío. Añade un filtro con <b>＋ Filtro</b>, o saca uno del lienzo con ↗.</div>`))+(viewMode?"":`<button class="sm pxadd" style="margin-top:6px" onclick="newFilter()">＋ Filtro</button>`)+`</div>`+(viewMode?"":`<div class="fp-rz"></div>`);
+    `<div class="fp-body">`+paramsPanelHTML()+(sls.length?sls.map(v=>`<div class="fslc" data-id="${v.id}"${v.ph?` data-ph="1"`:""}${(v.pw||v.ph)?` style="${v.pw?`flex:none;width:${v.pw}px;max-width:none;`:""}${v.ph?`--slph:${v.ph}px`:""}"`:""}><div class="fslabel"><span class="ttl">${esc(v.label||v.slColumn)}</span><span style="flex:0 0 auto"><span class="mv" title="editar" onclick="editVisual('${v.id}')">✎</span> <span class="mv" title="sacar al lienzo" onclick="moveSlicer('${v.id}','canvas')">↗</span> <span class="mv" title="quitar" onclick="delVisual('${v.id}')">✕</span></span></div><div id="body_${v.id}"></div>${viewMode?"":`<div class="fslc-rz" title="arrastrar la esquina para redimensionar"></div>`}</div>`).join(""):(viewMode?"":`<div class="hint">Panel vacío. Añade un filtro con <b>＋ Filtro</b>, o saca uno del lienzo con ↗.</div>`))+(viewMode?"":`<button class="sm pxadd" style="margin-top:6px" onclick="newFilter()">＋ Filtro</button>`)+`</div>`+(viewMode?"":`<div class="fp-rz"></div>`);
   if(!viewMode){ attachPanelResizer(); attachSlicerResizers(); } }
 function attachSlicerResizers(){ const el=$("filterpanel"); if(!el)return;
   el.querySelectorAll(".fslc-rz").forEach(h=>{ const fslc=h.closest(".fslc"); const id=fslc&&fslc.getAttribute("data-id"); if(!id)return;
     h.onpointerdown=ev=>{ ev.preventDefault(); ev.stopPropagation(); const v=CP().visuals.find(x=>x.id===id); if(!v)return;
-      const sx=ev.clientX, ow=fslc.getBoundingClientRect().width;
-      const mv=e=>{ const w=Math.max(150,Math.min(1100,ow+(e.clientX-sx))); v.pw=Math.round(w); fslc.style.flex="0 0 "+v.pw+"px"; fslc.style.width=v.pw+"px"; fslc.style.maxWidth="none"; };
+      const pills0=fslc.querySelector(".pills");
+      const sx=ev.clientX, sy=ev.clientY, ow=fslc.getBoundingClientRect().width,
+            oh=v.ph||Math.round((pills0||fslc).getBoundingClientRect().height);
+      const mv=e=>{ const w=Math.max(150,Math.min(1100,ow+(e.clientX-sx))); const hh=Math.max(60,Math.min(640,oh+(e.clientY-sy)));
+        v.pw=Math.round(w); v.ph=Math.round(hh);
+        fslc.style.flex="none"; fslc.style.width=v.pw+"px"; fslc.style.maxWidth="none";
+        fslc.setAttribute("data-ph","1"); fslc.style.setProperty("--slph",v.ph+"px");
+        const pills=fslc.querySelector(".pills"); if(pills)pills.style.maxHeight=v.ph+"px"; };
       const up=()=>{ window.removeEventListener("pointermove",mv); window.removeEventListener("pointerup",up); saveDash(); };
       window.addEventListener("pointermove",mv); window.addEventListener("pointerup",up); }; }); }
 function attachPanelResizer(){ const el=$("filterpanel"); const h=el.querySelector(".fp-rz"); if(!h)return; const P=PANEL(); const vertical=P.orient==="vertical";
