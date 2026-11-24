@@ -1,0 +1,58 @@
+{
+  "id": "p3_t_mkt",
+  "type": "table",
+  "x": 16,
+  "y": 3422,
+  "w": 1256,
+  "h": 420,
+  "title": "Market Detail",
+  "fmt": "money",
+  "zebra": true,
+  "totals": true,
+  "sortable": true,
+  "rowLevels": [
+    "Market Group",
+    "Market"
+  ],
+  "rfilters": [
+    {
+      "rf": "p3_rf_mkt",
+      "col": "\"Market Group\""
+    }
+  ],
+  "cols": {
+    "ADB": {
+      "fmt": "money",
+      "noTotal": true
+    },
+    "Bednights": {
+      "fmt": "int",
+      "heat": "teal"
+    },
+    "RevPab Acc": {
+      "fmt": "money",
+      "noTotal": true
+    },
+    "% Occupancy": {
+      "fmt": "pct"
+    },
+    "Reservations": {
+      "fmt": "int"
+    },
+    "Production Acc": {
+      "fmt": "money"
+    },
+    "Production Total": {
+      "bar": true,
+      "fmt": "money"
+    },
+    "Production Extras": {
+      "fmt": "money"
+    },
+    "Avg Booking Window": {
+      "fmt": "num",
+      "noTotal": true
+    }
+  },
+  "sql": "with ca as (\n    select coalesce(co.country_name,'(Sin país)') country, coalesce(mg.group_name,'(Sin grupo)') market_group,\n      sum(n.price) prodacc,\n      sum(case when n.bed_code_raw is null or n.bed_code_raw='' then rm.beds_per_room else 1 end) bn,\n      count(distinct n.reservation_uid) res\n    from nights n join reservations r on r.company_id=n.company_id and r.reservation_uid=n.reservation_uid\n      left join rooms rm on rm.company_id=n.company_id and rm.raw_value=n.room_code_raw\n      left join client_country_mapping ccm on ccm.company_id=r.company_id and ccm.raw_value=r.client_country\n      left join countries co on co.country_code=ccm.country_code\n      left join country_mapping cm on cm.company_id=r.company_id and cm.country_code=ccm.country_code\n      left join market_groups mg on mg.id=cm.market_group_id\n    where n.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and n.stay_date >= make_date($CY,1,1) and n.stay_date < make_date($CY+1,1,1) group by 1,2),\n  xa as (\n    select coalesce(co.country_name,'(Sin país)') country, sum(e.units*c.unit_price_gross) prodex\n    from extras e join extras_catalog c on c.company_id=e.company_id and c.raw_value=e.raw_value\n      join reservations r on r.company_id=e.company_id and r.reservation_uid=e.reservation_uid\n      left join client_country_mapping ccm on ccm.company_id=r.company_id and ccm.raw_value=r.client_country\n      left join countries co on co.country_code=ccm.country_code\n    where e.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and not coalesce(c.is_passthrough,false) and (case when c.revenue_timing='at_checkout' then r.date_check_out else r.date_check_in end) >= make_date($CY,1,1) and (case when c.revenue_timing='at_checkout' then r.date_check_out else r.date_check_in end) < make_date($CY+1,1,1) group by 1),\n  bwa as (\n    select coalesce(co.country_name,'(Sin país)') country, avg(r.lead_time_days) bw\n    from reservations r\n      left join client_country_mapping ccm on ccm.company_id=r.company_id and ccm.raw_value=r.client_country\n      left join countries co on co.country_code=ccm.country_code\n    where r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid in (select distinct n.reservation_uid from nights n where n.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and n.stay_date >= make_date($CY,1,1) and n.stay_date < make_date($CY+1,1,1)) group by 1),\n  captot as (select sum(rm.beds_per_room) cap from room_capacity_calendar rcc join rooms rm on rm.id=rcc.room_id\n    where rcc.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and rcc.status='open' and rcc.date >= make_date($CY,1,1) and rcc.date < make_date($CY+1,1,1)),\n  cj as (select ca.country, ca.market_group, ca.prodacc, ca.bn, ca.res, coalesce(xa.prodex,0) prodex, bwa.bw,\n      ca.prodacc+coalesce(xa.prodex,0) prodtot, (select cap from captot) cap\n    from ca left join xa using(country) left join bwa using(country))\nselect market_group as \"Market Group\", country as \"Market\", res as \"Reservations\", round(prodtot,2) as \"Production Total\", round(prodacc,2) as \"Production Acc\", round(prodex,2) as \"Production Extras\", round(prodacc/nullif(bn,0),2) as \"ADB\", bn as \"Bednights\", round(prodacc/nullif(cap,0),2) as \"RevPab Acc\", round(bn::numeric/nullif(cap,0),4) as \"% Occupancy\", round(bw,1) as \"Avg Booking Window\" from cj order by prodtot desc nulls last"
+}

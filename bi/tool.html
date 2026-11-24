@@ -2046,7 +2046,7 @@ window.tblToggle=(id,pk)=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)retur
 window.tblExpandAll=id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; s.expanded=new Set(s._allGroups||[]); renderTable(v); };
 window.tblCollapseAll=id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; s.expanded=new Set(); renderTable(v); };
 window.tblExpandNext=id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; s.expanded=s.expanded||new Set(); (s._nodeIndex||[]).forEach(n=>{ if((n.parentKey==null||s.expanded.has(n.parentKey))&&!s.expanded.has(n.pathKey))s.expanded.add(n.pathKey); }); renderTable(v); };
-function _subtot(rowsArr,c,isNum,cc){ if(!isNum(c))return null; if(cc.arrow||cc.fmt==="pct"||cc.spark)return null; return rowsArr.reduce((a,r)=>a+(typeof r[c]==="number"?r[c]:0),0); }
+function _subtot(rowsArr,c,isNum,cc){ if(!isNum(c))return null; if(cc.noTotal||cc.arrow||cc.fmt==="pct"||cc.spark)return null; return rowsArr.reduce((a,r)=>a+(typeof r[c]==="number"?r[c]:0),0); }
 function renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels){
   const SEP="␟"; const groupLevels=levels.slice(0,-1); const leafLabel=levels[levels.length-1]; const valueCols=cols.filter(c=>!levels.includes(c));
   const stats={}; valueCols.forEach(c=>{ if(isNum(c)){ const vs=rows.map(r=>r[c]).filter(x=>typeof x==="number"); if(vs.length)stats[c]={mn:Math.min(...vs),mx:Math.max(...vs)}; }});
