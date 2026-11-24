@@ -1983,7 +1983,18 @@ function tableFxCSS(id,sp){ if(!sp)return ""; const s="#body_"+id+" table.dt"; l
   if(sp.head)css+=`${s} thead th{background:${sp.head.bg||"#16305A"} !important;color:${sp.head.color||"#fff"} !important;border-bottom:${sp.head.line==null?2:sp.head.line}px solid ${sp.head.bg||"#16305A"}}`;
   if(sp.firstColRight)css+=`${s} tbody td:first-child,${s} thead th:first-child{text-align:right}`;
   return css?`<style>${css}</style>`:""; }
-function renderChart(v,rows){ const ch=charts[v.id]; if(!rows.length){ch.clear();return;}
+/* Garantiza que el contenedor .echart existe y la instancia está atada a un nodo
+   vivo. El spinner/estado "sin datos" reemplaza el innerHTML del body y deja la
+   instancia huérfana → el chart saldría en blanco; aquí lo recreamos si hace falta. */
+function ensureEchart(v){ const el=$("body_"+v.id); if(!el)return charts[v.id]||null;
+  let node=el.querySelector(".echart");
+  const live=charts[v.id];
+  const detached=live&&live.getDom&&!el.contains(live.getDom());
+  if(!node||detached){ if(live){try{live.dispose();}catch(e){} delete charts[v.id];}
+    el.innerHTML=`<div class="echart" id="ch_${v.id}"></div>`; node=el.querySelector(".echart"); }
+  if(!charts[v.id]&&node)charts[v.id]=echarts.init(node);
+  return charts[v.id]||null; }
+function renderChart(v,rows){ const ch=ensureEchart(v); if(!ch)return; if(!rows.length){ch.clear();return;}
   const XC=v.x2||"k",YC=v.y2||"v",SC=v.series||"series",OC=v.order||"ord"; const horiz=!!v.horizontal,baseLine=v.type==="line"||v.type==="area";
   let cats=[...new Set(rows.map(r=>r[XC]))]; const om={}; if(OC in rows[0]){rows.forEach(r=>om[r[XC]]=r[OC]);cats.sort((a,b)=>om[a]-om[b]);}
   const hasSeries=SC in rows[0]; let series,legend=false,fmt=v.fmt,legendData=null;
@@ -2009,7 +2020,7 @@ function pieColors(v,rows,YC){ const n=rows.length,vals=rows.map(r=>+r[YC]); con
   if(pal==="single")return rows.map(()=>v.color||"#3D65A8");
   if(pal==="scale"){ const sc=resolveScale(v.colorScale)||SCALES.teal; const mn=Math.min(...vals),mx=Math.max(...vals); return vals.map(val=>lerpColor(sc.from,sc.to,(val-mn)/((mx-mn)||1))); }
   const P=(v.colors&&v.colors.length)?v.colors:PIE_PAL; return rows.map((r,i)=>P[i%P.length]); }
-function renderPie(v,rows){ const ch=charts[v.id]; const XC=v.x2||"k",YC=v.y2||"v"; rows=applyGroupOther(rows,v.group,XC,YC); const total=rows.reduce((a,b)=>a+(+b[YC]),0);
+function renderPie(v,rows){ const ch=ensureEchart(v); if(!ch)return; const XC=v.x2||"k",YC=v.y2||"v"; rows=applyGroupOther(rows,v.group,XC,YC); const total=rows.reduce((a,b)=>a+(+b[YC]),0);
   const cols=pieColors(v,rows,YC); const data=rows.map((r,i)=>({name:r[XC],value:+r[YC],itemStyle:{color:cols[i]}})); const donut=v.type==="donut";
   const showCenter=donut&&(v.centerLabel!==false), showSlice=v.sliceLabels!==false;
   ch.setOption({tooltip:{trigger:"item",formatter:"{b}: {c} ({d}%)"},legend:{type:"scroll",orient:"vertical",right:4,top:"center",textStyle:{fontSize:11,width:150,overflow:"truncate"},tooltip:{show:true}},title:showCenter?{text:fmtValue(total,v.fmt||"money"),subtext:v.centerText||"Total",left:"34%",top:"44%",textAlign:"center",textStyle:{fontSize:16,fontWeight:800,color:"#1E3A5F"},subtextStyle:{fontSize:10,color:"#6B7A82"}}:undefined,
@@ -2017,7 +2028,7 @@ function renderPie(v,rows){ const ch=charts[v.id]; const XC=v.x2||"k",YC=v.y2||"
   ch.off("click"); applyEch(v); ch.resize(); }
 let _worldMapP=null;
 function ensureWorldMap(){ if(_worldMapP)return _worldMapP; _worldMapP=fetch((window.BD_LIBS&&BD_LIBS.worldMap)||"./lib/world.geo.json").then(r=>r.json()).then(j=>{echarts.registerMap("world",j);return true;}); return _worldMapP; }
-async function renderMap(v,rows){ const ch=charts[v.id]; await ensureWorldMap(); const XC=v.x2||"k",YC=v.y2||"v",fmt=v.fmt||"int";
+async function renderMap(v,rows){ const ch=ensureEchart(v); if(!ch)return; await ensureWorldMap(); const XC=v.x2||"k",YC=v.y2||"v",fmt=v.fmt||"int";
   const data=rows.filter(r=>r[XC]!=null).map(r=>({name:r[XC],value:+r[YC]})); const vals=data.map(d=>d.value); const mn=vals.length?Math.min(...vals):0,mx=vals.length?Math.max(...vals):1;
   const sc=resolveScale(v.colorScale)||SCALES.teal;
   const vm=(v.vmType==="piecewise")?{type:"piecewise",min:mn,max:mx,splitNumber:5}:{type:"continuous",min:mn,max:(mx>mn?mx:mn+1),calculable:true};
