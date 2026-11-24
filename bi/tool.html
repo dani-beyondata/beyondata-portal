@@ -2356,13 +2356,47 @@ function growStage(){ let maxB=300; CP().visuals.forEach(v=>maxB=Math.max(maxB,v
 function openDrawer(title,html){ $("d_title").textContent=title; $("d_body").innerHTML=html; $("drawer").classList.add("open"); }
 window.closeDrawer=()=>$("drawer").classList.remove("open");
 const MENU_LABELS={bar:"Barras",line:"Líneas",area:"Área",combo:"Combo (barras + línea)",donut:"Donut",pie:"Tarta",map:"Mapa de países",table:"Tabla",matrix:"Matriz",kpi:"KPI (clásico)",html:"HTML (plantilla + SQL)",metricgroup:"Grupo de métrica · chips (SQL por gráfico)",resultfilter:"Filtro de resultado · recorta filas (WHERE IN)"};
-const MENU_GROUPS=[["Gráficos",["bar","line","area","combo","donut","pie","map"]],["Tabla y matriz",["table","matrix"]],["Tarjetas / HTML",["html"]],["Métrica y resultado",["metricgroup","resultfilter"]]];
-window.addMenu=()=>{ const seen=new Set(); const groupsHTML=MENU_GROUPS.map(([g,types])=>{ const btns=types.filter(t=>VIS[t]&&VIS[t].menu).map(t=>{seen.add(t);return `<button onclick="addVisual('${t}')">${MENU_LABELS[t]||t}</button>`;}).join(""); return btns?`<div style="margin-top:8px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${g}</div><div class="row" style="flex-wrap:wrap">${btns}</div></div>`:""; }).join("");
-  const rest=Object.keys(VIS).filter(t=>VIS[t].menu&&!seen.has(t)).map(t=>`<button onclick="addVisual('${t}')">${MENU_LABELS[t]||t}</button>`).join("");
-  openDrawer("Añadir al lienzo",`<div class="hint">Elige qué añadir. Aparecerá arriba del lienzo; luego lo arrastras.</div>
-  ${groupsHTML}${rest?`<div style="margin-top:8px"><div class="row" style="flex-wrap:wrap">${rest}</div></div>`:""}
-  <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:6px"><button class="primary" style="width:100%" onclick="buildExecSummary()">📋 Página nueva: Executive Summary (réplica PBI)</button><button class="primary" style="width:100%" onclick="buildVentas()">📅 Página nueva: Análisis Ventas · Calendar (réplica PBI)</button></div>
-  <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:10px">${slicerFormHTML()}</div>`); fillCols(); };
+const MENU_GROUPS=[["Gráficos",["bar","line","area","combo","donut","pie","map"]],["Tabla y matriz",["table","matrix"]],["Tarjetas / HTML",["html","text"]],["Métrica y resultado",["metricgroup","resultfilter"]]];
+const MENU_SHORT={bar:"Barras",line:"Líneas",area:"Área",combo:"Combo",donut:"Donut",pie:"Tarta",map:"Mapa",table:"Tabla",matrix:"Matriz",html:"HTML",text:"Texto",metricgroup:"Grupo métrica",resultfilter:"Filtro result.",slicer:"Slicer",parameter:"Parámetro"};
+const MENU_TIPS={bar:"k, v (+ series)",line:"k, v",area:"k, v",combo:"k, series, v",donut:"k, v",pie:"k, v",map:"k = país, v = valor",table:"columnas libres",matrix:"row, col, v",html:"1 fila · plantilla [[col]]",text:"HTML libre",metricgroup:"chips · SQL por gráfico",resultfilter:"recorta filas (WHERE IN)",slicer:"filtra la página por una columna",parameter:"valor reutilizable · $param"};
+const MENU_ICONS={
+  bar:'<rect x="7" y="26" width="7" height="15" rx="1.5"/><rect x="20" y="16" width="7" height="25" rx="1.5"/><rect x="33" y="9" width="7" height="32" rx="1.5"/>',
+  line:'<polyline points="7,34 18,22 28,28 41,11"/><circle cx="18" cy="22" r="2.4" fill="currentColor" stroke="none"/><circle cx="28" cy="28" r="2.4" fill="currentColor" stroke="none"/><circle cx="41" cy="11" r="2.4" fill="currentColor" stroke="none"/>',
+  area:'<path d="M7 34 L18 22 L28 28 L41 12 L41 41 L7 41 Z" fill="currentColor" fill-opacity="0.14"/><polyline points="7,34 18,22 28,28 41,12"/>',
+  combo:'<rect x="8" y="27" width="7" height="14" rx="1.5"/><rect x="20" y="22" width="7" height="19" rx="1.5"/><rect x="32" y="17" width="7" height="24" rx="1.5"/><polyline points="8,20 23,14 35,9"/>',
+  donut:'<circle cx="24" cy="24" r="15"/><circle cx="24" cy="24" r="6.5"/><path d="M24 9 A15 15 0 0 1 37 31" stroke-width="4" stroke="currentColor" opacity=".5" fill="none"/>',
+  pie:'<circle cx="24" cy="24" r="15"/><path d="M24 24 L24 9 A15 15 0 0 1 37.5 30 Z" fill="currentColor" fill-opacity=".18"/><line x1="24" y1="24" x2="24" y2="9"/><line x1="24" y1="24" x2="37.5" y2="30"/>',
+  map:'<path d="M24 7 C16 7 11 12 11 19 C11 28 24 41 24 41 C24 41 37 28 37 19 C37 12 32 7 24 7 Z"/><circle cx="24" cy="19" r="4.5"/>',
+  table:'<rect x="8" y="10" width="32" height="28" rx="2.5"/><line x1="8" y1="19" x2="40" y2="19"/><line x1="19" y1="10" x2="19" y2="38"/><line x1="8" y1="28.5" x2="40" y2="28.5"/>',
+  matrix:'<rect x="8" y="10" width="32" height="28" rx="2.5"/><rect x="8" y="10" width="32" height="9" fill="currentColor" fill-opacity=".14"/><rect x="8" y="10" width="11" height="28" fill="currentColor" fill-opacity=".14"/><line x1="8" y1="19" x2="40" y2="19"/><line x1="19" y1="10" x2="19" y2="38"/><line x1="29.5" y1="10" x2="29.5" y2="38"/><line x1="8" y1="28.5" x2="40" y2="28.5"/>',
+  html:'<rect x="8" y="12" width="32" height="24" rx="3"/><text x="14" y="27" font-size="11" font-weight="800" fill="currentColor" stroke="none" font-family="Segoe UI,Arial">1.2M</text><rect x="14" y="30" width="20" height="2.4" rx="1.2" fill="currentColor" stroke="none" opacity=".5"/>',
+  text:'<line x1="12" y1="15" x2="36" y2="15"/><line x1="12" y1="23" x2="36" y2="23"/><line x1="12" y1="31" x2="28" y2="31"/>',
+  metricgroup:'<rect x="7" y="19" width="15" height="11" rx="5.5" fill="currentColor" fill-opacity=".16"/><rect x="7" y="19" width="15" height="11" rx="5.5"/><rect x="25" y="19" width="16" height="11" rx="5.5"/>',
+  resultfilter:'<path d="M9 12 L39 12 L28 25 L28 38 L20 33 L20 25 Z"/>',
+  slicer:'<rect x="9" y="11" width="30" height="26" rx="3"/><rect x="13" y="16" width="4" height="4" rx="1" fill="currentColor" stroke="none"/><line x1="21" y1="18" x2="34" y2="18"/><rect x="13" y="24" width="4" height="4" rx="1" fill="currentColor" stroke="none"/><line x1="21" y1="26" x2="34" y2="26"/>',
+  parameter:'<circle cx="16" cy="24" r="5"/><circle cx="33" cy="24" r="5"/><line x1="7" y1="24" x2="11" y2="24"/><line x1="21" y1="24" x2="28" y2="24"/><line x1="38" y1="24" x2="41" y2="24"/>'
+};
+const MENU_ICO=t=>`<svg class="addico" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MENU_ICONS[t]||""}</svg>`;
+const ADD_CSS=`<style>
+  #d_body .addsec{margin-top:14px}
+  #d_body .addlbl{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0A4A43;margin-bottom:8px}
+  #d_body .addgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  #d_body .addtile{position:relative;aspect-ratio:1/1;border:1px solid var(--border);border-radius:14px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;cursor:pointer;transition:border-color .12s,box-shadow .12s,transform .06s;padding:8px}
+  #d_body .addtile:hover{border-color:#12776b;box-shadow:0 4px 14px rgba(10,74,67,.14)}
+  #d_body .addtile:active{transform:translateY(1px)}
+  #d_body .addico{width:40px;height:40px;color:var(--teal-d)}
+  #d_body .addtile:hover .addico{color:#12776b}
+  #d_body .addtile .nm{font-size:12px;font-weight:600;text-align:center;line-height:1.1}
+  #d_body .addtile[data-tip]::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%) translateY(4px);background:var(--teal-d);color:#fff;font-size:11px;font-weight:500;line-height:1.25;white-space:nowrap;padding:6px 9px;border-radius:7px;opacity:0;pointer-events:none;transition:opacity .13s,transform .13s;z-index:40;box-shadow:0 4px 12px rgba(0,0,0,.18)}
+  #d_body .addtile[data-tip]:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
+  #d_body .addsec:first-of-type .addgrid .addtile:nth-child(-n+4)[data-tip]::after{bottom:auto;top:calc(100% + 7px)}
+</style>`;
+window.addMenu=()=>{
+  const tile=(t,onclick,label,tip)=>`<div class="addtile"${tip?` data-tip="${tip}"`:""} onclick="${onclick}">${MENU_ICO(t)}<div class="nm">${label}</div></div>`;
+  const sections=MENU_GROUPS.map(([g,types])=>{ const tiles=types.filter(t=>VIS[t]&&VIS[t].menu).map(t=>tile(t,`addVisual('${t}')`,MENU_SHORT[t]||t,MENU_TIPS[t]||"")).join(""); return tiles?`<div class="addsec"><div class="addlbl">${g}</div><div class="addgrid">${tiles}</div></div>`:""; }).join("");
+  const filtros=`<div class="addsec"><div class="addlbl">Filtros</div><div class="addgrid">${tile("slicer","newFilter()","Slicer",MENU_TIPS.slicer)}${tile("parameter","newParam()","Parámetro",MENU_TIPS.parameter)}</div></div>`;
+  const paginas=`<div class="addsec"><div class="addlbl">Páginas (réplica PBI)</div><div style="display:flex;flex-direction:column;gap:6px"><button class="primary" style="width:100%" onclick="buildExecSummary()">📋 Executive Summary</button><button class="primary" style="width:100%" onclick="buildVentas()">📅 Análisis Ventas · Calendar</button></div></div>`;
+  openDrawer("Añadir al lienzo",ADD_CSS+`<div class="hint">Elige qué añadir. Aparecerá arriba del lienzo; luego lo arrastras. Pasa el cursor para ver qué datos espera cada uno.</div>`+sections+filtros+paginas); };
 function slicerFormHTML(){ return `<div style="font-weight:700;color:var(--teal-d);margin-bottom:6px">Slicer</div>
     <div class="row"><div><label>Tabla</label><select id="as_table" onchange="fillCols()">${Object.keys(tableCols).map(t=>`<option>${t}</option>`).join("")}</select></div><div><label>Columna</label><select id="as_col"></select></div>
       <div><label>Ubicación</label><select id="as_dock"><option value="panel">panel de filtros</option><option value="canvas">suelto en el lienzo</option></select></div></div>
