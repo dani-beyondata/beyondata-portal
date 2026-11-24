@@ -2080,7 +2080,26 @@ window.tblToggle=(id,pk)=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)retur
 window.tblExpandAll=id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; s.expanded=new Set(s._allGroups||[]); renderTable(v); };
 window.tblCollapseAll=id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; s.expanded=new Set(); renderTable(v); };
 window.tblExpandNext=id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; const s=TBL_STATE[id]=TBL_STATE[id]||{}; s.expanded=s.expanded||new Set(); (s._nodeIndex||[]).forEach(n=>{ if((n.parentKey==null||s.expanded.has(n.parentKey))&&!s.expanded.has(n.pathKey))s.expanded.add(n.pathKey); }); renderTable(v); };
-function _subtot(rowsArr,c,isNum,cc){ if(!isNum(c))return null; if(cc.noTotal||cc.arrow||cc.fmt==="pct"||cc.spark)return null; return rowsArr.reduce((a,r)=>a+(typeof r[c]==="number"?r[c]:0),0); }
+// Motor de agregación de totales/subtotales. Regla por columna (cc.agg):
+//  sum | avg | wavg (media ponderada: cc.num/cc.den) | max | min | median | none
+// Back-compat: sin cc.agg, se mantiene el comportamiento anterior (suma; null para pct/arrow/spark/noTotal).
+function _aggCol(rowsArr,c,isNum,cc){
+  cc=cc||{};
+  const rule = cc.agg || ((cc.noTotal||cc.arrow||cc.fmt==="pct"||cc.spark)?"none":"sum");
+  if(rule==="none") return null;
+  if(!isNum(c) && rule!=="wavg") return null;
+  const sumOf=col=>rowsArr.reduce((a,r)=>a+(typeof r[col]==="number"?r[col]:0),0);
+  const nums=rowsArr.map(r=>r[c]).filter(x=>typeof x==="number");
+  switch(rule){
+    case "avg":    return nums.length? sumOf(c)/nums.length : null;
+    case "max":    return nums.length? Math.max(...nums) : null;
+    case "min":    return nums.length? Math.min(...nums) : null;
+    case "median": { if(!nums.length)return null; const s=[...nums].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2? s[m] : (s[m-1]+s[m])/2; }
+    case "wavg":   { const n=cc.num,d=cc.den; if(!n||!d)return null; const sd=sumOf(d); return sd? sumOf(n)/sd : null; }
+    default:       return sumOf(c); // sum
+  }
+}
+function _subtot(rowsArr,c,isNum,cc){ return _aggCol(rowsArr,c,isNum,cc); }
 function renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels){
   const SEP="␟"; const groupLevels=levels.slice(0,-1); const leafLabel=levels[levels.length-1]; const valueCols=cols.filter(c=>!levels.includes(c));
   const stats={}; valueCols.forEach(c=>{ if(isNum(c)){ const vs=rows.map(r=>r[c]).filter(x=>typeof x==="number"); if(vs.length)stats[c]={mn:Math.min(...vs),mx:Math.max(...vs)}; }});
@@ -2134,7 +2153,7 @@ async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),
         if(cc.bar&&stats[c])inner=condBar(inner,val,stats[c].mn,stats[c].mx,cc.bar);
       } else inner=esc(val);
       return `<td class="${isNum(c)?'num':''}" style="${style}">${inner}</td>`; }).join("")}</tr>`; }).join("");
-  let totals=""; if(v.totals){ totals=`<tr class="tbl-tot">${cols.map((c,i)=>{ if(i===0)return `<td>Total</td>`; const cc=cfg[c]||{}; if(isNum(c)&&!(cc.fmt==="pct"||cc.arrow)){ const sum=data.reduce((a,b)=>a+(typeof b[c]==="number"?b[c]:0),0); return `<td class="num">${fmtCell(sum,fmtOf(c))}</td>`; } return `<td></td>`; }).join("")}</tr>`; }
+  let totals=""; if(v.totals){ totals=`<tr class="tbl-tot">${cols.map((c,i)=>{ if(i===0)return `<td>Total</td>`; const cc=cfg[c]||{}; const s=_aggCol(data,c,isNum,cc); return `<td class="num">${s==null?"":fmtCell(s,fmtOf(c))}</td>`; }).join("")}</tr>`; }
   let pager=""; if(ps>0&&total>ps){ const pages=Math.ceil(total/ps); pager=`<div class="tbl-pager">${page>0?`<button class="sm" onclick="tblPage('${v.id}',${page-1})">‹</button>`:""}<span>${page+1} / ${pages} · ${total} filas</span>${page<pages-1?`<button class="sm" onclick="tblPage('${v.id}',${page+1})">›</button>`:""}</div>`; }
   el.innerHTML=tableFxCSS(v.id,buildFx(v))+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}${(v.totals&&v.totalsFreeze!==false)?' totfreeze':''}"><table class="dt"><thead>${head}</thead><tbody>${body}${totals}</tbody></table></div>${pager}`; }
 window.tblDetect=async id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; try{ const rows=await q(applyWhere(v.sql)); if(!rows.length){alert("La query no devuelve filas.");return;} const cols=Object.keys(rows[0]); const num=cols.filter(c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number")); const sk=Object.assign({},v.cols||{}); num.forEach(c=>{ if(!sk[c])sk[c]={fmt:v.fmt||"num"}; }); $("e_cols").value=JSON.stringify(sk,null,2); }catch(e){ alert("No pude detectar columnas: "+e.message); } };
