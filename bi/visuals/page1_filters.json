@@ -41,7 +41,8 @@
    "slTable": "properties",
    "slColumn": "property_name",
    "label": "Property",
-   "slKind": "distinct"
+   "slKind": "distinct",
+   "pw": 300
   },
   {
    "id": "p1_sl_q",
@@ -67,7 +68,9 @@
    "slTable": "calendar",
    "slColumn": "month",
    "label": "Month",
-   "slKind": "distinct"
+   "slKind": "distinct",
+   "slOrderBy": "month_number::int",
+   "pw": 520
   },
   {
    "h": 84,
