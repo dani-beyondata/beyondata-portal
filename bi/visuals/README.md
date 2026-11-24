@@ -75,7 +75,7 @@ Modo editor → abre el visual **p5_ctrl** → sección **"JSON del visual (edit
 abajo → pega `p5_ctrl_step.json` → **Aplicar JSON**. (Altura subida a 760 para que
 quepan las filas-título; ajústala si quieres.)
 
-## Opcional
-Los ▲▼ van en texto plano (como la tabla original). Si quieres el Δ en **verde/rojo**,
-se añade envolviendo la celda en un `<span style="color…">` desde el SQL — dímelo y
-lo hago.
+## Delta en color
+Las celdas de la fila **Δ YoY** van coloreadas por signo: **verde** (`#2F7A34`) para ▲
+y **rojo** (`#b4322a`) para ▼. Se hace envolviendo el valor en un `<span style="color…">`
+desde el propio SQL (la celda se pinta sin escapar). Las filas YTD/LYTD quedan en negro.
