@@ -2134,19 +2134,32 @@ function expToast(msg){ let t=$("exptoast"); if(!t){t=document.createElement("di
 let _h2c=null,_jspdf=null;
 async function ensureExportLibs(pdf){ if(!_h2c){ await loadScript(LIBS.html2canvas||"https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"); _h2c=window.html2canvas; }
   if(pdf&&!_jspdf){ await loadScript(LIBS.jspdf||"https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"); _jspdf=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; } }
+/* Límite de canvas del navegador (~16384 px por lado y ~268 MP de área en Chrome).
+   Si alto×scale lo supera, el canvas sale corrupto (ruido de colores) en las páginas
+   más altas. Capamos el scale para que siempre quepa (baja algo la resolución en
+   páginas gigantes, pero se dibuja bien en vez de corromperse). */
+const _MAXSIDE=16384, _MAXAREA=252000000;
+function _safeScale(w,h,desired){ const d=desired||2; return Math.max(0.1, Math.min(d, _MAXSIDE/w, _MAXSIDE/h, Math.sqrt(_MAXAREA/(w*h)))); }
 async function _capturePage(scale){ const stage=$("stage"); if(!stage)throw new Error("sin lienzo"); const z=stage.style.zoom; stage.style.zoom="1";  // el zoom CSS rompe html2canvas
-  try{ const w=Math.max(stage.scrollWidth,PAGE_W), h=stage.scrollHeight; return await _h2c(stage,{scale:scale||2,backgroundColor:"#ffffff",useCORS:true,logging:false,width:w,height:h,windowWidth:w,windowHeight:h}); }
+  try{ const w=Math.max(stage.scrollWidth,PAGE_W), h=stage.scrollHeight; const sc=_safeScale(w,h,scale);
+    const canvas=await _h2c(stage,{scale:sc,backgroundColor:"#ffffff",useCORS:true,logging:false,width:w,height:h,windowWidth:w,windowHeight:h});
+    return {canvas,w,h,scale:sc}; }
   finally{ stage.style.zoom=z; } }
 function _dlName(ext,base){ const n=base||(CP()&&CP().name)||"dashboard"; return String(n).replace(/[^\w\-]+/g,"_")+"."+ext; }
-window.exportPagePNG=async()=>{ try{ expToast("Generando imagen…"); await ensureExportLibs(false); const c=await _capturePage(2); const a=document.createElement("a"); a.href=c.toDataURL("image/png"); a.download=_dlName("png"); a.click(); expToast("Imagen descargada"); }catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); } };
-window.exportPagePDF=async()=>{ try{ expToast("Generando PDF…"); await ensureExportLibs(true); const c=await _capturePage(2); const w=c.width/2, h=c.height/2; const pdf=new _jspdf({orientation:w>=h?"landscape":"portrait",unit:"pt",format:[w,h],compress:true}); pdf.addImage(c.toDataURL("image/png"),"PNG",0,0,w,h); pdf.save(_dlName("pdf")); expToast("PDF descargado"); }catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); } };
-window.exportDocPDF=async()=>{ try{ await ensureExportLibs(true); const orig=DASH.active, n=DASH.pages.length; let pdf=null;
-  for(let i=0;i<n;i++){ expToast(`Generando documento… ${i+1}/${n}`); DASH.active=i; renderTabs(); layoutStage(); paintPanel(); await refreshAll(); await new Promise(r=>setTimeout(r,180));
-    const c=await _capturePage(2); const w=c.width/2, h=c.height/2, ori=w>=h?"landscape":"portrait";
+window.exportPagePNG=async()=>{ try{ expToast("Generando imagen…"); await ensureExportLibs(false); const {canvas}=await _capturePage(2); const a=document.createElement("a"); a.href=canvas.toDataURL("image/png"); a.download=_dlName("png"); a.click(); expToast("Imagen descargada"); }catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); } };
+window.exportPagePDF=async()=>{ try{ expToast("Generando PDF…"); await ensureExportLibs(true); const {canvas,w,h}=await _capturePage(2); const pdf=new _jspdf({orientation:w>=h?"landscape":"portrait",unit:"pt",format:[w,h],compress:true}); pdf.addImage(canvas.toDataURL("image/png"),"PNG",0,0,w,h); pdf.save(_dlName("pdf")); expToast("PDF descargado"); }catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); } };
+let _exporting=false;
+window.exportDocPDF=async()=>{ if(_exporting){ expToast("Ya hay una exportación en marcha…"); return; } _exporting=true;
+  try{ await ensureExportLibs(true); const orig=DASH.active, n=DASH.pages.length; let pdf=null;
+  for(let i=0;i<n;i++){ expToast(`Generando documento… ${i+1}/${n}`); DASH.active=i; renderTabs(); layoutStage(); paintPanel(); await refreshAll();
+    await new Promise(r=>setTimeout(r,180)); await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    const {canvas,w,h}=await _capturePage(2); const ori=w>=h?"landscape":"portrait";
     if(!pdf) pdf=new _jspdf({orientation:ori,unit:"pt",format:[w,h],compress:true}); else pdf.addPage([w,h],ori);
-    pdf.addImage(c.toDataURL("image/png"),"PNG",0,0,w,h); }
+    pdf.addImage(canvas.toDataURL("image/png"),"PNG",0,0,w,h); }
   DASH.active=orig; renderTabs(); layoutStage(); paintPanel(); await refreshAll();
-  pdf.save(_dlName("pdf","documento")); expToast("Documento descargado"); }catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); } };
+  pdf.save(_dlName("pdf","documento")); expToast("Documento descargado"); }
+  catch(e){ expToast("No se pudo exportar: "+(e&&e.message||e)); }
+  finally{ _exporting=false; } };
 window.toggleExpMenu=(ev)=>{ if(ev)ev.stopPropagation(); const z=$("userZone"); if(!z)return; const open=!z.classList.contains("expopen"); z.classList.toggle("expopen",open);
   if(open){ const close=(e)=>{ if(!z.contains(e.target)){ z.classList.remove("expopen"); document.removeEventListener("mousedown",close); } }; setTimeout(()=>document.addEventListener("mousedown",close),0); } };
 window.exportDo=(what,fmt)=>{ const z=$("userZone"); if(z)z.classList.remove("expopen"); if(what==="doc")return exportDocPDF(); return fmt==="png"?exportPagePNG():exportPagePDF(); };
