@@ -2101,6 +2101,13 @@ function _aggCol(rowsArr,c,isNum,cc){
   }
 }
 function _subtot(rowsArr,c,isNum,cc){ return _aggCol(rowsArr,c,isNum,cc); }
+// Agregación sobre un array de valores (para totales de fila/columna de matriz). wavg no aplica (usar SQL).
+function aggArr(arr,rule){ const v=arr.filter(x=>typeof x==="number"); if(!v.length)return null;
+  switch(rule){ case "none": case "wavg": return null;
+    case "avg": return v.reduce((a,b)=>a+b,0)/v.length;
+    case "max": return Math.max(...v); case "min": return Math.min(...v);
+    case "median": { const s=[...v].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
+    default: return v.reduce((a,b)=>a+b,0); } }
 // Estilo configurable de totales por visual -> variables CSS (--tot-* / --sub-*).
 // Sin config, caen a los defaults del CSS. v.totStyle={total:{bg,fg,bold,border}, sub:{...}}.
 function totVars(v){ const cfg=v&&v.totStyle; if(!cfg)return ""; let o=""; const add=(k,x)=>{o+=k+":"+x+";";};
@@ -2137,8 +2144,10 @@ function renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels){
   el.innerHTML=tableFxCSS(v.id,buildFx(v))+bar+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}"><table class="dt"${totVars(v)}><thead>${head}</thead><tbody>${out.join("")}${totals}</tbody></table></div>`;
 }
 async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
-  const cols=Object.keys(rows[0]); COLORDER[v.id]=cols; const isNum=c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number");
+  const allCols=Object.keys(rows[0]); const hasRK=allCols.includes("_rowkind"); const cols=allCols.filter(c=>c!=="_rowkind"); COLORDER[v.id]=cols; const isNum=c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number");
   const cfg=v.cols||{}; const st=TBL_STATE[v.id]=TBL_STATE[v.id]||{};
+  // fila de total/subtotal: por marcador _rowkind de la SQL, o por nombre de la 1ª columna como fallback
+  const rowKind=r=>{ if(hasRK){ const k=String(r._rowkind||"").toLowerCase(); return k==="total"?"tot":(k==="subtotal"||k==="sub")?"sub":""; } if(!v.totByName)return ""; const l=String(r[cols[0]]==null?"":r[cols[0]]).toLowerCase().trim(); return /^subtotal/.test(l)?"sub":/^total/.test(l)?"tot":""; };
   let data=rows.slice();
   if(st.sortCol&&cols.includes(st.sortCol)){ const d=st.sortDir==="asc"?1:-1; data.sort((a,b)=>{const x=a[st.sortCol],y=b[st.sortCol]; if(x==null)return 1; if(y==null)return -1; return (x>y?1:x<y?-1:0)*d;}); }
   const stats={}; cols.forEach(c=>{ if(isNum(c)){ const vs=data.map(r=>r[c]).filter(x=>typeof x==="number"); stats[c]={mn:Math.min(...vs),mx:Math.max(...vs)}; }});
@@ -2149,18 +2158,18 @@ async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),
   const levels=Array.isArray(v.rowLevels)?v.rowLevels.filter(c=>cols.includes(c)):[];
   if(levels.length>=2){ return renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels); }
   const head=`<tr>${cols.map(c=>`<th class="${isNum(c)?'num':''}" ${v.sortable!==false?`onclick="tblSort('${v.id}','${c}')" style="cursor:pointer"`:""}>${esc(c)}${st.sortCol===c?(st.sortDir==="asc"?" ▲":" ▼"):""}</th>`).join("")}</tr>`;
-  const body=view.map(r=>{ const hl=(topSet&&topSet.has(r))?' class="tbl-top"':"";
-    return `<tr${hl}>${cols.map(c=>{ const cc=cfg[c]||{}; const val=r[c]; const num=isNum(c)&&typeof val==="number"; let style="";
+  const body=view.map(r=>{ const rk=rowKind(r); const isT=!!rk; const cls=[(topSet&&topSet.has(r))?"tbl-top":"", rk==="tot"?"tbl-tot":rk==="sub"?"tbl-sub":""].filter(Boolean).join(" ");
+    return `<tr${cls?` class="${cls}"`:""}>${cols.map(c=>{ const cc=cfg[c]||{}; const val=r[c]; const num=isNum(c)&&typeof val==="number"; let style="";
       let inner;
       if(cc.spark){ inner=sparkCell(val); }
       else if(num){ const f=fmtOf(c);
         if(cc.arrow){ const up=val>=0; inner=`<span style="color:${up?'#2F7A34':'#b4322a'}">${up?'▲':'▼'} ${fmtCell(Math.abs(val),f)}</span>`; }
         else inner=fmtCell(val,f);
-        if(cc.heat&&stats[c])style+=condStyle(val,stats[c].mn,stats[c].mx,cc.heat);
-        if(cc.bar&&stats[c])inner=condBar(inner,val,stats[c].mn,stats[c].mx,cc.bar);
+        if(cc.heat&&stats[c]&&!isT)style+=condStyle(val,stats[c].mn,stats[c].mx,cc.heat);
+        if(cc.bar&&stats[c]&&!isT)inner=condBar(inner,val,stats[c].mn,stats[c].mx,cc.bar);
       } else inner=esc(val);
       return `<td class="${isNum(c)?'num':''}" style="${style}">${inner}</td>`; }).join("")}</tr>`; }).join("");
-  let totals=""; if(v.totals){ totals=`<tr class="tbl-tot">${cols.map((c,i)=>{ if(i===0)return `<td>Total</td>`; const cc=cfg[c]||{}; const s=_aggCol(data,c,isNum,cc); return `<td class="num">${s==null?"":fmtCell(s,fmtOf(c))}</td>`; }).join("")}</tr>`; }
+  let totals=""; if(v.totals&&!hasRK){ totals=`<tr class="tbl-tot">${cols.map((c,i)=>{ if(i===0)return `<td>Total</td>`; const cc=cfg[c]||{}; const s=_aggCol(data,c,isNum,cc); return `<td class="num">${s==null?"":fmtCell(s,fmtOf(c))}</td>`; }).join("")}</tr>`; }
   let pager=""; if(ps>0&&total>ps){ const pages=Math.ceil(total/ps); pager=`<div class="tbl-pager">${page>0?`<button class="sm" onclick="tblPage('${v.id}',${page-1})">‹</button>`:""}<span>${page+1} / ${pages} · ${total} filas</span>${page<pages-1?`<button class="sm" onclick="tblPage('${v.id}',${page+1})">›</button>`:""}</div>`; }
   el.innerHTML=tableFxCSS(v.id,buildFx(v))+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}${(v.totals&&v.totalsFreeze!==false)?' totfreeze':''}"><table class="dt"${totVars(v)}><thead>${head}</thead><tbody>${body}${totals}</tbody></table></div>${pager}`; }
 window.tblDetect=async id=>{ const v=CP().visuals.find(x=>x.id===id); if(!v)return; try{ const rows=await q(applyWhere(v.sql)); if(!rows.length){alert("La query no devuelve filas.");return;} const cols=Object.keys(rows[0]); const num=cols.filter(c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number")); const sk=Object.assign({},v.cols||{}); num.forEach(c=>{ if(!sk[c])sk[c]={fmt:v.fmt||"num"}; }); $("e_cols").value=JSON.stringify(sk,null,2); }catch(e){ alert("No pude detectar columnas: "+e.message); } };
@@ -2174,7 +2183,14 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v))
   let rowvals=[...new Set(rows.map(r=>r.row))]; let colvals=[...new Set(rows.map(r=>r.col))]; if('colOrd'in rows[0]){const om={};rows.forEach(r=>om[r.col]=r.colOrd);colvals.sort((a,b)=>om[a]-om[b]);}
   const cell={}; rows.forEach(r=>cell[r.row+"||"+r.col]=+r.v||0); const colTot={},rowTot={}; let grand=0; rowvals.forEach(r=>rowTot[r]=0); colvals.forEach(c=>colTot[c]=0); rows.forEach(r=>{rowTot[r.row]+=(+r.v||0);colTot[r.col]+=(+r.v||0);grand+=(+r.v||0);});
   const dataFmt={}, dataArrow={}; rows.forEach(r=>{ if(r.fmt!=null)dataFmt[r.row]=r.fmt; if(r.arrow!=null)dataArrow[r.row]=(r.arrow===true||r.arrow==="true"||r.arrow===1||r.arrow==="1"); });
-  const showTot = v.autoTotal!==false;   // total propio (suma); apágalo para tablas con total desde el SQL
+  const showTot = v.autoTotal!==false;   // total propio; apágalo para tablas con total desde el SQL
+  // totales de display con la regla por eje (rowTot/colTot siguen siendo SUMA para pct/orden)
+  const AF0=v.axisFmt||{}, AX0=v.fmtAxis||"off";
+  const rowTotD={}, colTotD={};
+  rowvals.forEach(rw=>{ const rule=(AX0==="row"&&AF0[rw]&&AF0[rw].agg)?AF0[rw].agg:"sum"; rowTotD[rw]=rule==="sum"?rowTot[rw]:aggArr(colvals.map(c=>{const k=rw+"||"+c;return (k in cell)?cell[k]:null;}),rule); });
+  colvals.forEach(c=>{ const rule=(AX0==="col"&&AF0[c]&&AF0[c].agg)?AF0[c].agg:"sum"; colTotD[c]=rule==="sum"?colTot[c]:aggArr(rowvals.map(rw=>{const k=rw+"||"+c;return (k in cell)?cell[k]:null;}),rule); });
+  const rtFmt=rw=>(AX0==="row"&&AF0[rw]&&AF0[rw].fmt)?AF0[rw].fmt:v.fmt;
+  const ctFmt=c=>(AX0==="col"&&AF0[c]&&AF0[c].fmt)?AF0[c].fmt:v.fmt;
   const st=MX_STATE[v.id]=MX_STATE[v.id]||{}; st.rowLabels=[...new Set(rows.map(r=>r.row))]; st.colLabels=[...new Set(rows.map(r=>r.col))]; const clickable=v.sortable!==false;
   const isTotCol=c=>/^total(es)?$/i.test(String(c)); const isTotRow=rw=>/^total(es)?$/i.test(String(rw));  // columna/fila "Total" venida del SQL
   if(clickable&&st.colSort&&st.colSort.by){ const by=st.colSort.by,d=st.colSort.dir==="asc"?1:-1; const kf=by==="__total__"?(c=>colTot[c]):(c=>{const k=by+"||"+c;return (k in cell)?cell[k]:-Infinity;}); colvals.sort((a,b)=>{const x=kf(a),y=kf(b);return (x>y?1:x<y?-1:0)*d;}); }
@@ -2210,8 +2226,8 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v))
   const tdRow=rw=>{ const tc=isTotRow(rw)?" tot":""; return clickable?`<td class="${tc.trim()}" style="cursor:pointer" title="Ordenar columnas por esta fila" onclick="mxSortCols('${v.id}','${cp(rw)}')">${esc(rw)}${arrC(rw)}</td>`:`<td class="${tc.trim()}">${esc(rw)}</td>`; };
   const tdTot=clickable?`<td style="cursor:pointer" title="Ordenar columnas por el total" onclick="mxSortCols('${v.id}','__total__')">Total${arrC("__total__")}</td>`:`<td>Total</td>`;
   let h=`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}${v.totalsFreeze!==false?' totfreeze':''}"><table class="dt mx"${totVars(v)}><thead><tr>${corner}`+colvals.map(thCol).join("")+(showTot?thTot:"")+`</tr></thead><tbody>`;
-  rowvals.forEach(rw=>{h+=`<tr${isTotRow(rw)?' class="tot"':''}>${tdRow(rw)}`+colvals.map(c=>cellHTML(rw,c)).join("")+(showTot?`<td class="num tot totcol">${fmtCell(rowTot[rw],v.fmt)}</td>`:"")+`</tr>`;});
-  if(showTot)h+=`<tr class="tot">${tdTot}`+colvals.map(c=>`<td class="num">${fmtCell(colTot[c],v.fmt)}</td>`).join("")+`<td class="num totcol">${fmtCell(grand,v.fmt)}</td></tr>`;
+  rowvals.forEach(rw=>{h+=`<tr${isTotRow(rw)?' class="tot"':''}>${tdRow(rw)}`+colvals.map(c=>cellHTML(rw,c)).join("")+(showTot?`<td class="num tot totcol">${rowTotD[rw]==null?"":fmtCell(rowTotD[rw],rtFmt(rw))}</td>`:"")+`</tr>`;});
+  if(showTot)h+=`<tr class="tot">${tdTot}`+colvals.map(c=>`<td class="num">${colTotD[c]==null?"":fmtCell(colTotD[c],ctFmt(c))}</td>`).join("")+`<td class="num totcol">${fmtCell(grand,v.fmt)}</td></tr>`;
   h+=`</tbody></table></div>`; el.innerHTML=tableFxCSS(v.id,buildFx(v))+h; }
 
 // Fase 2 · barra de progreso x/N
@@ -2481,7 +2497,8 @@ function axRowHTML(label,cc){ cc=cc||{}; return `<div class="axrow" data-ax="${e
     <select class="ax-fmt" style="width:90px">${["","money","eur","keur","pct","pct1","pp","int","dec"].map(f=>`<option value="${f}" ${(cc.fmt||"")===f?"selected":""}>${f||"fmt…"}</option>`).join("")}</select>
     <select class="ax-heat" style="width:74px"><option value="">heat…</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${cc.heat===k?"selected":""}>${k}</option>`).join("")}</select>
     <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="ax-bar" ${cc.bar?"checked":""}>bar</label>
-    <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="ax-arrow" ${cc.arrow?"checked":""}>▲▼</label></div>`; }
+    <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="ax-arrow" ${cc.arrow?"checked":""}>▲▼</label>
+    <select class="ax-agg" title="Regla del total de fila/columna (ponderada → desde SQL)" style="width:92px">${[["","tot: auto"],["sum","Suma"],["avg","Media"],["max","Máx"],["min","Mín"],["median","Mediana"],["none","Ninguno"]].map(([k,l])=>`<option value="${k}" ${(cc.agg||"")===k?"selected":""}>${l}</option>`).join("")}</select></div>`; }
 window.mxAxisChanged=(id)=>{ const v=CP().visuals.find(x=>x.id===id); const sel=$("e_fmtaxis"),wrap=$("axgridwrap"),grid=$("axgrid"); if(!v||!sel||!wrap)return;
   const ax=sel.value; if(ax==="off"){ wrap.style.display="none"; return; } wrap.style.display="";
   const st=MX_STATE[id]||{}; const labels=(ax==="row"?st.rowLabels:st.colLabels)||[]; const AF=v.axisFmt||{};
@@ -2517,7 +2534,8 @@ function fmtTable(v,id){ return `<div class="row">${fmtNumField(v)}<div><label>F
     <details class="optbox" style="margin-top:10px" open><summary style="cursor:pointer;font-weight:600;font-size:13px">Totales</summary>
       <div style="margin-top:8px"><label style="font-size:12px">Regla del total por campo</label>
         <div class="hint" style="margin:2px 0 5px">Suma (aditivos) · Media · <b>Ponderada</b> (ratios: num/den, ej. %Ocup → Bednights/Capacidad) · Máx/Mín/Mediana · Ninguno. <code>heat⅀</code> = heat/barra también en el total.</div>
-        <div id="agggrid">${(()=>{const ord=COLORDER[v.id]||[];const keys=[...ord,...Object.keys(v.cols||{}).filter(k=>!ord.includes(k))];return keys.length?keys.map(k=>aggRowHTML(k,(v.cols||{})[k])).join(""):`<div class="hint">Pulsa «detectar columnas» arriba para listar los campos.</div>`;})()}</div></div>
+        <div id="agggrid">${(()=>{const ord=COLORDER[v.id]||[];const keys=[...ord,...Object.keys(v.cols||{}).filter(k=>!ord.includes(k))];return keys.length?keys.map(k=>aggRowHTML(k,(v.cols||{})[k])).join(""):`<div class="hint">Pulsa «detectar columnas» arriba para listar los campos.</div>`;})()}</div>
+        <label class="fxrow2" style="margin:6px 0 0"><input type="checkbox" id="e_totbyname" ${v.totByName?"checked":""}> La SQL ya trae las filas de total/subtotal <span class="hint" style="font-weight:400">(se reconocen por la columna <code>_rowkind</code>; marca esto para reconocerlas también por nombre «Total»/«Subtotal»)</span></label></div>
       <div style="margin-top:10px"><label style="font-size:12px">Estilo <span class="hint" style="font-weight:400">(vacío = azul-gris por defecto)</span></label>
         <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
           ${totStyleRow("Total general","tot",(v.totStyle&&v.totStyle.total)||{},!!(v.totStyle&&v.totStyle.total))}
@@ -2548,7 +2566,13 @@ function fmtMatrix(v){ const grp=groupCtrl(v); const hbCells=grp?"":`<div><label
     <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_zebra" ${v.zebra?"checked":""}> Filas alternas (zebra)</label><label class="fxrow2"><input type="checkbox" id="e_sticky" ${v.sticky?"checked":""}> Cabecera fija (al hacer scroll)</label><label class="fxrow2"><input type="checkbox" id="e_totfreeze" ${v.totalsFreeze!==false?"checked":""}> Totales fijos al hacer scroll</label></div>
     <div class="row"><div style="flex:1 1 100%"><label>Formato por eje</label><select id="e_fmtaxis" onchange="mxAxisChanged('${v.id}')"><option value="off" ${!v.fmtAxis?"selected":""}>Global (uno para toda la matriz)</option><option value="row" ${v.fmtAxis==="row"?"selected":""}>Por fila</option><option value="col" ${v.fmtAxis==="col"?"selected":""}>Por columna</option></select></div></div>
     <div id="axgridwrap" style="display:${v.fmtAxis?"":"none"};margin-top:2px"><div class="hint">Formato / heat / barra / ▲▼ por cada etiqueta del eje. Si el SQL trae una columna <code>fmt</code> (y <code>arrow</code>) por fila, se usan como base.</div><div id="axgrid">${(()=>{ if(!v.fmtAxis)return ""; const st=MX_STATE[v.id]||{}; const labels=(v.fmtAxis==="row"?st.rowLabels:st.colLabels)||[]; const AF=v.axisFmt||{}; return labels.length?labels.map(l=>axRowHTML(l,AF[l])).join(""):`<div class="hint">No hay etiquetas todavía. Cierra el editor, deja que la matriz se dibuje, y vuelve a abrirlo.</div>`; })()}</div></div>
-    <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_autototal" ${v.autoTotal!==false?"checked":""}> Añadir Total propio (suma de la matriz). Desactívalo si el Total viene del SQL.</label></div>
+    <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_autototal" ${v.autoTotal!==false?"checked":""}> Añadir Total propio. Desactívalo si el Total viene del SQL.</label>
+      <div class="hint" style="margin:4px 0 2px">La <b>regla</b> del total de fila/columna va en el grid de ejes de arriba (Suma/Media/Máx/Mín/Mediana; ponderada → desde SQL).</div></div>
+    <details class="optbox" style="margin-top:8px" open><summary style="cursor:pointer;font-weight:600;font-size:13px">Estilo de totales <span class="hint" style="font-weight:400">(vacío = azul-gris por defecto)</span></summary>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+        ${totStyleRow("Total general","tot",(v.totStyle&&v.totStyle.total)||{},!!(v.totStyle&&v.totStyle.total))}
+        ${totStyleRow("Subtotal","sub",(v.totStyle&&v.totStyle.sub)||{},!!(v.totStyle&&v.totStyle.sub))}
+      </div></details>
     <div class="hint">Celdas = la medida. Forma SQL: <code>row</code>, <code>col</code>, <code>v</code> (+ <code>colOrd</code>, y opcional <code>fmt</code>/<code>arrow</code> por fila).</div>`; }
 /* lecturas del editor → objeto del visual */
 function readGraphic(v){ if($("e_color"))v.color=$("e_color").value; if($("e_fmt"))v.fmt=$("e_fmt").value;
@@ -2583,6 +2607,7 @@ function readTable(v){ readMetricFmts(); if($("e_fmt"))v.fmt=$("e_fmt").value; i
       if(r.querySelector(".ag-totcond")?.checked)c.totalCond=true; else delete c.totalCond;
       if(Object.keys(c).length)cols[f]=c; });
     if(Object.keys(cols).length)v.cols=cols; else delete v.cols; }
+  if($("e_totbyname"))v.totByName=$("e_totbyname").checked;
   if($("ts_tot_on")||$("ts_sub_on")){ const ts={};
     if($("ts_tot_on")?.checked)ts.total={bg:$("ts_tot_bg").value,fg:$("ts_tot_fg").value,bold:$("ts_tot_bold").checked,border:$("ts_tot_bd").checked};
     if($("ts_sub_on")?.checked)ts.sub={bg:$("ts_sub_bg").value,fg:$("ts_sub_fg").value,bold:$("ts_sub_bold").checked,border:$("ts_sub_bd").checked};
@@ -2595,7 +2620,8 @@ function readMatrix(v){ readMetricFmts(); if($("e_fmt"))v.fmt=$("e_fmt").value; 
   if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked; if($("e_totfreeze"))v.totalsFreeze=$("e_totfreeze").checked;
   if($("e_autototal"))v.autoTotal=$("e_autototal").checked;
   if($("e_fmtaxis")){ const ax=$("e_fmtaxis").value; v.fmtAxis=(ax==="off")?undefined:ax;
-    if(v.fmtAxis){ const af={}; document.querySelectorAll("#axgrid .axrow").forEach(r=>{ const name=r.getAttribute("data-ax"); if(name==null)return; const o={}; const f=r.querySelector(".ax-fmt")?.value; if(f)o.fmt=f; const h=r.querySelector(".ax-heat")?.value; if(h)o.heat=h; if(r.querySelector(".ax-bar")?.checked)o.bar=true; if(r.querySelector(".ax-arrow")?.checked)o.arrow=true; if(Object.keys(o).length)af[name]=o; }); if(Object.keys(af).length)v.axisFmt=af; else delete v.axisFmt; } }
+    if(v.fmtAxis){ const af={}; document.querySelectorAll("#axgrid .axrow").forEach(r=>{ const name=r.getAttribute("data-ax"); if(name==null)return; const o={}; const f=r.querySelector(".ax-fmt")?.value; if(f)o.fmt=f; const h=r.querySelector(".ax-heat")?.value; if(h)o.heat=h; if(r.querySelector(".ax-bar")?.checked)o.bar=true; if(r.querySelector(".ax-arrow")?.checked)o.arrow=true; const ag=r.querySelector(".ax-agg")?.value; if(ag)o.agg=ag; if(Object.keys(o).length)af[name]=o; }); if(Object.keys(af).length)v.axisFmt=af; else delete v.axisFmt; }
+  const ts={}; if($("ts_tot_on")?.checked)ts.total={bg:$("ts_tot_bg").value,fg:$("ts_tot_fg").value,bold:$("ts_tot_bold").checked,border:$("ts_tot_bd").checked}; if($("ts_sub_on")?.checked)ts.sub={bg:$("ts_sub_bg").value,fg:$("ts_sub_fg").value,bold:$("ts_sub_bold").checked,border:$("ts_sub_bd").checked}; if(Object.keys(ts).length)v.totStyle=ts; else if($("ts_tot_on"))delete v.totStyle; }
   if(document.querySelector(".fxlist"))readFx(v); }
 function readKpi(v){ v.label=$("e_label")?.value||v.title; v.kind=$("e_kind")?.value||"money"; v.isPct=$("e_pct")?.value==="1"; if($("e_sqlcy")&&!LIVE)v.sqlCY=$("e_sqlcy").value; if($("e_sqltgt")&&!LIVE)v.sqlTGT=$("e_sqltgt").value; }
 function readHtml(v){ if($("e_sql")&&!LIVE)v.sql=$("e_sql").value; }
