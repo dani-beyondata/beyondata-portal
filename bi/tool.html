@@ -792,21 +792,16 @@ const SQL_PARETO=`with ${SQL_NP}
 select ${SQL_CHANNEL} as k, round(sum(np.prod),2)::float8 v
 from np join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid
 group by 1 order by v desc`;
-const SQL_SCATTER=`with np as (
-  select n.reservation_uid, sum(n.price) prod,
+const SQL_SCATTER=`with base as (
+  select coalesce(rcat.display_name, n.room_category_raw, '(Sin categoría)') k,
+    sum(n.price) prod,
     sum(case when n.bed_code_raw is null or n.bed_code_raw='' then rm.beds_per_room else 1 end) bn
   from nights n join properties p on p.property_id=n.property_id and p.company_id=n.company_id
     left join rooms rm on rm.company_id=n.company_id and rm.raw_value=n.room_code_raw
+    left join room_categories rcat on rcat.company_id=n.company_id and rcat.raw_value=n.room_category_raw
   where n.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and n.stay_date >= make_date($CY,1,1) and n.stay_date < make_date($CY+1,1,1)
-  group by 1),
-bc as (
-  select co.country_name k, sum(np.prod) prod, sum(np.bn) bn
-  from np join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid
-    left join client_country_mapping ccm on ccm.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and ccm.raw_value=r.client_country
-    left join countries co on co.country_code=ccm.country_code
-  where co.country_name is not null
   group by 1)
-select k, round(prod/nullif(bn,0),2)::float8 x, bn::float8 y, round(prod,2)::float8 z from bc order by z desc`;
+select k, round(prod/nullif(bn,0),2)::float8 x, bn::float8 y, round(prod,2)::float8 z from base order by z desc`;
 const SQL_CALHEAT=`select n.stay_date::text d,
   sum(case when n.bed_code_raw is null or n.bed_code_raw='' then rm.beds_per_room else 1 end)::float8 v
 from nights n join properties p on p.property_id=n.property_id and p.company_id=n.company_id
