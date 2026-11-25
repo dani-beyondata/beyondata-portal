@@ -1689,6 +1689,22 @@
   </div>
 </div>
 
+<!-- Modal: Permisos de BI (F4) -->
+<div class="modal-overlay" id="modal-perms">
+  <div class="modal">
+    <h3 id="perms-title">Permisos</h3>
+    <input type="hidden" id="perms-user">
+    <p style="color:var(--text-muted);font-size:0.82rem;margin-top:-4px">Restrictivo: lo que no marques, no se ve. «Todas/Todos» incluye también los futuros.</p>
+    <div class="field"><label>Properties</label><div id="perms-prop-list"></div></div>
+    <div class="field"><label>Reports</label><div id="perms-rep-list"></div></div>
+    <div class="field" style="opacity:.55"><label>Módulos</label><div style="font-size:0.8rem;color:var(--text-muted)">Próximamente (F3b) — pendiente de definir la lista de módulos.</div></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-perms')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-perms" onclick="savePerms()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Add extras category -->
 <div class="modal-overlay" id="modal-extras-category">
   <div class="modal">
@@ -3328,12 +3344,62 @@
         <td>${UI.roleBadge(u.role)}</td>
         <td>${UI.statusBadge(u.active)}</td>
         <td>
-          <button class="btn btn-sm btn-secondary" onclick="resetUserPassword('${u.id}')">Reset password</button>
+          <button class="btn btn-sm btn-secondary" onclick="openPerms('${u.id}')" title="Permisos de BI (properties / reports)">Permisos</button>
+          <button class="btn btn-sm btn-secondary" onclick="resetUserPassword('${u.id}')" style="margin-left:4px">Reset password</button>
           <button class="btn btn-sm ${u.active ? 'btn-danger' : 'btn-secondary'}" onclick="toggleUser('${u.id}',${u.active})" style="margin-left:4px">
             ${u.active ? 'Deactivate' : 'Activate'}
           </button>
         </td>
       </tr>`;
+  }
+
+  // ── F4 · Permisos de BI por usuario (escribe bi_grants) ──
+  async function openPerms(userId){
+    const u=(window.__permUsers||[]).find(x=>x.id===userId)||{};
+    document.getElementById('perms-title').textContent='Permisos · '+(u.full_name||'usuario');
+    document.getElementById('perms-user').value=userId;
+    document.getElementById('perms-prop-list').innerHTML='<div style="color:var(--text-muted);font-size:0.8rem">Cargando…</div>';
+    document.getElementById('perms-rep-list').innerHTML='';
+    UI.openModal('modal-perms');
+    const cid=currentCompany.id;
+    const [props,reps,grants]=await Promise.all([
+      sb.from('properties').select('id,property_name').eq('company_id',cid).order('property_name'),
+      sb.from('bi_reports').select('id,name').eq('company_id',cid).order('sort'),
+      sb.from('bi_grants').select('scope_type,scope_id,scope_all').eq('subject_type','user').eq('subject_id',userId)
+    ]);
+    const g=grants.data||[];
+    const propAll=g.some(x=>x.scope_type==='property'&&x.scope_all);
+    const repAll =g.some(x=>x.scope_type==='report'&&x.scope_all);
+    const propIds=new Set(g.filter(x=>x.scope_type==='property'&&x.scope_id).map(x=>x.scope_id));
+    const repIds =new Set(g.filter(x=>x.scope_type==='report'&&x.scope_id).map(x=>x.scope_id));
+    document.getElementById('perms-prop-list').innerHTML=renderPermList('prop',(props.data||[]),p=>p.property_name,propAll,propIds);
+    document.getElementById('perms-rep-list').innerHTML =renderPermList('rep',(reps.data||[]),r=>r.name,repAll,repIds);
+  }
+  function renderPermList(k,items,label,all,set){
+    const allBox='<label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-bottom:6px"><input type="checkbox" id="perms-'+k+'-all" '+(all?'checked':'')+' onchange="permsToggleAll(\''+k+'\')"> Todas (incluye futuras)</label>';
+    const rows=items.map(it=>'<label style="display:flex;gap:8px;align-items:center;padding:3px 0"><input type="checkbox" class="perms-'+k+'-item" value="'+it.id+'" '+((!all&&set.has(it.id))?'checked':'')+' '+(all?'disabled':'')+'> '+String(label(it)||'')+'</label>').join('');
+    return allBox+'<div style="padding-left:6px">'+(rows||'<div style="color:var(--text-muted);font-size:0.8rem">(sin elementos)</div>')+'</div>';
+  }
+  function permsToggleAll(k){ const all=document.getElementById('perms-'+k+'-all').checked; document.querySelectorAll('.perms-'+k+'-item').forEach(cb=>{ cb.disabled=all; if(all)cb.checked=false; }); }
+  async function savePerms(){
+    const userId=document.getElementById('perms-user').value; const cid=currentCompany.id;
+    const propAll=document.getElementById('perms-prop-all').checked;
+    const repAll =document.getElementById('perms-rep-all').checked;
+    const props=[...document.querySelectorAll('.perms-prop-item:checked')].map(cb=>cb.value);
+    const reps =[...document.querySelectorAll('.perms-rep-item:checked')].map(cb=>cb.value);
+    const btn=document.getElementById('btn-save-perms'); if(btn){btn.disabled=true;btn.textContent='Guardando…';}
+    try{
+      const del=await sb.from('bi_grants').delete().eq('subject_type','user').eq('subject_id',userId).in('scope_type',['property','report']);
+      if(del.error) throw del.error;
+      const rows=[];
+      if(propAll) rows.push({company_id:cid,subject_type:'user',subject_id:userId,scope_type:'property',scope_all:true});
+      else props.forEach(id=>rows.push({company_id:cid,subject_type:'user',subject_id:userId,scope_type:'property',scope_id:id,scope_all:false}));
+      if(repAll) rows.push({company_id:cid,subject_type:'user',subject_id:userId,scope_type:'report',scope_all:true});
+      else reps.forEach(id=>rows.push({company_id:cid,subject_type:'user',subject_id:userId,scope_type:'report',scope_id:id,scope_all:false}));
+      if(rows.length){ const ins=await sb.from('bi_grants').insert(rows); if(ins.error) throw ins.error; }
+      closeModal('modal-perms');
+    }catch(e){ alert('No se pudieron guardar los permisos: '+(e.message||e)); }
+    finally{ if(btn){btn.disabled=false;btn.textContent='Guardar';} }
   }
 
   function toggleInactiveUsers() {
@@ -3348,6 +3414,7 @@
     UI.tableLoading('users-tbody', 4);
     const inactiveWrap = document.getElementById('users-inactive-wrap');
     const { data, error } = await Users.getByCompany(currentCompany.id);
+    window.__permUsers = data || [];   // cache para el modal de permisos (F4)
 
     if (error || !data?.length) {
       UI.tableEmpty('users-tbody', 4, 'No users yet.');
