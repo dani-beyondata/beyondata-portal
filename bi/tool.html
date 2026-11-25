@@ -320,6 +320,7 @@
     <span id="bd-save" style="align-self:center;font-size:12px;font-weight:600;color:#bfe0d7;margin-right:8px;opacity:0;transition:opacity .2s" title="estado de guardado"></span>
     <span id="bd-prog" style="align-self:center;font-size:12px;font-weight:600;color:#bfe0d7;margin-right:8px;opacity:0;transition:opacity .2s" title="progreso de carga"></span>
     <div id="bd-progbar" style="position:fixed;top:0;left:0;height:3px;width:0;background:#60a5fa;z-index:99999;opacity:0;transition:width .15s,opacity .3s;pointer-events:none"></div>
+    <span id="reportSel" style="align-self:center;margin-right:10px;display:none"></span>
     <button class="hdr" id="modeToggle" onclick="toggleMode()" title="Alternar edición / vista de cliente" style="display:none">👁 Vista cliente</button>
     <button class="hdr edit-only" onclick="addMenu()">＋ Añadir</button>
     <button class="hdr edit-only" onclick="undo()" title="Deshacer (Ctrl+Z)">↶</button>
@@ -1546,12 +1547,23 @@ function saveDash(){ try{localStorage.setItem(dashKey(),JSON.stringify(DASH));}c
 // ── Persistencia compartida en Supabase (tabla bi_dashboards, por company) ──
 function biCompany(){ try{ const u=new URLSearchParams(location.search).get("company"); if(u){try{localStorage.setItem("bd_company",u);}catch(_){ } return u;} return localStorage.getItem("bd_company")||""; }catch(e){ return ""; } }
 async function loadDashServer(){ const cid=biCompany(); if(!cid||!window.sbClient)return null; try{ const {data,error}=await window.sbClient.from("bi_dashboards").select("doc").eq("company_id",cid).maybeSingle(); if(error)return null; if(data&&data.doc&&data.doc.pages&&data.doc.pages.length)return data.doc; }catch(e){} return null; }
+// ── F1 · Multi-report: lee/escribe bi_reports (fallback a bi_dashboards) ──
+let BI_REPORTS=[], BI_REPORT=null;
+function biReportKey(){ return "bd_report_"+(biCompany()||"x"); }
+function biReportId(){ try{ const u=new URLSearchParams(location.search).get("report"); if(u){ try{localStorage.setItem(biReportKey(),u);}catch(_){ } return u; } return localStorage.getItem(biReportKey())||""; }catch(e){ return ""; } }
+async function loadReports(){ const cid=biCompany(); if(!cid||!window.sbClient)return []; try{ const {data,error}=await window.sbClient.from("bi_reports").select("id,name,slug,description,icon,sort").eq("company_id",cid).order("sort",{ascending:true}); if(error)return []; return data||[]; }catch(e){ return []; } }
+async function loadReportDoc(id){ if(!id||!window.sbClient)return null; try{ const {data,error}=await window.sbClient.from("bi_reports").select("doc").eq("id",id).maybeSingle(); if(error)return null; if(data&&data.doc&&data.doc.pages&&data.doc.pages.length)return data.doc; }catch(e){} return null; }
+window.switchReport=function(id){ if(!id)return; try{ localStorage.setItem(biReportKey(),id); }catch(_){ } const u=new URL(location.href); u.searchParams.set("report",id); location.href=u.toString(); };
+window.newReport=async function(){ if(!window.BD_CANEDIT)return; const name=prompt("Nombre del nuevo report:"); if(name==null)return; const nm=name.trim(); if(!nm)return; const cid=biCompany(); if(!cid||!window.sbClient){ alert("Sin conexión a Supabase."); return; } const slug=(nm.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,""))||("r"+Date.now()); let uid=null; try{ uid=(await window.sbClient.auth.getSession()).data?.session?.user?.id||null; }catch(_){ } const sort=(BI_REPORTS.length?Math.max(...BI_REPORTS.map(r=>r.sort||0))+1:0); const {data,error}=await window.sbClient.from("bi_reports").insert({company_id:cid,name:nm,slug,doc:defaultDoc(),sort,updated_by:uid}).select("id").single(); if(error){ alert("No se pudo crear el report: "+(error.message||error)); return; } window.switchReport(data.id); };
+function renderReportSel(){ const el=$("reportSel"); if(!el)return; if(!BI_REPORTS.length){ el.style.display="none"; return; } el.style.display=""; const cur=BI_REPORT?BI_REPORT.id:""; const opts=BI_REPORTS.map(r=>`<option value="${esc(r.id)}" ${r.id===cur?"selected":""}>${esc(r.name)}</option>`).join(""); el.innerHTML=`<select onchange="switchReport(this.value)" title="Report activo" style="background:#0d2b3e;color:#eaf2f7;border:1px solid #2a4b60;border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;max-width:220px">${opts}</select>`+(window.BD_CANEDIT?`<button class="hdr edit-only" onclick="newReport()" title="Crear un report nuevo" style="margin-left:4px">＋ Report</button>`:""); }
 let _srvT=null, _srvOn=true, _srvPending=false;
 function saveStatus(txt,col,ttl){ const el=document.getElementById("bd-save"); if(!el)return; el.textContent=txt||""; el.style.color=col||"#bfe0d7"; el.style.opacity=txt?"1":"0"; clearTimeout(el._t); if(ttl)el._t=setTimeout(()=>{el.style.opacity="0";},ttl); }
 async function _doSaveDash(){ _srvPending=false; const cid=biCompany(); if(!cid||!window.sbClient)return;
   const showT=setTimeout(()=>saveStatus("⟳ Guardando…","#bfe0d7"),300);  // solo si tarda >300ms
   try{ let uid=null; try{ uid=(await window.sbClient.auth.getSession()).data?.session?.user?.id||null; }catch(_){ }
-    const {error}=await window.sbClient.from("bi_dashboards").upsert({company_id:cid,doc:DASH,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:"company_id"});
+    let error;
+    if(BI_REPORT&&BI_REPORT.id){ ({error}=await window.sbClient.from("bi_reports").update({doc:DASH,updated_at:new Date().toISOString(),updated_by:uid}).eq("id",BI_REPORT.id)); }
+    else { ({error}=await window.sbClient.from("bi_dashboards").upsert({company_id:cid,doc:DASH,updated_at:new Date().toISOString(),updated_by:uid},{onConflict:"company_id"})); }
     clearTimeout(showT); if(error)saveStatus("⚠ Sin guardar","#ffb4ab",5000); else saveStatus("✓ Guardado","#8fe3c8",1600);
   }catch(e){ clearTimeout(showT); saveStatus("⚠ Sin guardar","#ffb4ab",5000); } }
 function saveDashServer(){ if(!_srvOn)return; if(!biCompany()||!window.sbClient)return; _srvPending=true; clearTimeout(_srvT); _srvT=setTimeout(_doSaveDash,1500); }
@@ -3195,7 +3207,11 @@ async function loadTableCols(){
 async function boot(){
   await loadScript(LIBS.echarts); echarts=window.echarts;
   /* Portal: sin DuckDB — q() consulta Postgres via RPC bi_run_sql (RLS del usuario). Dashboard: Supabase (compartido) → fallback localStorage → migra local a Supabase la 1ª vez. */
-  const _srvDoc=await loadDashServer();
+  // F1 · multi-report: carga la lista de reports y el report activo (fallback a bi_dashboards)
+  BI_REPORTS=await loadReports();
+  let _srvDoc=null;
+  if(BI_REPORTS.length){ let rid=biReportId(); if(!rid||!BI_REPORTS.some(r=>r.id===rid)) rid=BI_REPORTS[0].id; BI_REPORT=BI_REPORTS.find(r=>r.id===rid)||BI_REPORTS[0]; _srvDoc=await loadReportDoc(BI_REPORT.id); }
+  if(!_srvDoc){ _srvDoc=await loadDashServer(); }
   if(_srvDoc){ DASH=_srvDoc; }
   else { DASH=loadDash(); try{ const _ls=localStorage.getItem(dashKey()); if(_ls){ const _d=JSON.parse(_ls); if(_d&&_d.pages&&_d.pages.length) saveDashServer(); } }catch(e){} }
   ensureParams(); await loadTableCols(); await buildSlicerOpts();
@@ -3211,7 +3227,7 @@ async function boot(){
   // El tool aparece YA; los visuales se rellenan por su cuenta (cada uno con su carga/error).
   // Así el arranque no se bloquea esperando a que rendericen todas las queries en serie.
   await detectMode(); applyMode();
-  seedHist(); renderTabs(); layoutStage(); paintPanel(); $("boot").style.display="none"; window.__ready=true; refreshAll();
+  seedHist(); renderReportSel(); renderTabs(); layoutStage(); paintPanel(); $("boot").style.display="none"; window.__ready=true; refreshAll();
 }
 boot().catch(e=>{ $("boot").innerHTML="<div style='color:#b4322a;max-width:520px;text-align:center'>No se pudo arrancar: "+esc(e.message)+"</div>"; window.__booterr=e.message; });
 </script>
