@@ -708,6 +708,70 @@ const SQL={
   htmlKpi:`SELECT\n    CAST(SUM(r.production) AS DOUBLE) AS prod\n  , COUNT(DISTINCT r.reservation_uid) AS reservas\nFROM reservations r\nWHERE 1=1\n  AND r.y = $CY\n `,
   mapPais:`SELECT\n    CASE r.client_country\n      WHEN 'ES' THEN 'Spain'  WHEN 'FR' THEN 'France'\n      WHEN 'GB' THEN 'United Kingdom'  WHEN 'DE' THEN 'Germany'\n      WHEN 'IT' THEN 'Italy'  WHEN 'US' THEN 'United States'\n      WHEN 'NL' THEN 'Netherlands'\n    END AS k\n  , CAST(SUM(r.production) AS DOUBLE) AS v\nFROM reservations r\nWHERE 1=1\n  AND r.y = $CY\n \nGROUP BY 1\nORDER BY v DESC`
 };
+const SQL_SANKEY=`with b as (
+  select
+    case
+      when r.reservation_source ilike 'booking engine%' then 'Direct (web)'
+      when r.reservation_source ilike 'booking%' then 'Booking.com'
+      when r.reservation_source ilike 'hostelworld%' then 'Hostelworld'
+      when r.reservation_source ilike 'trip.com%' then 'Trip.com'
+      when r.reservation_source ilike 'airbnb%' then 'Airbnb'
+      when r.reservation_source ilike 'expedia%' then 'Expedia'
+      when r.reservation_source ilike 'email%' then 'Direct (email)'
+      when r.reservation_source ilike 'in person%' then 'Walk-in'
+      else 'Otros'
+    end as channel,
+    coalesce(mg.group_name,'(Sin grupo)') as mktgroup,
+    co.country_name as country,
+    n.price as price
+  from nights n
+    join properties p on p.property_id=n.property_id and p.company_id=n.company_id
+    join calendar c on c.date=n.stay_date
+    join reservations r on r.company_id=n.company_id and r.reservation_uid=n.reservation_uid
+    left join client_country_mapping ccm on ccm.company_id=r.company_id and ccm.raw_value=r.client_country
+    left join countries co on co.country_code=ccm.country_code
+    left join country_mapping cm on cm.company_id=r.company_id and cm.country_code=ccm.country_code
+    left join market_groups mg on mg.id=cm.market_group_id
+  where n.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and n.stay_date >= make_date($CY,1,1) and n.stay_date < make_date($CY+1,1,1)
+    and co.country_name is not null and mg.group_name is not null
+)
+select channel as source, mktgroup as target, round(sum(price),2)::float8 v from b group by 1,2
+union all
+select mktgroup as source, country as target, round(sum(price),2)::float8 v from b group by 1,2
+order by v desc`;
+const SQL_WATERFALL=`select
+  case
+    when r.reservation_source ilike 'booking engine%' then 'Direct (web)'
+    when r.reservation_source ilike 'booking%' then 'Booking.com'
+    when r.reservation_source ilike 'hostelworld%' then 'Hostelworld'
+    when r.reservation_source ilike 'trip.com%' then 'Trip.com'
+    when r.reservation_source ilike 'airbnb%' then 'Airbnb'
+    when r.reservation_source ilike 'expedia%' then 'Expedia'
+    when r.reservation_source ilike 'email%' then 'Direct (email)'
+    when r.reservation_source ilike 'in person%' then 'Walk-in'
+    else 'Otros'
+  end as k,
+  round(sum(n.price),2)::float8 v
+from nights n
+  join properties p on p.property_id=n.property_id and p.company_id=n.company_id
+  join calendar c on c.date=n.stay_date
+  join reservations r on r.company_id=n.company_id and r.reservation_uid=n.reservation_uid
+where n.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and n.stay_date >= make_date($CY,1,1) and n.stay_date < make_date($CY+1,1,1)
+group by k order by v desc`;
+const SQL_TREEMAP=`with ca as (
+  select coalesce(co.country_name,'(Sin país)') country, coalesce(mg.group_name,'(Sin grupo)') mg, sum(n.price) prod
+  from nights n
+    join properties p on p.property_id=n.property_id and p.company_id=n.company_id
+    join calendar c on c.date=n.stay_date
+    join reservations r on r.company_id=n.company_id and r.reservation_uid=n.reservation_uid
+    left join client_country_mapping ccm on ccm.company_id=r.company_id and ccm.raw_value=r.client_country
+    left join countries co on co.country_code=ccm.country_code
+    left join country_mapping cm on cm.company_id=r.company_id and cm.country_code=ccm.country_code
+    left join market_groups mg on mg.id=cm.market_group_id
+  where n.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and n.stay_date >= make_date($CY,1,1) and n.stay_date < make_date($CY+1,1,1)
+    and co.country_name is not null
+  group by 1,2)
+select mg as "group", country as k, round(prod,2)::float8 v from ca order by v desc`;
 const KPI_SQL=(kind,metric)=>({
   sqlCY: kind==="prod"?`SELECT CAST(SUM(r.production) AS DOUBLE) AS v\nFROM reservations r\nWHERE 1=1\n  AND r.y = $YEAR\n `
     : kind==="bn"?`SELECT CAST(COUNT(*) AS DOUBLE) AS v\nFROM nights n\nWHERE 1=1\n  AND n.y = $YEAR\n `
@@ -1877,7 +1941,7 @@ function layoutStage(){ const stage=$("stage"); let maxB=300;
   attachInteract(); }
 
 /* Estados por visual: cargando (diferido), error+reintentar, sin datos. */
-const VSTATE_EMPTY_TYPES=new Set(["bar","line","area","combo","donut","pie","map","table"]);
+const VSTATE_EMPTY_TYPES=new Set(["bar","line","area","combo","donut","pie","map","sankey","waterfall","treemap","table"]);
 function vstateLoading(){ return `<div class="vstate"><div class="vspin"></div><div class="vs-txt">Cargando…</div></div>`; }
 function vstateEmpty(){ return `<div class="vstate"><div class="vs-ic">∅</div><div class="vs-txt">Sin datos</div></div>`; }
 function setVisualError(v,e){ const el=$("body_"+v.id); if(!el)return; const msg=esc(String((e&&e.message)||e||"error"));
@@ -2053,6 +2117,40 @@ function renderPie(v,rows){ const ch=ensureEchart(v); if(!ch)return; const XC=v.
   const showCenter=donut&&(v.centerLabel!==false), showSlice=v.sliceLabels!==false;
   ch.setOption({tooltip:{trigger:"item",formatter:"{b}: {c} ({d}%)"},legend:{type:"scroll",orient:"vertical",right:4,top:"center",textStyle:{fontSize:11,width:150,overflow:"truncate"},tooltip:{show:true}},title:showCenter?{text:fmtValue(total,v.fmt||"money"),subtext:v.centerText||"Total",left:"34%",top:"44%",textAlign:"center",textStyle:{fontSize:16,fontWeight:800,color:"#1E3A5F"},subtextStyle:{fontSize:10,color:"#6B7A82"}}:undefined,
     series:[{type:"pie",radius:donut?["52%","74%"]:["0%","72%"],center:["34%","50%"],label:{show:showSlice,formatter:"{d}%",fontSize:11,fontWeight:700},labelLine:{show:showSlice,length:6,length2:6},data}]},true);
+  ch.off("click"); applyEch(v); ch.resize(); }
+/* ── Sankey (flujos): source, target, v (un enlace por fila) ── */
+function renderSankey(v,rows){ const ch=ensureEchart(v); if(!ch)return; if(!rows.length){ch.clear();return;}
+  const S=v.cSource||"source",T=v.cTarget||"target",VC=v.cValue||"v";
+  const names=[],seen={}; rows.forEach(r=>{ [r[S],r[T]].forEach(x=>{ x=String(x); if(!seen[x]){seen[x]=1;names.push(x);} }); });
+  const nodes=names.map((n,i)=>({name:n,itemStyle:{color:PIE_PAL[i%PIE_PAL.length]}}));
+  const links=rows.map(r=>({source:String(r[S]),target:String(r[T]),value:+r[VC]||0})).filter(l=>l.value>0&&l.source!==l.target);
+  ch.setOption({animation:false,tooltip:{trigger:"item",triggerOn:"mousemove",formatter:p=>p.dataType==="edge"?`${esc(p.data.source)} → ${esc(p.data.target)}: <b>${fmtValue(p.data.value,v.fmt)}</b>`:`<b>${esc(p.name)}</b>`},
+    series:[{type:"sankey",left:10,right:v.orient==="vertical"?12:92,top:12,bottom:12,data:nodes,links,orient:v.orient==="vertical"?"vertical":"horizontal",draggable:false,emphasis:{focus:"adjacency"},nodeGap:10,nodeWidth:13,label:{fontSize:11,color:"#1a1d24",overflow:"truncate",width:84},lineStyle:{color:"gradient",opacity:.5,curveness:.5}}]},true);
+  ch.off("click"); applyEch(v); ch.resize(); }
+/* ── Treemap: k (hoja), v (valor), opcional group (padre) para 2 niveles ── */
+function renderTreemap(v,rows){ const ch=ensureEchart(v); if(!ch)return; if(!rows.length){ch.clear();return;}
+  const XC=v.x2||"k",YC=v.y2||"v",GC=v.treeGroup||"group"; const grouped=GC in rows[0]; let data;
+  if(grouped){ const m={},order=[]; rows.forEach(r=>{ const g=String(r[GC]); if(!(g in m)){m[g]=[];order.push(g);} m[g].push({name:String(r[XC]),value:+r[YC]||0}); });
+    data=order.map((g,i)=>({name:g,itemStyle:{color:PIE_PAL[i%PIE_PAL.length]},children:m[g]})); }
+  else data=rows.map((r,i)=>({name:String(r[XC]),value:+r[YC]||0,itemStyle:{color:PIE_PAL[i%PIE_PAL.length]}}));
+  ch.setOption({tooltip:{formatter:p=>`${esc(p.name)}: <b>${fmtValue(p.value,v.fmt)}</b>`},
+    series:[{type:"treemap",roam:false,nodeClick:false,width:"100%",height:"100%",top:grouped?20:4,left:4,right:4,bottom:4,breadcrumb:{show:false},
+      upperLabel:{show:grouped,height:18,color:"#fff",fontWeight:700,fontSize:11},label:{show:true,formatter:p=>p.name,fontSize:11,color:"#fff"},
+      levels:grouped?[{itemStyle:{borderWidth:3,gapWidth:3,borderColor:"#fff"}},{itemStyle:{gapWidth:1,borderWidth:1,borderColor:"#fff",borderColorSaturation:.3}}]:[{itemStyle:{borderWidth:2,gapWidth:2,borderColor:"#fff"}}],
+      data}]},true);
+  ch.off("click"); applyEch(v); ch.resize(); }
+/* ── Waterfall (cascada): k (categoría), v (aporte +/-); barras flotantes acumuladas + Total ── */
+function renderWaterfall(v,rows){ const ch=ensureEchart(v); if(!ch)return; if(!rows.length){ch.clear();return;}
+  const XC=v.x2||"k",YC=v.y2||"v"; let cats=rows.map(r=>String(r[XC])); let vals=rows.map(r=>+r[YC]||0);
+  const base=[],pos=[],neg=[]; let cum=0; vals.forEach(d=>{ const start=cum; cum+=d; if(d>=0){base.push(start);pos.push(d);neg.push("-");} else {base.push(cum);pos.push("-");neg.push(-d);} });
+  if(v.waterTotal!==false){ cats=[...cats,v.totalLabel||"Total"]; base.push(0); pos.push(cum>=0?cum:"-"); neg.push(cum<0?-cum:"-"); vals=[...vals,cum]; }
+  const posColor=v.posColor||"#56B14E",negColor=v.negColor||"#A0453D",totColor=v.totColor||"#1E3A5F",n=cats.length,hasTot=v.waterTotal!==false;
+  const posData=pos.map((x,i)=>({value:x,itemStyle:{color:(hasTot&&i===n-1)?totColor:posColor,borderRadius:[3,3,0,0]}}));
+  ch.setOption({tooltip:{trigger:"axis",axisPointer:{type:"shadow"},formatter:P=>{const i=P[0].dataIndex; return `${esc(cats[i])}: <b>${fmtValue(vals[i],v.fmt)}</b>`;}},
+    grid:{left:56,right:16,top:14,bottom:30},xAxis:{type:"category",data:cats,axisTick:{show:false},axisLabel:{interval:0,fontSize:10,hideOverlap:true}},yAxis:{type:"value",axisLabel:{formatter:x=>fmtAxis(x,v.fmt)}},
+    series:[{name:"b",type:"bar",stack:"w",silent:true,itemStyle:{color:"transparent"},emphasis:{disabled:true},data:base},
+      {name:"pos",type:"bar",stack:"w",label:dataLabel(v,false,v.fmt),data:posData},
+      {name:"neg",type:"bar",stack:"w",itemStyle:{color:negColor,borderRadius:[0,0,3,3]},label:dataLabel(v,false,v.fmt),data:neg}]},true);
   ch.off("click"); applyEch(v); ch.resize(); }
 let _worldMapP=null;
 function ensureWorldMap(){ if(_worldMapP)return _worldMapP; _worldMapP=fetch((window.BD_LIBS&&BD_LIBS.worldMap)||"./lib/world.geo.json").then(r=>r.json()).then(j=>{echarts.registerMap("world",j);return true;}); return _worldMapP; }
@@ -2405,10 +2503,10 @@ function growStage(){ let maxB=300; CP().visuals.forEach(v=>maxB=Math.max(maxB,v
 /* ═ Drawer / editor (igual que v5) ═ */
 function openDrawer(title,html){ $("d_title").textContent=title; $("d_body").innerHTML=html; $("drawer").classList.add("open"); }
 window.closeDrawer=()=>$("drawer").classList.remove("open");
-const MENU_LABELS={bar:"Barras",line:"Líneas",area:"Área",combo:"Combo (barras + línea)",donut:"Donut",pie:"Tarta",map:"Mapa de países",table:"Tabla",matrix:"Matriz",kpi:"KPI (clásico)",html:"HTML (plantilla + SQL)",metricgroup:"Grupo de métrica · chips (SQL por gráfico)",resultfilter:"Filtro de resultado · recorta filas (WHERE IN)"};
-const MENU_GROUPS=[["Gráficos",["bar","line","area","combo","donut","pie","map"]],["Tabla y matriz",["table","matrix"]],["Tarjetas / HTML",["html","text"]],["Métrica y resultado",["metricgroup","resultfilter"]]];
-const MENU_SHORT={bar:"Barras",line:"Líneas",area:"Área",combo:"Combo",donut:"Donut",pie:"Tarta",map:"Mapa",table:"Tabla",matrix:"Matriz",html:"HTML",text:"Texto",metricgroup:"Grupo métrica",resultfilter:"Filtro result.",slicer:"Slicer",parameter:"Parámetro"};
-const MENU_TIPS={bar:"k, v (+ series)",line:"k, v",area:"k, v",combo:"k, series, v",donut:"k, v",pie:"k, v",map:"k = país, v = valor",table:"columnas libres",matrix:"row, col, v",html:"1 fila · plantilla [[col]]",text:"HTML libre",metricgroup:"chips · SQL por gráfico",resultfilter:"recorta filas (WHERE IN)",slicer:"filtra la página por una columna",parameter:"valor reutilizable · $param"};
+const MENU_LABELS={bar:"Barras",line:"Líneas",area:"Área",combo:"Combo (barras + línea)",donut:"Donut",pie:"Tarta",map:"Mapa de países",sankey:"Sankey (flujos)",waterfall:"Waterfall (cascada)",treemap:"Treemap (jerarquía)",table:"Tabla",matrix:"Matriz",kpi:"KPI (clásico)",html:"HTML (plantilla + SQL)",metricgroup:"Grupo de métrica · chips (SQL por gráfico)",resultfilter:"Filtro de resultado · recorta filas (WHERE IN)"};
+const MENU_GROUPS=[["Gráficos",["bar","line","area","combo","donut","pie","map"]],["Flujo y jerarquía",["sankey","waterfall","treemap"]],["Tabla y matriz",["table","matrix"]],["Tarjetas / HTML",["html","text"]],["Métrica y resultado",["metricgroup","resultfilter"]]];
+const MENU_SHORT={bar:"Barras",line:"Líneas",area:"Área",combo:"Combo",donut:"Donut",pie:"Tarta",map:"Mapa",sankey:"Sankey",waterfall:"Waterfall",treemap:"Treemap",table:"Tabla",matrix:"Matriz",html:"HTML",text:"Texto",metricgroup:"Grupo métrica",resultfilter:"Filtro result.",slicer:"Slicer",parameter:"Parámetro"};
+const MENU_TIPS={bar:"k, v (+ series)",line:"k, v",area:"k, v",combo:"k, series, v",donut:"k, v",pie:"k, v",map:"k = país, v = valor",sankey:"source, target, v",waterfall:"k, v (Δ)",treemap:"k, group, v",table:"columnas libres",matrix:"row, col, v",html:"1 fila · plantilla [[col]]",text:"HTML libre",metricgroup:"chips · SQL por gráfico",resultfilter:"recorta filas (WHERE IN)",slicer:"filtra la página por una columna",parameter:"valor reutilizable · $param"};
 const MENU_ICONS={
   bar:'<rect x="7" y="26" width="7" height="15" rx="1.5"/><rect x="20" y="16" width="7" height="25" rx="1.5"/><rect x="33" y="9" width="7" height="32" rx="1.5"/>',
   line:'<polyline points="7,34 18,22 28,28 41,11"/><circle cx="18" cy="22" r="2.4" fill="currentColor" stroke="none"/><circle cx="28" cy="28" r="2.4" fill="currentColor" stroke="none"/><circle cx="41" cy="11" r="2.4" fill="currentColor" stroke="none"/>',
@@ -2424,7 +2522,10 @@ const MENU_ICONS={
   metricgroup:'<rect x="7" y="19" width="15" height="11" rx="5.5" fill="currentColor" fill-opacity=".16"/><rect x="7" y="19" width="15" height="11" rx="5.5"/><rect x="25" y="19" width="16" height="11" rx="5.5"/>',
   resultfilter:'<path d="M9 12 L39 12 L28 25 L28 38 L20 33 L20 25 Z"/>',
   slicer:'<rect x="9" y="11" width="30" height="26" rx="3"/><rect x="13" y="16" width="4" height="4" rx="1" fill="currentColor" stroke="none"/><line x1="21" y1="18" x2="34" y2="18"/><rect x="13" y="24" width="4" height="4" rx="1" fill="currentColor" stroke="none"/><line x1="21" y1="26" x2="34" y2="26"/>',
-  parameter:'<circle cx="16" cy="24" r="5"/><circle cx="33" cy="24" r="5"/><line x1="7" y1="24" x2="11" y2="24"/><line x1="21" y1="24" x2="28" y2="24"/><line x1="38" y1="24" x2="41" y2="24"/>'
+  parameter:'<circle cx="16" cy="24" r="5"/><circle cx="33" cy="24" r="5"/><line x1="7" y1="24" x2="11" y2="24"/><line x1="21" y1="24" x2="28" y2="24"/><line x1="38" y1="24" x2="41" y2="24"/>',
+  sankey:'<rect x="6" y="11" width="5" height="10" rx="1"/><rect x="6" y="27" width="5" height="10" rx="1"/><rect x="37" y="18" width="5" height="12" rx="1"/><path d="M11 16 C24 16 24 24 37 24" fill="none"/><path d="M11 32 C24 32 24 24 37 24" fill="none"/>',
+  waterfall:'<rect x="7" y="29" width="6" height="8" rx="1"/><rect x="17" y="21" width="6" height="8" rx="1"/><rect x="27" y="14" width="6" height="8" rx="1"/><rect x="39" y="9" width="4" height="28" rx="1" fill="currentColor" fill-opacity=".18"/>',
+  treemap:'<rect x="7" y="9" width="34" height="30" rx="2"/><rect x="7" y="9" width="20" height="17" fill="currentColor" fill-opacity=".14"/><rect x="27" y="9" width="14" height="17"/><rect x="7" y="26" width="34" height="13"/>'
 };
 const MENU_ICO=t=>`<svg class="addico" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MENU_ICONS[t]||""}</svg>`;
 const ADD_CSS=`<style>
@@ -2486,6 +2587,19 @@ function fmtMap(v){ return `<div class="row"><div><label>Gradiente (color por va
     <div class="row"><div><label>Leyenda (visualMap)</label><select id="e_legend"><option value="1" ${v.legend!==false?"selected":""}>sí</option><option value="0" ${v.legend===false?"selected":""}>no</option></select></div><div><label>Tipo de leyenda</label><select id="e_vmtype"><option value="continuous" ${v.vmType!=="piecewise"?"selected":""}>continua (gradiente)</option><option value="piecewise" ${v.vmType==="piecewise"?"selected":""}>por tramos</option></select></div></div>
     <div class="row"><div><label>Zoom/arrastre (roam)</label><select id="e_roam"><option value="1" ${v.roam!==false?"selected":""}>sí</option><option value="0" ${v.roam===false?"selected":""}>no</option></select></div><div><label>Nombres de país</label><select id="e_maplabels"><option value="0" ${!v.mapLabels?"selected":""}>no</option><option value="1" ${v.mapLabels?"selected":""}>sí</option></select></div></div>
     <div class="hint">Forma SQL: <code>k</code> = país (nombre en inglés, p.ej. <code>Spain</code>), <code>v</code> = valor. El SQL por defecto hace el <code>CASE</code> de ISO2 → nombre.</div>`; }
+function fmtSankey(v){ const nf=id=>`<select id="${id}">${["money","int","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
+  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div><div><label>Orientación</label><select id="e_sankorient"><option value="horizontal" ${v.orient!=="vertical"?"selected":""}>horizontal</option><option value="vertical" ${v.orient==="vertical"?"selected":""}>vertical</option></select></div></div>
+    <div class="row" style="margin-top:6px"><div><label>Origen (col)</label><input id="e_csource" type="text" value="${esc(v.cSource||"source")}"></div><div><label>Destino (col)</label><input id="e_ctarget" type="text" value="${esc(v.cTarget||"target")}"></div><div><label>Valor (col)</label><input id="e_cvalue" type="text" value="${esc(v.cValue||"v")}"></div></div>
+    <div class="hint">Forma SQL: <code>source</code>, <code>target</code>, <code>v</code> (un enlace por fila). Encadena niveles con más filas (p. ej. canal→grupo y grupo→país).</div>`; }
+function fmtTreemap(v){ const nf=id=>`<select id="${id}">${["money","int","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
+  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div></div>
+    <div class="row" style="margin-top:6px"><div><label>Hoja / etiqueta (col)</label><input id="e_x2" type="text" value="${esc(v.x2||"k")}"></div><div><label>Grupo / padre (col, opc.)</label><input id="e_tgroup" type="text" value="${esc(v.treeGroup||"group")}"></div><div><label>Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div></div>
+    <div class="hint">Forma SQL: <code>k</code> (hoja), <code>v</code> (valor) y opcional <code>group</code> (padre) para anidar en 2 niveles.</div>`; }
+function fmtWaterfall(v){ const nf=id=>`<select id="${id}">${["money","int","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
+  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div><div><label>Barra de Total al final</label><select id="e_watertotal"><option value="1" ${v.waterTotal!==false?"selected":""}>sí</option><option value="0" ${v.waterTotal===false?"selected":""}>no</option></select></div></div>
+    <div class="row" style="margin-top:6px"><div><label>Categoría (col)</label><input id="e_x2" type="text" value="${esc(v.x2||"k")}"></div><div><label>Δ Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div></div>
+    <div class="row"><div><label>Color +</label>${colorField("e_poscolor",v.posColor||"#56B14E")}</div><div><label>Color −</label>${colorField("e_negcolor",v.negColor||"#A0453D")}</div><div><label>Etiquetas</label><select id="e_dl">${["none","top"].map(k=>`<option ${(v.dataLabels||"none")===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
+    <div class="hint">Forma SQL: <code>k</code> (categoría), <code>v</code> (aporte, +/-). Barras flotantes acumuladas; opcional Total al final.</div>`; }
 function colRowHTML(name,cc){ cc=cc||{}; return `<div class="colrow" style="display:flex;gap:5px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
     <input class="cr-name" type="text" value="${escA(name||"")}" placeholder="columna" style="flex:1 1 90px;min-width:90px;width:auto">
     <select class="cr-fmt" style="width:84px">${["","money","int","pct","num"].map(f=>`<option value="${f}" ${(cc.fmt||"")===f?"selected":""}>${f||"fmt…"}</option>`).join("")}</select>
@@ -2593,6 +2707,9 @@ function readGraphic(v){ if($("e_color"))v.color=$("e_color").value; if($("e_fmt
   if($("e_lineSeries")){const a=$("e_lineSeries").value.split(",").map(s=>s.trim()).filter(Boolean);v.lineSeries=a.length?a:undefined;}
   if($("e_axis2")){const a=$("e_axis2").value.split(",").map(s=>s.trim()).filter(Boolean);v.axis2=a.length?a:undefined;}
   if($("e_fmt2"))v.fmt2=$("e_fmt2").value||undefined; if($("e_yname"))v.yName=$("e_yname").value.trim()||undefined; if($("e_y2name"))v.y2Name=$("e_y2name").value.trim()||undefined;
+  if($("e_csource"))v.cSource=$("e_csource").value.trim()||undefined; if($("e_ctarget"))v.cTarget=$("e_ctarget").value.trim()||undefined; if($("e_cvalue"))v.cValue=$("e_cvalue").value.trim()||undefined; if($("e_sankorient"))v.orient=$("e_sankorient").value;
+  if($("e_tgroup"))v.treeGroup=$("e_tgroup").value.trim()||undefined;
+  if($("e_watertotal"))v.waterTotal=$("e_watertotal").value==="1"; if($("e_poscolor"))v.posColor=$("e_poscolor").value; if($("e_negcolor"))v.negColor=$("e_negcolor").value;
   if($("e_pal"))v.palette=$("e_pal").value; if($("e_slice"))v.sliceLabels=$("e_slice").value==="1"; if($("e_center"))v.centerLabel=$("e_center").value==="1"; if($("e_ctext"))v.centerText=$("e_ctext").value;
   if($("e_legend"))v.legend=$("e_legend").value==="1"; if($("e_vmtype"))v.vmType=$("e_vmtype").value; if($("e_roam"))v.roam=$("e_roam").value==="1"; if($("e_maplabels"))v.mapLabels=$("e_maplabels").value==="1";
   if($("e_echarts")){ const t=$("e_echarts").value.trim(); if(!t)delete v.echartsOption; else{ try{ v.echartsOption=JSON.parse(t); }catch(e){ if(!LIVE)alert("ECharts avanzado: JSON inválido, se mantiene el anterior.\n"+e.message); } } }
@@ -2682,6 +2799,9 @@ const VIS={
   map:   {engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>=país, <code>v</code>=valor.",render:renderMap,formato:fmtMap,read:readGraphic,defaults:()=>({type:"map",w:720,h:420,title:"Producción por país",sql:SQL.mapPais,fmt:"money",colorScale:"teal",legend:true,vmType:"continuous",roam:true})},
   table: {engine:"html",menu:true,needsRows:false,effects:true,content:"sql",title:"full",shape:"libres.",render:renderTable,formato:fmtTable,read:readTable,defaults:()=>({type:"table",sql:SQL.tabla,fmt:"money",zebra:true,sortable:true,totals:true,cols:{Produccion:{fmt:"money",bar:true},Reservas:{fmt:"int",heat:"teal"}}})},
   matrix:{engine:"html",menu:true,needsRows:false,effects:true,content:"sql",title:"full",shape:"<code>row</code>,<code>col</code>,<code>v</code>.",render:renderMatrix,formato:fmtMatrix,read:readMatrix,defaults:()=>({type:"matrix",sql:SQL.matrix,fmt:"money",heat:"teal",sortRows:"desc"})},
+  sankey:{engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>source</code>,<code>target</code>,<code>v</code>.",render:renderSankey,formato:fmtSankey,read:readGraphic,defaults:()=>({type:"sankey",w:720,h:420,title:"Flujo (Sankey)",sql:SQL_SANKEY,fmt:"money"})},
+  waterfall:{engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>v</code> (Δ).",render:renderWaterfall,formato:fmtWaterfall,read:readGraphic,defaults:()=>({type:"waterfall",w:720,h:360,title:"Cascada (Waterfall)",sql:SQL_WATERFALL,fmt:"money",dataLabels:"none",waterTotal:true})},
+  treemap:{engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>group</code>,<code>v</code>.",render:renderTreemap,formato:fmtTreemap,read:readGraphic,defaults:()=>({type:"treemap",w:720,h:420,title:"Treemap",sql:SQL_TREEMAP,fmt:"money"})},
   kpi:   {engine:"html",menu:false,needsRows:false,effects:false,content:"kpi",title:"only",shape:"1 fila, <code>v</code>.",render:renderKPI,formato:fmtKpi,read:readKpi,defaults:()=>({type:"kpi",h:176,w:300,...KPI_SQL("prod","prod"),kind:"money",isPct:false,label:"Prod Total"})},
   html:  {engine:"html",menu:true,needsRows:false,effects:false,content:"html",title:"only",shape:"1 fila; [[col]].",render:renderHTML,formato:null,read:readHtml,defaults:()=>({type:"html",h:176,w:300,html:HTML_TPL,sql:SQL.htmlKpi})},
   text:  {engine:"html",menu:true,needsRows:false,effects:false,content:"text",title:"only",shape:"HTML.",render:renderText,formato:null,read:null,defaults:()=>({type:"text",h:60,w:600,html:"<b>Texto</b> — edita aquí."})},
