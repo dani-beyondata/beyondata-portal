@@ -727,25 +727,23 @@ const SQL_CHANNEL=`case
 // Pre-agrega producción por reserva (una pasada de nights) y luego une reservations/mapeos
 // una vez por reserva, sin join a calendar (no se agrupa por fecha) → evita el statement timeout.
 const SQL_SANKEY=`with ${SQL_NP},
-rc as (
-  select ${SQL_CHANNEL} as channel, r.client_country as cc, sum(np.prod) as prod
+base as (
+  select ${SQL_CHANNEL} as channel,
+    coalesce(r.segment_id,'(Sin segmento)') as segment,
+    r.client_country as cc, sum(np.prod) as prod
   from np join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid
-  group by 1,2),
+  group by 1,2,3),
 agg as (
-  select rc.channel,
-    coalesce(mg.group_name,'(Sin grupo)') as mktgroup,
-    co.country_name as country,
-    sum(rc.prod) as prod
-  from rc
-    left join client_country_mapping ccm on ccm.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and ccm.raw_value=rc.cc
-    left join countries co on co.country_code=ccm.country_code
+  select b.channel, b.segment, coalesce(mg.group_name,'(Sin grupo)') as mktgroup, sum(b.prod) as prod
+  from base b
+    left join client_country_mapping ccm on ccm.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and ccm.raw_value=b.cc
     left join country_mapping cm on cm.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and cm.country_code=ccm.country_code
     left join market_groups mg on mg.id=cm.market_group_id
-  where co.country_name is not null and mg.group_name is not null
+  where mg.group_name is not null
   group by 1,2,3)
-select channel as source, mktgroup as target, round(sum(prod),2)::float8 v from agg group by 1,2
+select channel as source, segment as target, round(sum(prod),2)::float8 v from agg group by 1,2
 union all
-select mktgroup as source, country as target, round(sum(prod),2)::float8 v from agg group by 1,2
+select segment as source, mktgroup as target, round(sum(prod),2)::float8 v from agg group by 1,2
 order by v desc`;
 const SQL_WATERFALL=`with ${SQL_NP}
 select ${SQL_CHANNEL} as k, round(sum(np.prod),2)::float8 v
