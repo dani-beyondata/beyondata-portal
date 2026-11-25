@@ -2455,10 +2455,11 @@ function slicerFormHTML(){ return `<div style="font-weight:700;color:var(--teal-
     <button class="primary" style="margin-top:8px" onclick="addSlicer()">Añadir slicer</button>`; }
 window.newFilter=()=>{ openDrawer("Nuevo filtro",`<div class="hint">Crea un filtro (slicer). Por defecto se añade al panel de filtros.</div>${slicerFormHTML()}`); fillCols(); };
 window.fillCols=()=>{ const t=$("as_table").value; $("as_col").innerHTML=(tableCols[t]||[]).map(c=>`<option>${c}</option>`).join(""); };
-function addAt(){ let y=12; CP().visuals.forEach(v=>y=Math.max(y,v.y)); return {x:16,y:y+8}; }
+function addAt(){ let bottom=12; CP().visuals.forEach(v=>{ if(v.dock==="panel")return; bottom=Math.max(bottom,(v.y||0)+(v.h||0)); }); return {x:16,y:bottom+GRIDSZ}; }
+function scrollToVisual(id){ const stage=$("stage"),wrap=$("canvaswrap"); if(!stage||!wrap)return; const card=stage.querySelector('.gcard[data-id="'+(window.CSS&&CSS.escape?CSS.escape(id):id)+'"]'); if(!card)return; const cr=card.getBoundingClientRect(),wr=wrap.getBoundingClientRect(); if(cr.top<wr.top+8||cr.bottom>wr.bottom){ wrap.scrollTo({top:wrap.scrollTop+(cr.top-wr.top)-40,behavior:"smooth"}); } }
 window.addVisual=(type="bar")=>{ const def=VIS[type]; if(!def||!def.defaults)return; const id="v"+Date.now().toString(36); const p=addAt();
   const base={id,x:p.x,y:p.y,w:620,h:300,title:"Nuevo "+type}; Object.assign(base,def.defaults(type));
-  CP().visuals.push(base); saveDash(); layoutStage(); refreshAll(); closeDrawer(); if(type!=="text")editVisual(id); };
+  CP().visuals.push(base); saveDash(); layoutStage(); refreshAll(); closeDrawer(); if(type!=="text")editVisual(id,true); else scrollToVisual(id); };
 window.addSlicer=async()=>{ const slTable=$("as_table").value,slColumn=$("as_col").value,label=$("as_label").value.trim()||slColumn,dock=$("as_dock").value; const optSQL=($("as_optsql")?$("as_optsql").value.trim():"")||undefined; const p=addAt();
   const id="sl_"+Date.now().toString(36); const slKind=(slColumn==="m"&&slTable==="reservations")?"month":"distinct"; const v={id,type:"slicer",dock,x:16,y:p.y+8,w:360,h:90,slTable,slColumn,label,slKind}; if(optSQL)v.optSQL=optSQL; CP().visuals.push(v); saveDash();
   try{ SLOPTS[id]=await slicerOpts(v); }catch(e){ SLOPTS[id]=[]; }
@@ -2760,9 +2761,9 @@ function editorFormHTML(v,id){ const def=VIS[v.type]||{};
   return genOut+fmtSec+htmlSecExtra+sqlSec+jsonSec+`<div class="hint" id="e_err" style="color:#b4322a"></div>`+actions;
 }
 /* ── Editor a pantalla completa con vista previa en vivo ── */
-let EDIT_ID=null,_editIdx=-1,_editBackup=null,LIVE=false,_liveT=null,_editMetricId=null;
-window.editVisual=id=>{ const i=CP().visuals.findIndex(x=>x.id===id); if(i<0)return; const v=CP().visuals[i];
-  EDIT_ID=id; _editIdx=i; _editBackup=JSON.stringify(v); _editMetricId=null;
+let EDIT_ID=null,_editIdx=-1,_editBackup=null,LIVE=false,_liveT=null,_editMetricId=null,_editIsNew=false;
+window.editVisual=(id,isNew)=>{ const i=CP().visuals.findIndex(x=>x.id===id); if(i<0)return; const v=CP().visuals[i];
+  EDIT_ID=id; _editIdx=i; _editBackup=JSON.stringify(v); _editMetricId=null; _editIsNew=!!isNew;
   $("fs_title").textContent="Editar · "+(v.title||id)+"  ·  "+v.type;
   const noLeft=v.type==="text"; $("fs_left").style.display=noLeft?"none":""; $("fs_resize").style.display=noLeft?"none":""; applyFsWidth(noLeft); attachFsResize();
   attachFsEditor(v,id); $("fsedit").classList.add("open"); fsPreview(); };
@@ -2807,9 +2808,10 @@ async function renderResultGrid(pv){ const host=$("fs_result"); if(!host)return;
   try{ const rows=await q(sql); const cols=rows.length?Object.keys(rows[0]):[];
     host.innerHTML=`<div class="rinfo">${rows.length} fila(s) · ${cols.length} columna(s)${rows.length>200?" · mostrando 200":""}</div><table class="dt"><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>`+rows.slice(0,200).map(r=>`<tr>${cols.map(c=>`<td>${esc(typeof r[c]==="number"?nf(r[c],Number.isInteger(r[c])?0:2):(r[c]==null?"":String(r[c])))}</td>`).join("")}</tr>`).join("")+`</tbody></table>`;
   }catch(e){ host.innerHTML=`<div class="rinfo" style="color:#b4322a">Error: ${esc(e.message)}</div>`; } }
-window.fsSave=async()=>{ const v=CP().visuals[_editIdx]; if(!v){fsClose();return;} LIVE=false; try{ await readEditor(v); }catch(e){} saveDash(); const t=v.type, id=v.id; fsClose(); delete charts[id]; if(t==="slicer")await buildSlicerOpts(); relayoutOne(v); paintPanel(); await refreshVisualDeps(v); };
-window.fsCancel=async()=>{ let v=null; if(_editIdx>=0&&_editBackup){ CP().visuals[_editIdx]=JSON.parse(_editBackup); v=CP().visuals[_editIdx]; } fsClose(); if(v){ relayoutOne(v); paintPanel(); await refreshVisualDeps(v); } else { paintPanel(); } };
-function fsClose(){ if(charts["__pv"]){try{charts["__pv"].dispose()}catch(e){} delete charts["__pv"];} $("fsedit").classList.remove("open"); $("fs_right").innerHTML=""; $("fs_preview").innerHTML=""; EDIT_ID=null; _editIdx=-1; _editBackup=null; LIVE=false; }
+window.fsSave=async()=>{ const v=CP().visuals[_editIdx]; if(!v){fsClose();return;} const wasNew=_editIsNew; LIVE=false; try{ await readEditor(v); }catch(e){} saveDash(); const t=v.type, id=v.id; fsClose(); delete charts[id]; if(t==="slicer")await buildSlicerOpts(); relayoutOne(v); paintPanel(); await refreshVisualDeps(v); if(wasNew)scrollToVisual(id); };
+window.fsCancel=async()=>{ if(_editIsNew&&_editIdx>=0){ const rid=(CP().visuals[_editIdx]||{}).id; CP().visuals.splice(_editIdx,1); if(rid&&charts[rid]){try{charts[rid].dispose()}catch(e){} delete charts[rid];} saveDash(); fsClose(); layoutStage(); paintPanel(); return; }
+  let v=null; if(_editIdx>=0&&_editBackup){ CP().visuals[_editIdx]=JSON.parse(_editBackup); v=CP().visuals[_editIdx]; } fsClose(); if(v){ relayoutOne(v); paintPanel(); await refreshVisualDeps(v); } else { paintPanel(); } };
+function fsClose(){ if(charts["__pv"]){try{charts["__pv"].dispose()}catch(e){} delete charts["__pv"];} $("fsedit").classList.remove("open"); $("fs_right").innerHTML=""; $("fs_preview").innerHTML=""; EDIT_ID=null; _editIdx=-1; _editBackup=null; LIVE=false; _editIsNew=false; }
 window.eslCols=()=>{ const t=$("e_sltable").value; $("e_slcol").innerHTML=(tableCols[t]||[]).map(c=>`<option>${c}</option>`).join(""); };
 async function readEditor(v){ if($("e_w"))v.w=Math.max(120,+$("e_w").value||v.w); if($("e_h"))v.h=Math.max(48,+$("e_h").value||v.h); if($("e_x"))v.x=Math.max(0,+$("e_x").value||v.x); if($("e_y"))v.y=Math.max(0,+$("e_y").value||v.y);
   if($("e_title"))v.title=$("e_title").value; if($("e_sub"))v.subtitle=$("e_sub").value;
