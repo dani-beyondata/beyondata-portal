@@ -708,9 +708,12 @@ const SQL={
   htmlKpi:`SELECT\n    CAST(SUM(r.production) AS DOUBLE) AS prod\n  , COUNT(DISTINCT r.reservation_uid) AS reservas\nFROM reservations r\nWHERE 1=1\n  AND r.y = $CY\n `,
   mapPais:`SELECT\n    CASE r.client_country\n      WHEN 'ES' THEN 'Spain'  WHEN 'FR' THEN 'France'\n      WHEN 'GB' THEN 'United Kingdom'  WHEN 'DE' THEN 'Germany'\n      WHEN 'IT' THEN 'Italy'  WHEN 'US' THEN 'United States'\n      WHEN 'NL' THEN 'Netherlands'\n    END AS k\n  , CAST(SUM(r.production) AS DOUBLE) AS v\nFROM reservations r\nWHERE 1=1\n  AND r.y = $CY\n \nGROUP BY 1\nORDER BY v DESC`
 };
-const SQL_SANKEY=`with b as (
-  select
-    case
+const SQL_NP=`np as (
+  select n.reservation_uid, sum(n.price) prod
+  from nights n join properties p on p.property_id=n.property_id and p.company_id=n.company_id
+  where n.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and n.stay_date >= make_date($CY,1,1) and n.stay_date < make_date($CY+1,1,1)
+  group by 1)`;
+const SQL_CHANNEL=`case
       when r.reservation_source ilike 'booking engine%' then 'Direct (web)'
       when r.reservation_source ilike 'booking%' then 'Booking.com'
       when r.reservation_source ilike 'hostelworld%' then 'Hostelworld'
@@ -720,56 +723,41 @@ const SQL_SANKEY=`with b as (
       when r.reservation_source ilike 'email%' then 'Direct (email)'
       when r.reservation_source ilike 'in person%' then 'Walk-in'
       else 'Otros'
-    end as channel,
+    end`;
+// Pre-agrega producción por reserva (una pasada de nights) y luego une reservations/mapeos
+// una vez por reserva, sin join a calendar (no se agrupa por fecha) → evita el statement timeout.
+const SQL_SANKEY=`with ${SQL_NP},
+agg as (
+  select ${SQL_CHANNEL} as channel,
     coalesce(mg.group_name,'(Sin grupo)') as mktgroup,
     co.country_name as country,
-    n.price as price
-  from nights n
-    join properties p on p.property_id=n.property_id and p.company_id=n.company_id
-    join calendar c on c.date=n.stay_date
-    join reservations r on r.company_id=n.company_id and r.reservation_uid=n.reservation_uid
+    sum(np.prod) as prod
+  from np
+    join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid
     left join client_country_mapping ccm on ccm.company_id=r.company_id and ccm.raw_value=r.client_country
     left join countries co on co.country_code=ccm.country_code
     left join country_mapping cm on cm.company_id=r.company_id and cm.country_code=ccm.country_code
     left join market_groups mg on mg.id=cm.market_group_id
-  where n.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and n.stay_date >= make_date($CY,1,1) and n.stay_date < make_date($CY+1,1,1)
-    and co.country_name is not null and mg.group_name is not null
-)
-select channel as source, mktgroup as target, round(sum(price),2)::float8 v from b group by 1,2
+  where co.country_name is not null and mg.group_name is not null
+  group by 1,2,3)
+select channel as source, mktgroup as target, round(sum(prod),2)::float8 v from agg group by 1,2
 union all
-select mktgroup as source, country as target, round(sum(price),2)::float8 v from b group by 1,2
+select mktgroup as source, country as target, round(sum(prod),2)::float8 v from agg group by 1,2
 order by v desc`;
-const SQL_WATERFALL=`select
-  case
-    when r.reservation_source ilike 'booking engine%' then 'Direct (web)'
-    when r.reservation_source ilike 'booking%' then 'Booking.com'
-    when r.reservation_source ilike 'hostelworld%' then 'Hostelworld'
-    when r.reservation_source ilike 'trip.com%' then 'Trip.com'
-    when r.reservation_source ilike 'airbnb%' then 'Airbnb'
-    when r.reservation_source ilike 'expedia%' then 'Expedia'
-    when r.reservation_source ilike 'email%' then 'Direct (email)'
-    when r.reservation_source ilike 'in person%' then 'Walk-in'
-    else 'Otros'
-  end as k,
-  round(sum(n.price),2)::float8 v
-from nights n
-  join properties p on p.property_id=n.property_id and p.company_id=n.company_id
-  join calendar c on c.date=n.stay_date
-  join reservations r on r.company_id=n.company_id and r.reservation_uid=n.reservation_uid
-where n.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and n.stay_date >= make_date($CY,1,1) and n.stay_date < make_date($CY+1,1,1)
+const SQL_WATERFALL=`with ${SQL_NP}
+select ${SQL_CHANNEL} as k, round(sum(np.prod),2)::float8 v
+from np join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid
 group by k order by v desc`;
-const SQL_TREEMAP=`with ca as (
-  select coalesce(co.country_name,'(Sin país)') country, coalesce(mg.group_name,'(Sin grupo)') mg, sum(n.price) prod
-  from nights n
-    join properties p on p.property_id=n.property_id and p.company_id=n.company_id
-    join calendar c on c.date=n.stay_date
-    join reservations r on r.company_id=n.company_id and r.reservation_uid=n.reservation_uid
+const SQL_TREEMAP=`with ${SQL_NP},
+ca as (
+  select coalesce(co.country_name,'(Sin país)') country, coalesce(mg.group_name,'(Sin grupo)') mg, sum(np.prod) prod
+  from np
+    join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid
     left join client_country_mapping ccm on ccm.company_id=r.company_id and ccm.raw_value=r.client_country
     left join countries co on co.country_code=ccm.country_code
     left join country_mapping cm on cm.company_id=r.company_id and cm.country_code=ccm.country_code
     left join market_groups mg on mg.id=cm.market_group_id
-  where n.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and n.stay_date >= make_date($CY,1,1) and n.stay_date < make_date($CY+1,1,1)
-    and co.country_name is not null
+  where co.country_name is not null
   group by 1,2)
 select mg as "group", country as k, round(prod,2)::float8 v from ca order by v desc`;
 const KPI_SQL=(kind,metric)=>({
