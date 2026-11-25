@@ -727,16 +727,19 @@ const SQL_CHANNEL=`case
 // Pre-agrega producción por reserva (una pasada de nights) y luego une reservations/mapeos
 // una vez por reserva, sin join a calendar (no se agrupa por fecha) → evita el statement timeout.
 const SQL_SANKEY=`with ${SQL_NP},
+rc as (
+  select ${SQL_CHANNEL} as channel, r.client_country as cc, sum(np.prod) as prod
+  from np join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid
+  group by 1,2),
 agg as (
-  select ${SQL_CHANNEL} as channel,
+  select rc.channel,
     coalesce(mg.group_name,'(Sin grupo)') as mktgroup,
     co.country_name as country,
-    sum(np.prod) as prod
-  from np
-    join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid
-    left join client_country_mapping ccm on ccm.company_id=r.company_id and ccm.raw_value=r.client_country
+    sum(rc.prod) as prod
+  from rc
+    left join client_country_mapping ccm on ccm.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and ccm.raw_value=rc.cc
     left join countries co on co.country_code=ccm.country_code
-    left join country_mapping cm on cm.company_id=r.company_id and cm.country_code=ccm.country_code
+    left join country_mapping cm on cm.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and cm.country_code=ccm.country_code
     left join market_groups mg on mg.id=cm.market_group_id
   where co.country_name is not null and mg.group_name is not null
   group by 1,2,3)
@@ -749,13 +752,16 @@ select ${SQL_CHANNEL} as k, round(sum(np.prod),2)::float8 v
 from np join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid
 group by k order by v desc`;
 const SQL_TREEMAP=`with ${SQL_NP},
+byc as (
+  select r.client_country as cc, sum(np.prod) as prod
+  from np join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid
+  group by 1),
 ca as (
-  select coalesce(co.country_name,'(Sin país)') country, coalesce(mg.group_name,'(Sin grupo)') mg, sum(np.prod) prod
-  from np
-    join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid
-    left join client_country_mapping ccm on ccm.company_id=r.company_id and ccm.raw_value=r.client_country
+  select coalesce(co.country_name,'(Sin país)') country, coalesce(mg.group_name,'(Sin grupo)') mg, sum(byc.prod) prod
+  from byc
+    left join client_country_mapping ccm on ccm.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and ccm.raw_value=byc.cc
     left join countries co on co.country_code=ccm.country_code
-    left join country_mapping cm on cm.company_id=r.company_id and cm.country_code=ccm.country_code
+    left join country_mapping cm on cm.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and cm.country_code=ccm.country_code
     left join market_groups mg on mg.id=cm.market_group_id
   where co.country_name is not null
   group by 1,2)
