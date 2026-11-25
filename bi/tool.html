@@ -353,6 +353,16 @@
   <button id="expBtn" onclick="toggleExpMenu(event)" title="Exportar">⬆ Exportar</button>
   <div id="userChip" title="Sesión"><span class="uc-ic">👤</span><span class="uc-name"></span></div>
 </div>
+<!-- F1b · Landing de reports -->
+<div id="reportLanding" style="display:none;position:fixed;inset:0;z-index:9000;background:#f5f7f9;overflow:auto;padding:48px 24px;font-family:'Segoe UI',Arial,sans-serif">
+  <div style="max-width:1100px;margin:0 auto">
+    <div style="margin-bottom:22px">
+      <div style="font-size:22px;font-weight:800;color:#1E3A5F">Reports</div>
+      <div id="rl-sub" style="font-size:13px;color:#6B7A82;margin-top:2px"></div>
+    </div>
+    <div id="rl-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px"></div>
+  </div>
+</div>
 
 <!-- Portal BI: hereda la sesion de Supabase del portal (same-origin). Prepara window.sbClient para el paso 4. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1555,7 +1565,17 @@ async function loadReports(){ const cid=biCompany(); if(!cid||!window.sbClient)r
 async function loadReportDoc(id){ if(!id||!window.sbClient)return null; try{ const {data,error}=await window.sbClient.from("bi_reports").select("doc").eq("id",id).maybeSingle(); if(error)return null; if(data&&data.doc&&data.doc.pages&&data.doc.pages.length)return data.doc; }catch(e){} return null; }
 window.switchReport=function(id){ if(!id)return; try{ localStorage.setItem(biReportKey(),id); }catch(_){ } const u=new URL(location.href); u.searchParams.set("report",id); location.href=u.toString(); };
 window.newReport=async function(){ if(!window.BD_CANEDIT)return; const name=prompt("Nombre del nuevo report:"); if(name==null)return; const nm=name.trim(); if(!nm)return; const cid=biCompany(); if(!cid||!window.sbClient){ alert("Sin conexión a Supabase."); return; } const slug=(nm.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,""))||("r"+Date.now()); let uid=null; try{ uid=(await window.sbClient.auth.getSession()).data?.session?.user?.id||null; }catch(_){ } const sort=(BI_REPORTS.length?Math.max(...BI_REPORTS.map(r=>r.sort||0))+1:0); const {data,error}=await window.sbClient.from("bi_reports").insert({company_id:cid,name:nm,slug,doc:defaultDoc(),sort,updated_by:uid}).select("id").single(); if(error){ alert("No se pudo crear el report: "+(error.message||error)); return; } window.switchReport(data.id); };
-function renderReportSel(){ const el=$("reportSel"); if(!el)return; if(!BI_REPORTS.length){ el.style.display="none"; return; } el.style.display=""; const cur=BI_REPORT?BI_REPORT.id:""; const opts=BI_REPORTS.map(r=>`<option value="${esc(r.id)}" ${r.id===cur?"selected":""}>${esc(r.name)}</option>`).join(""); el.innerHTML=`<select onchange="switchReport(this.value)" title="Report activo" style="background:#0d2b3e;color:#eaf2f7;border:1px solid #2a4b60;border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;max-width:220px">${opts}</select>`+(window.BD_CANEDIT?`<button class="hdr edit-only" onclick="newReport()" title="Crear un report nuevo" style="margin-left:4px">＋ Report</button>`:""); }
+function renderReportSel(){ const el=$("reportSel"); if(!el)return; if(!BI_REPORTS.length){ el.style.display="none"; return; } el.style.display=""; const cur=BI_REPORT?BI_REPORT.id:""; const opts=BI_REPORTS.map(r=>`<option value="${esc(r.id)}" ${r.id===cur?"selected":""}>${esc(r.name)}</option>`).join(""); el.innerHTML=`<button class="hdr" onclick="goLanding()" title="Ver todos los reports" style="margin-right:6px">⊞ Reports</button><select onchange="switchReport(this.value)" title="Report activo" style="background:#0d2b3e;color:#eaf2f7;border:1px solid #2a4b60;border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;max-width:220px">${opts}</select>`+(window.BD_CANEDIT?`<button class="hdr edit-only" onclick="newReport()" title="Crear un report nuevo" style="margin-left:4px">＋ Report</button>`:""); }
+// ── F1b · Landing de reports (rejilla de tarjetas) ──
+function renderLanding(){ const grid=$("rl-grid"); if(!grid)return; const sub=$("rl-sub"); if(sub)sub.textContent=(BI_REPORTS.length||0)+" report"+(BI_REPORTS.length===1?"":"s");
+  const card=(r)=>`<div onclick="openReportCard('${esc(r.id)}')" style="cursor:pointer;background:#fff;border:1px solid #e2e7ea;border-radius:12px;padding:18px;box-shadow:0 1px 3px rgba(16,40,50,.06);transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 14px rgba(16,40,50,.12)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(16,40,50,.06)'"><div style="font-size:28px;line-height:1">${esc(r.icon||"📊")}</div><div style="font-weight:700;color:#1E3A5F;margin-top:10px;font-size:15px">${esc(r.name)}</div><div style="color:#6B7A82;font-size:12px;margin-top:4px;min-height:32px">${esc(r.description||"")}</div></div>`;
+  let html=BI_REPORTS.map(card).join("");
+  if(window.BD_CANEDIT) html+=`<div onclick="newReport()" title="Crear un report nuevo" style="cursor:pointer;border:2px dashed #c3ccd2;border-radius:12px;padding:18px;display:flex;align-items:center;justify-content:center;color:#6B7A82;font-weight:700;min-height:120px">＋ Nuevo report</div>`;
+  grid.innerHTML=html; }
+function showLanding(){ renderLanding(); const el=$("reportLanding"); if(el)el.style.display="block"; }
+function hideLanding(){ const el=$("reportLanding"); if(el)el.style.display="none"; }
+window.openReportCard=function(id){ switchReport(id); };
+window.goLanding=function(){ try{ localStorage.removeItem(biReportKey()); }catch(_){ } const u=new URL(location.href); u.searchParams.delete("report"); u.searchParams.set("landing","1"); location.href=u.toString(); };
 let _srvT=null, _srvOn=true, _srvPending=false;
 function saveStatus(txt,col,ttl){ const el=document.getElementById("bd-save"); if(!el)return; el.textContent=txt||""; el.style.color=col||"#bfe0d7"; el.style.opacity=txt?"1":"0"; clearTimeout(el._t); if(ttl)el._t=setTimeout(()=>{el.style.opacity="0";},ttl); }
 async function _doSaveDash(){ _srvPending=false; const cid=biCompany(); if(!cid||!window.sbClient)return;
@@ -3209,8 +3229,15 @@ async function boot(){
   /* Portal: sin DuckDB — q() consulta Postgres via RPC bi_run_sql (RLS del usuario). Dashboard: Supabase (compartido) → fallback localStorage → migra local a Supabase la 1ª vez. */
   // F1 · multi-report: carga la lista de reports y el report activo (fallback a bi_dashboards)
   BI_REPORTS=await loadReports();
-  let _srvDoc=null;
-  if(BI_REPORTS.length){ let rid=biReportId(); if(!rid||!BI_REPORTS.some(r=>r.id===rid)) rid=BI_REPORTS[0].id; BI_REPORT=BI_REPORTS.find(r=>r.id===rid)||BI_REPORTS[0]; _srvDoc=await loadReportDoc(BI_REPORT.id); }
+  let _srvDoc=null; window.__landing=false;
+  const _wantLanding=(new URLSearchParams(location.search).get("landing")==="1");
+  if(BI_REPORTS.length){
+    let rid=_wantLanding?"":biReportId();
+    if(rid&&!BI_REPORTS.some(r=>r.id===rid)) rid="";
+    if(!rid&&!_wantLanding){ if(BI_REPORTS.length===1) rid=BI_REPORTS[0].id; else window.__landing=true; }
+    if(_wantLanding) window.__landing=true;
+    if(rid){ BI_REPORT=BI_REPORTS.find(r=>r.id===rid); _srvDoc=await loadReportDoc(BI_REPORT.id); }
+  }
   if(!_srvDoc){ _srvDoc=await loadDashServer(); }
   if(_srvDoc){ DASH=_srvDoc; }
   else { DASH=loadDash(); try{ const _ls=localStorage.getItem(dashKey()); if(_ls){ const _d=JSON.parse(_ls); if(_d&&_d.pages&&_d.pages.length) saveDashServer(); } }catch(e){} }
@@ -3227,7 +3254,7 @@ async function boot(){
   // El tool aparece YA; los visuales se rellenan por su cuenta (cada uno con su carga/error).
   // Así el arranque no se bloquea esperando a que rendericen todas las queries en serie.
   await detectMode(); applyMode();
-  seedHist(); renderReportSel(); renderTabs(); layoutStage(); paintPanel(); $("boot").style.display="none"; window.__ready=true; refreshAll();
+  seedHist(); renderReportSel(); renderTabs(); layoutStage(); paintPanel(); $("boot").style.display="none"; if(window.__landing)showLanding(); window.__ready=true; refreshAll();
 }
 boot().catch(e=>{ $("boot").innerHTML="<div style='color:#b4322a;max-width:520px;text-align:center'>No se pudo arrancar: "+esc(e.message)+"</div>"; window.__booterr=e.message; });
 </script>
