@@ -764,6 +764,34 @@ ca as (
   where co.country_name is not null
   group by 1,2)
 select mg as "group", country as k, round(prod,2)::float8 v from ca order by v desc`;
+const SQL_RADAR=`with ${SQL_NP},
+byc as (select r.client_country as cc, sum(np.prod) as prod from np join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid group by 1),
+grp as (
+  select coalesce(mg.group_name,'(Sin grupo)') as k, sum(byc.prod) as prod
+  from byc
+    left join client_country_mapping ccm on ccm.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and ccm.raw_value=byc.cc
+    left join country_mapping cm on cm.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and cm.country_code=ccm.country_code
+    left join market_groups mg on mg.id=cm.market_group_id
+  where mg.group_name is not null group by 1)
+select k, round(prod,2)::float8 v from grp order by v desc`;
+const SQL_GAUGE=`with nb as (
+  select sum(case when n.bed_code_raw is null or n.bed_code_raw='' then rm.beds_per_room else 1 end) bn
+  from nights n join properties p on p.property_id=n.property_id and p.company_id=n.company_id
+    left join rooms rm on rm.company_id=n.company_id and rm.raw_value=n.room_code_raw
+  where n.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and n.stay_date >= make_date($CY,1,1) and n.stay_date < make_date($CY+1,1,1)),
+cap as (
+  select sum(rm.beds_per_room) cap from room_capacity_calendar rcc
+    join properties pxr on pxr.id=rcc.property_uuid join rooms rm on rm.id=rcc.room_id
+  where rcc.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and rcc.status='open' and rcc.date >= make_date($CY,1,1) and rcc.date < make_date($CY+1,1,1))
+select round((select bn from nb)::numeric/nullif((select cap from cap),0),4)::float8 v`;
+const SQL_FUNNEL=`with ${SQL_NP}
+select coalesce(r.segment_id,'(Sin segmento)') as k, round(sum(np.prod),2)::float8 v
+from np join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid
+group by 1 order by v desc`;
+const SQL_PARETO=`with ${SQL_NP}
+select ${SQL_CHANNEL} as k, round(sum(np.prod),2)::float8 v
+from np join reservations r on r.company_id='7808b663-735b-46ab-b4ae-80ec4c14c61a' and r.reservation_uid=np.reservation_uid
+group by 1 order by v desc`;
 const KPI_SQL=(kind,metric)=>({
   sqlCY: kind==="prod"?`SELECT CAST(SUM(r.production) AS DOUBLE) AS v\nFROM reservations r\nWHERE 1=1\n  AND r.y = $YEAR\n `
     : kind==="bn"?`SELECT CAST(COUNT(*) AS DOUBLE) AS v\nFROM nights n\nWHERE 1=1\n  AND n.y = $YEAR\n `
@@ -1933,7 +1961,7 @@ function layoutStage(){ const stage=$("stage"); let maxB=300;
   attachInteract(); }
 
 /* Estados por visual: cargando (diferido), error+reintentar, sin datos. */
-const VSTATE_EMPTY_TYPES=new Set(["bar","line","area","combo","donut","pie","map","sankey","waterfall","treemap","table"]);
+const VSTATE_EMPTY_TYPES=new Set(["bar","line","area","combo","donut","pie","map","sankey","waterfall","treemap","gauge","funnel","pareto","radar","table"]);
 function vstateLoading(){ return `<div class="vstate"><div class="vspin"></div><div class="vs-txt">Cargando…</div></div>`; }
 function vstateEmpty(){ return `<div class="vstate"><div class="vs-ic">∅</div><div class="vs-txt">Sin datos</div></div>`; }
 function setVisualError(v,e){ const el=$("body_"+v.id); if(!el)return; const msg=esc(String((e&&e.message)||e||"error"));
@@ -2143,6 +2171,51 @@ function renderWaterfall(v,rows){ const ch=ensureEchart(v); if(!ch)return; if(!r
     series:[{name:"b",type:"bar",stack:"w",silent:true,itemStyle:{color:"transparent"},emphasis:{disabled:true},data:base},
       {name:"pos",type:"bar",stack:"w",label:dataLabel(v,false,v.fmt),data:posData},
       {name:"neg",type:"bar",stack:"w",itemStyle:{color:negColor,borderRadius:[0,0,3,3]},label:dataLabel(v,false,v.fmt),data:neg}]},true);
+  ch.off("click"); applyEch(v); ch.resize(); }
+/* ── Radar: k (indicador), v (+ series opcional) ── */
+function renderRadar(v,rows){ const ch=ensureEchart(v); if(!ch)return; if(!rows.length){ch.clear();return;}
+  const XC=v.x2||"k",YC=v.y2||"v",SC=v.series||"series"; const hasSeries=SC in rows[0];
+  const inds=[...new Set(rows.map(r=>String(r[XC])))];
+  const gmax=Math.max(1,...rows.map(r=>+r[YC]||0))*1.1;
+  const indicator=inds.map(i=>({name:i,max:gmax}));
+  let data;
+  if(hasSeries){ const names=[...new Set(rows.map(r=>r[SC]))]; data=names.map((nm,ix)=>{ const m={}; rows.filter(r=>r[SC]===nm).forEach(r=>m[String(r[XC])]=+r[YC]||0); return {name:String(nm),value:inds.map(i=>m[i]??0),itemStyle:{color:PIE_PAL[ix%PIE_PAL.length]},areaStyle:{opacity:.1}}; }); }
+  else { const m={}; rows.forEach(r=>m[String(r[XC])]=+r[YC]||0); data=[{value:inds.map(i=>m[i]??0),name:v.title||"valor",itemStyle:{color:v.color||"#3D65A8"},areaStyle:{opacity:.2}}]; }
+  ch.setOption({tooltip:{trigger:"item"},legend:hasSeries?{top:4,type:"scroll",textStyle:{fontSize:11}}:undefined,
+    radar:{indicator,radius:"64%",center:["50%","56%"],axisName:{fontSize:11,color:"#444"},splitArea:{areaStyle:{color:["#ffffff","#f6f8fa"]}},splitLine:{lineStyle:{color:"#e2e7ea"}},axisLine:{lineStyle:{color:"#e2e7ea"}}},
+    series:[{type:"radar",data,symbolSize:4,lineStyle:{width:2},tooltip:{valueFormatter:x=>fmtValue(x,v.fmt)}}]},true);
+  ch.off("click"); applyEch(v); ch.resize(); }
+/* ── Gauge: 1 valor (v) contra un máximo (fmt pct → 0..1) ── */
+function renderGauge(v,rows){ const ch=ensureEchart(v); if(!ch)return; const YC=v.y2||"v"; const val=rows.length?(+rows[0][YC]||0):0;
+  const isPct=v.fmt==="pct"; const max=v.gaugeMax!=null?+v.gaugeMax:(isPct?1:(rows[0]&&rows[0].max!=null?+rows[0].max:(val>0?val*1.4:1)));
+  const col=v.color||"#3D65A8";
+  ch.setOption({series:[{type:"gauge",min:0,max,startAngle:210,endAngle:-30,radius:"94%",center:["50%","58%"],
+    progress:{show:true,width:14,roundCap:true,itemStyle:{color:col}},
+    axisLine:{lineStyle:{width:14,color:[[0.5,"#eef2f5"],[0.8,"#dbe7f1"],[1,"#c3d9ec"]]}},
+    axisTick:{show:false},splitLine:{length:10,lineStyle:{color:"#aab8c2",width:2}},axisLabel:{show:false},
+    pointer:{width:5,itemStyle:{color:"#1E3A5F"}},anchor:{show:true,size:12,itemStyle:{color:"#1E3A5F"}},
+    detail:{valueAnimation:false,formatter:()=>fmtValue(val,v.fmt),fontSize:26,fontWeight:800,color:"#1E3A5F",offsetCenter:[0,"40%"]},
+    title:{show:!!v.gaugeLabel,offsetCenter:[0,"72%"],fontSize:11,color:"#6B7A82"},
+    data:[{value:val,name:v.gaugeLabel||""}]}]},true);
+  ch.off("click"); applyEch(v); ch.resize(); }
+/* ── Funnel: k (etapa), v; se ordena desc ── */
+function renderFunnel(v,rows){ const ch=ensureEchart(v); if(!ch)return; if(!rows.length){ch.clear();return;}
+  const XC=v.x2||"k",YC=v.y2||"v"; let data=rows.map(r=>({name:String(r[XC]),value:+r[YC]||0})).filter(d=>d.value>0).sort((a,b)=>b.value-a.value);
+  data=data.map((d,i)=>({...d,itemStyle:{color:PIE_PAL[i%PIE_PAL.length],borderColor:"#fff",borderWidth:1}}));
+  ch.setOption({tooltip:{trigger:"item",formatter:p=>`${esc(p.name)}: <b>${fmtValue(p.value,v.fmt)}</b>`},legend:{top:4,type:"scroll",textStyle:{fontSize:11}},
+    series:[{type:"funnel",left:"8%",right:"8%",top:36,bottom:10,minSize:"16%",gap:2,sort:"descending",
+      label:{show:true,position:"inside",formatter:"{b}",fontSize:11,color:"#fff",fontWeight:600},labelLine:{show:false},data}]},true);
+  ch.off("click"); applyEch(v); ch.resize(); }
+/* ── Pareto: k, v → barras (desc) + línea acumulada % en 2º eje, con línea 80% ── */
+function renderPareto(v,rows){ const ch=ensureEchart(v); if(!ch)return; if(!rows.length){ch.clear();return;}
+  const XC=v.x2||"k",YC=v.y2||"v"; const arr=rows.map(r=>({k:String(r[XC]),v:+r[YC]||0})).filter(d=>d.v>0).sort((a,b)=>b.v-a.v);
+  const total=arr.reduce((a,b)=>a+b.v,0)||1; let cum=0; const cats=arr.map(d=>d.k),bars=arr.map(d=>d.v),cuml=arr.map(d=>{cum+=d.v;return +(cum/total*100).toFixed(1);});
+  ch.setOption({tooltip:{trigger:"axis",axisPointer:{type:"shadow"},formatter:P=>{const i=P[0].dataIndex;return `${esc(cats[i])}<br>${fmtValue(bars[i],v.fmt)}<br>Acumulado: <b>${cuml[i]}%</b>`;}},
+    grid:{left:54,right:48,top:16,bottom:30},xAxis:{type:"category",data:cats,axisTick:{show:false},axisLabel:{interval:0,fontSize:10,hideOverlap:true}},
+    yAxis:[{type:"value",axisLabel:{formatter:x=>fmtAxis(x,v.fmt)}},{type:"value",min:0,max:100,position:"right",splitLine:{show:false},axisLabel:{formatter:"{value}%"}}],
+    series:[{name:"valor",type:"bar",itemStyle:{color:v.color||"#3D65A8",borderRadius:[3,3,0,0]},data:bars},
+      {name:"acumulado %",type:"line",yAxisIndex:1,symbol:"circle",symbolSize:5,lineStyle:{color:"#E0A800",width:2},itemStyle:{color:"#E0A800"},data:cuml,
+        markLine:{silent:true,symbol:"none",data:[{yAxis:80}],lineStyle:{type:"dashed",color:"#A0453D"},label:{formatter:"80%",position:"insideStartTop",fontSize:10,color:"#A0453D"}}}]},true);
   ch.off("click"); applyEch(v); ch.resize(); }
 let _worldMapP=null;
 function ensureWorldMap(){ if(_worldMapP)return _worldMapP; _worldMapP=fetch((window.BD_LIBS&&BD_LIBS.worldMap)||"./lib/world.geo.json").then(r=>r.json()).then(j=>{echarts.registerMap("world",j);return true;}); return _worldMapP; }
@@ -2495,10 +2568,10 @@ function growStage(){ let maxB=300; CP().visuals.forEach(v=>maxB=Math.max(maxB,v
 /* ═ Drawer / editor (igual que v5) ═ */
 function openDrawer(title,html){ $("d_title").textContent=title; $("d_body").innerHTML=html; $("drawer").classList.add("open"); }
 window.closeDrawer=()=>$("drawer").classList.remove("open");
-const MENU_LABELS={bar:"Barras",line:"Líneas",area:"Área",combo:"Combo (barras + línea)",donut:"Donut",pie:"Tarta",map:"Mapa de países",sankey:"Sankey (flujos)",waterfall:"Waterfall (cascada)",treemap:"Treemap (jerarquía)",table:"Tabla",matrix:"Matriz",kpi:"KPI (clásico)",html:"HTML (plantilla + SQL)",metricgroup:"Grupo de métrica · chips (SQL por gráfico)",resultfilter:"Filtro de resultado · recorta filas (WHERE IN)"};
-const MENU_GROUPS=[["Gráficos",["bar","line","area","combo","donut","pie","map"]],["Flujo y jerarquía",["sankey","waterfall","treemap"]],["Tabla y matriz",["table","matrix"]],["Tarjetas / HTML",["html","text"]],["Métrica y resultado",["metricgroup","resultfilter"]]];
-const MENU_SHORT={bar:"Barras",line:"Líneas",area:"Área",combo:"Combo",donut:"Donut",pie:"Tarta",map:"Mapa",sankey:"Sankey",waterfall:"Waterfall",treemap:"Treemap",table:"Tabla",matrix:"Matriz",html:"HTML",text:"Texto",metricgroup:"Grupo métrica",resultfilter:"Filtro result.",slicer:"Slicer",parameter:"Parámetro"};
-const MENU_TIPS={bar:"k, v (+ series)",line:"k, v",area:"k, v",combo:"k, series, v",donut:"k, v",pie:"k, v",map:"k = país, v = valor",sankey:"source, target, v",waterfall:"k, v (Δ)",treemap:"k, group, v",table:"columnas libres",matrix:"row, col, v",html:"1 fila · plantilla [[col]]",text:"HTML libre",metricgroup:"chips · SQL por gráfico",resultfilter:"recorta filas (WHERE IN)",slicer:"filtra la página por una columna",parameter:"valor reutilizable · $param"};
+const MENU_LABELS={bar:"Barras",line:"Líneas",area:"Área",combo:"Combo (barras + línea)",donut:"Donut",pie:"Tarta",map:"Mapa de países",sankey:"Sankey (flujos)",waterfall:"Waterfall (cascada)",treemap:"Treemap (jerarquía)",gauge:"Gauge (indicador)",funnel:"Funnel (embudo)",pareto:"Pareto",radar:"Radar",table:"Tabla",matrix:"Matriz",kpi:"KPI (clásico)",html:"HTML (plantilla + SQL)",metricgroup:"Grupo de métrica · chips (SQL por gráfico)",resultfilter:"Filtro de resultado · recorta filas (WHERE IN)"};
+const MENU_GROUPS=[["Gráficos",["bar","line","area","combo","donut","pie","map"]],["Flujo y jerarquía",["sankey","waterfall","treemap"]],["KPI y distribución",["gauge","funnel","pareto","radar"]],["Tabla y matriz",["table","matrix"]],["Tarjetas / HTML",["html","text"]],["Métrica y resultado",["metricgroup","resultfilter"]]];
+const MENU_SHORT={bar:"Barras",line:"Líneas",area:"Área",combo:"Combo",donut:"Donut",pie:"Tarta",map:"Mapa",sankey:"Sankey",waterfall:"Waterfall",treemap:"Treemap",gauge:"Gauge",funnel:"Funnel",pareto:"Pareto",radar:"Radar",table:"Tabla",matrix:"Matriz",html:"HTML",text:"Texto",metricgroup:"Grupo métrica",resultfilter:"Filtro result.",slicer:"Slicer",parameter:"Parámetro"};
+const MENU_TIPS={bar:"k, v (+ series)",line:"k, v",area:"k, v",combo:"k, series, v",donut:"k, v",pie:"k, v",map:"k = país, v = valor",sankey:"source, target, v",waterfall:"k, v (Δ)",treemap:"k, group, v",gauge:"1 fila · v",funnel:"k, v",pareto:"k, v",radar:"k, v (+series)",table:"columnas libres",matrix:"row, col, v",html:"1 fila · plantilla [[col]]",text:"HTML libre",metricgroup:"chips · SQL por gráfico",resultfilter:"recorta filas (WHERE IN)",slicer:"filtra la página por una columna",parameter:"valor reutilizable · $param"};
 const MENU_ICONS={
   bar:'<rect x="7" y="26" width="7" height="15" rx="1.5"/><rect x="20" y="16" width="7" height="25" rx="1.5"/><rect x="33" y="9" width="7" height="32" rx="1.5"/>',
   line:'<polyline points="7,34 18,22 28,28 41,11"/><circle cx="18" cy="22" r="2.4" fill="currentColor" stroke="none"/><circle cx="28" cy="28" r="2.4" fill="currentColor" stroke="none"/><circle cx="41" cy="11" r="2.4" fill="currentColor" stroke="none"/>',
@@ -2517,7 +2590,11 @@ const MENU_ICONS={
   parameter:'<circle cx="16" cy="24" r="5"/><circle cx="33" cy="24" r="5"/><line x1="7" y1="24" x2="11" y2="24"/><line x1="21" y1="24" x2="28" y2="24"/><line x1="38" y1="24" x2="41" y2="24"/>',
   sankey:'<rect x="6" y="11" width="5" height="10" rx="1"/><rect x="6" y="27" width="5" height="10" rx="1"/><rect x="37" y="18" width="5" height="12" rx="1"/><path d="M11 16 C24 16 24 24 37 24" fill="none"/><path d="M11 32 C24 32 24 24 37 24" fill="none"/>',
   waterfall:'<rect x="7" y="29" width="6" height="8" rx="1"/><rect x="17" y="21" width="6" height="8" rx="1"/><rect x="27" y="14" width="6" height="8" rx="1"/><rect x="39" y="9" width="4" height="28" rx="1" fill="currentColor" fill-opacity=".18"/>',
-  treemap:'<rect x="7" y="9" width="34" height="30" rx="2"/><rect x="7" y="9" width="20" height="17" fill="currentColor" fill-opacity=".14"/><rect x="27" y="9" width="14" height="17"/><rect x="7" y="26" width="34" height="13"/>'
+  treemap:'<rect x="7" y="9" width="34" height="30" rx="2"/><rect x="7" y="9" width="20" height="17" fill="currentColor" fill-opacity=".14"/><rect x="27" y="9" width="14" height="17"/><rect x="7" y="26" width="34" height="13"/>',
+  gauge:'<path d="M9 33 A16 16 0 0 1 39 33" fill="none"/><line x1="24" y1="33" x2="33" y2="20"/><circle cx="24" cy="33" r="2.6" fill="currentColor" stroke="none"/>',
+  funnel:'<path d="M9 12 H39 L31 23 V34 L17 29 V23 Z"/>',
+  pareto:'<rect x="8" y="22" width="6" height="15" rx="1"/><rect x="18" y="27" width="6" height="10" rx="1"/><rect x="28" y="31" width="6" height="6" rx="1"/><polyline points="8,18 21,13 38,9" fill="none"/>',
+  radar:'<polygon points="24,8 38,19 33,36 15,36 10,19" fill="none"/><polygon points="24,16 31,21 28,31 20,31 17,21" fill="currentColor" fill-opacity=".16"/>'
 };
 const MENU_ICO=t=>`<svg class="addico" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MENU_ICONS[t]||""}</svg>`;
 const ADD_CSS=`<style>
@@ -2592,6 +2669,22 @@ function fmtWaterfall(v){ const nf=id=>`<select id="${id}">${["money","int","num
     <div class="row" style="margin-top:6px"><div><label>Categoría (col)</label><input id="e_x2" type="text" value="${esc(v.x2||"k")}"></div><div><label>Δ Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div></div>
     <div class="row"><div><label>Color +</label>${colorField("e_poscolor",v.posColor||"#56B14E")}</div><div><label>Color −</label>${colorField("e_negcolor",v.negColor||"#A0453D")}</div><div><label>Etiquetas</label><select id="e_dl">${["none","top"].map(k=>`<option ${(v.dataLabels||"none")===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
     <div class="hint">Forma SQL: <code>k</code> (categoría), <code>v</code> (aporte, +/-). Barras flotantes acumuladas; opcional Total al final.</div>`; }
+function fmtRadar(v){ const nf=id=>`<select id="${id}">${["money","int","num","pct"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
+  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div><div><label>Color (serie única)</label>${colorField("e_color",v.color||"#3D65A8")}</div></div>
+    <div class="row" style="margin-top:6px"><div><label>Indicador (col)</label><input id="e_x2" type="text" value="${esc(v.x2||"k")}"></div><div><label>Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div><div><label>Serie (col, opc.)</label><input id="e_series" type="text" value="${esc(v.series||"series")}"></div></div>
+    <div class="hint">Forma SQL: <code>k</code> (eje/indicador), <code>v</code> (valor), opcional <code>series</code> para comparar varios.</div>`; }
+function fmtGauge(v){ const nf=id=>`<select id="${id}">${["pct","money","int","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
+  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div><div><label>Color</label>${colorField("e_color",v.color||"#3D65A8")}</div></div>
+    <div class="row" style="margin-top:6px"><div><label>Máximo <span class="hint">(vacío=auto; pct→1)</span></label><input id="e_gaugemax" type="text" value="${esc(v.gaugeMax!=null?v.gaugeMax:"")}"></div><div><label>Etiqueta</label><input id="e_gaugelabel" type="text" value="${esc(v.gaugeLabel||"")}"></div><div><label>Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div></div>
+    <div class="hint">Forma SQL: 1 fila con <code>v</code> (y opcional <code>max</code>). Con formato <code>pct</code> el máximo es 1.</div>`; }
+function fmtFunnel(v){ const nf=id=>`<select id="${id}">${["money","int","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
+  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div></div>
+    <div class="row" style="margin-top:6px"><div><label>Etapa (col)</label><input id="e_x2" type="text" value="${esc(v.x2||"k")}"></div><div><label>Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div></div>
+    <div class="hint">Forma SQL: <code>k</code> (etapa), <code>v</code> (valor). Se ordena de mayor a menor.</div>`; }
+function fmtPareto(v){ const nf=id=>`<select id="${id}">${["money","int","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
+  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div><div><label>Color barras</label>${colorField("e_color",v.color||"#3D65A8")}</div></div>
+    <div class="row" style="margin-top:6px"><div><label>Categoría (col)</label><input id="e_x2" type="text" value="${esc(v.x2||"k")}"></div><div><label>Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div></div>
+    <div class="hint">Forma SQL: <code>k</code>, <code>v</code>. Barras (desc) + línea acumulada % (2º eje) con marca al 80%.</div>`; }
 function colRowHTML(name,cc){ cc=cc||{}; return `<div class="colrow" style="display:flex;gap:5px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
     <input class="cr-name" type="text" value="${escA(name||"")}" placeholder="columna" style="flex:1 1 90px;min-width:90px;width:auto">
     <select class="cr-fmt" style="width:84px">${["","money","int","pct","num"].map(f=>`<option value="${f}" ${(cc.fmt||"")===f?"selected":""}>${f||"fmt…"}</option>`).join("")}</select>
@@ -2702,6 +2795,7 @@ function readGraphic(v){ if($("e_color"))v.color=$("e_color").value; if($("e_fmt
   if($("e_csource"))v.cSource=$("e_csource").value.trim()||undefined; if($("e_ctarget"))v.cTarget=$("e_ctarget").value.trim()||undefined; if($("e_cvalue"))v.cValue=$("e_cvalue").value.trim()||undefined; if($("e_sankorient"))v.orient=$("e_sankorient").value;
   if($("e_tgroup"))v.treeGroup=$("e_tgroup").value.trim()||undefined;
   if($("e_watertotal"))v.waterTotal=$("e_watertotal").value==="1"; if($("e_poscolor"))v.posColor=$("e_poscolor").value; if($("e_negcolor"))v.negColor=$("e_negcolor").value;
+  if($("e_gaugemax"))v.gaugeMax=$("e_gaugemax").value.trim()===""?undefined:(+$("e_gaugemax").value||undefined); if($("e_gaugelabel"))v.gaugeLabel=$("e_gaugelabel").value.trim()||undefined;
   if($("e_pal"))v.palette=$("e_pal").value; if($("e_slice"))v.sliceLabels=$("e_slice").value==="1"; if($("e_center"))v.centerLabel=$("e_center").value==="1"; if($("e_ctext"))v.centerText=$("e_ctext").value;
   if($("e_legend"))v.legend=$("e_legend").value==="1"; if($("e_vmtype"))v.vmType=$("e_vmtype").value; if($("e_roam"))v.roam=$("e_roam").value==="1"; if($("e_maplabels"))v.mapLabels=$("e_maplabels").value==="1";
   if($("e_echarts")){ const t=$("e_echarts").value.trim(); if(!t)delete v.echartsOption; else{ try{ v.echartsOption=JSON.parse(t); }catch(e){ if(!LIVE)alert("ECharts avanzado: JSON inválido, se mantiene el anterior.\n"+e.message); } } }
@@ -2794,6 +2888,10 @@ const VIS={
   sankey:{engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>source</code>,<code>target</code>,<code>v</code>.",render:renderSankey,formato:fmtSankey,read:readGraphic,defaults:()=>({type:"sankey",w:720,h:420,title:"Flujo (Sankey)",sql:SQL_SANKEY,fmt:"money"})},
   waterfall:{engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>v</code> (Δ).",render:renderWaterfall,formato:fmtWaterfall,read:readGraphic,defaults:()=>({type:"waterfall",w:720,h:360,title:"Cascada (Waterfall)",sql:SQL_WATERFALL,fmt:"money",dataLabels:"none",waterTotal:true})},
   treemap:{engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>group</code>,<code>v</code>.",render:renderTreemap,formato:fmtTreemap,read:readGraphic,defaults:()=>({type:"treemap",w:720,h:420,title:"Treemap",sql:SQL_TREEMAP,fmt:"money"})},
+  radar: {engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>v</code> (+<code>series</code>).",render:renderRadar,formato:fmtRadar,read:readGraphic,defaults:()=>({type:"radar",w:620,h:380,title:"Radar por market group",sql:SQL_RADAR,fmt:"money"})},
+  gauge: {engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"1 fila · <code>v</code>.",render:renderGauge,formato:fmtGauge,read:readGraphic,defaults:()=>({type:"gauge",w:420,h:300,title:"Ocupación",sql:SQL_GAUGE,fmt:"pct",gaugeLabel:"Ocupación"})},
+  funnel:{engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>v</code>.",render:renderFunnel,formato:fmtFunnel,read:readGraphic,defaults:()=>({type:"funnel",w:560,h:360,title:"Embudo por segmento",sql:SQL_FUNNEL,fmt:"money"})},
+  pareto:{engine:"echarts",menu:true,needsRows:true,effects:true,content:"sql",title:"full",shape:"<code>k</code>,<code>v</code>.",render:renderPareto,formato:fmtPareto,read:readGraphic,defaults:()=>({type:"pareto",w:620,h:360,title:"Pareto por canal",sql:SQL_PARETO,fmt:"money"})},
   kpi:   {engine:"html",menu:false,needsRows:false,effects:false,content:"kpi",title:"only",shape:"1 fila, <code>v</code>.",render:renderKPI,formato:fmtKpi,read:readKpi,defaults:()=>({type:"kpi",h:176,w:300,...KPI_SQL("prod","prod"),kind:"money",isPct:false,label:"Prod Total"})},
   html:  {engine:"html",menu:true,needsRows:false,effects:false,content:"html",title:"only",shape:"1 fila; [[col]].",render:renderHTML,formato:null,read:readHtml,defaults:()=>({type:"html",h:176,w:300,html:HTML_TPL,sql:SQL.htmlKpi})},
   text:  {engine:"html",menu:true,needsRows:false,effects:false,content:"text",title:"only",shape:"HTML.",render:renderText,formato:null,read:null,defaults:()=>({type:"text",h:60,w:600,html:"<b>Texto</b> — edita aquí."})},
