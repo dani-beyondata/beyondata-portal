@@ -2235,19 +2235,23 @@ function renderPareto(v,rows){ const ch=ensureEchart(v); if(!ch)return; if(!rows
   ch.off("click"); applyEch(v); ch.resize(); }
 /* ── Scatter / bubble: x, y numéricos (+ z tamaño, + series, + k etiqueta) ── */
 function renderScatter(v,rows){ const ch=ensureEchart(v); if(!ch)return; if(!rows.length){ch.clear();return;}
-  const XC=v.xCol||"x",YC=v.yCol||"y",ZC=v.zCol||"z",LC=v.labelCol||"k",SC=v.series||"series";
-  const hasZ=rows.some(r=>r[ZC]!=null); const hasSeries=SC in rows[0];
+  const XC=v.xCol||"x",YC=v.yCol||"y",ZC=v.zCol||"z",LC=v.labelCol||"k"; const CB=v.colorBy||v.series;
+  const hasZ=rows.some(r=>r[ZC]!=null); const groupBy=(CB&&(CB in rows[0]))?CB:null;
   const zs=rows.map(r=>+r[ZC]||0),zmin=Math.min(...zs),zmax=Math.max(...zs);
-  const sym=z=>{ if(!hasZ)return 11; const t=(zmax>zmin)?((+z||0)-zmin)/(zmax-zmin):0.5; return 9+Math.sqrt(Math.max(0,t))*38; };
-  const xf=v.xFmt||"num",yf=v.yFmt||"num",zf=v.fmt||"num";
-  const mk=r=>({value:[+r[XC]||0,+r[YC]||0,+r[ZC]||0],name:String(r[LC]??"")});
-  let series;
-  if(hasSeries){ const names=[...new Set(rows.map(r=>r[SC]))]; series=names.map((nm,i)=>({name:String(nm),type:"scatter",symbolSize:p=>sym(p[2]),itemStyle:{color:PIE_PAL[i%PIE_PAL.length],opacity:.8},data:rows.filter(r=>r[SC]===nm).map(mk)})); }
-  else series=[{type:"scatter",symbolSize:p=>sym(p[2]),itemStyle:{color:v.color||"#3D65A8",opacity:.78},data:rows.map(mk)}];
-  ch.setOption({tooltip:{trigger:"item",formatter:p=>`<b>${esc(p.name)}</b><br>${esc(v.xName||"x")}: ${fmtValue(p.value[0],xf)}<br>${esc(v.yName||"y")}: ${fmtValue(p.value[1],yf)}${hasZ?`<br>${esc(v.zName||"tamaño")}: ${fmtValue(p.value[2],zf)}`:""}`},
-    legend:hasSeries?{top:4,type:"scroll",textStyle:{fontSize:11}}:undefined, grid:{left:58,right:18,top:hasSeries?34:14,bottom:36},
-    xAxis:{type:"value",name:v.xName||undefined,nameLocation:"middle",nameGap:22,nameTextStyle:{fontSize:10,color:"#8a929b"},axisLabel:{formatter:x=>fmtAxis(x,xf)},splitLine:{lineStyle:{color:"#eef1f4"}}},
-    yAxis:{type:"value",name:v.yName||undefined,nameTextStyle:{fontSize:10,color:"#8a929b"},axisLabel:{formatter:x=>fmtAxis(x,yf)},splitLine:{lineStyle:{color:"#eef1f4"}}},
+  const sym=z=>{ if(!hasZ)return 12; const t=(zmax>zmin)?((+z||0)-zmin)/(zmax-zmin):0.5; return 10+Math.sqrt(Math.max(0,t))*38; };
+  const xf=v.xFmt||"num",yf=v.yFmt||"num",zf=v.fmt||"num"; const dl=v.scatterLabel||"none";
+  const labFor=r=>{ if(dl==="name")return String(r[LC]??""); if(dl==="x")return fmtValue(+r[XC]||0,xf); if(dl==="y")return fmtValue(+r[YC]||0,yf); if(dl==="z")return fmtValue(+r[ZC]||0,zf); return ""; };
+  const mk=r=>({value:[+r[XC]||0,+r[YC]||0,+r[ZC]||0],name:String(r[LC]??""),label:{show:dl!=="none",position:"right",fontSize:10,fontWeight:600,color:"#555",formatter:labFor(r)}});
+  let series, legendShow=false;
+  if(groupBy){ legendShow=true; const names=[...new Set(rows.map(r=>r[groupBy]))]; series=names.map((nm,i)=>({name:String(nm),type:"scatter",symbolSize:p=>sym(p[2]),itemStyle:{color:(v.colors&&v.colors[i])||PIE_PAL[i%PIE_PAL.length],opacity:.82,borderColor:"#fff",borderWidth:1},data:rows.filter(r=>r[groupBy]===nm).map(mk)})); }
+  else series=[{type:"scatter",symbolSize:p=>sym(p[2]),itemStyle:{color:v.color||"#3D65A8",opacity:.78,borderColor:"#fff",borderWidth:1},data:rows.map(mk)}];
+  const note=(hasZ&&v.zName!==false)?(v.zName||"Producción"):null;
+  ch.setOption({tooltip:{trigger:"item",formatter:p=>`<b>${esc(p.name)}</b><br>${esc(v.xName||"X")}: ${fmtValue(p.value[0],xf)}<br>${esc(v.yName||"Y")}: ${fmtValue(p.value[1],yf)}${hasZ?`<br>${esc(v.zName||"Tamaño")}: ${fmtValue(p.value[2],zf)}`:""}`},
+    legend:legendShow?{top:4,type:"scroll",textStyle:{fontSize:11}}:undefined,
+    grid:{left:70,right:22,top:legendShow?34:14,bottom:40},
+    graphic:note?[{type:"text",right:10,bottom:6,style:{text:"●  tamaño = "+note,fontSize:10,fill:"#8a929b"}}]:undefined,
+    xAxis:{type:"value",name:v.xName||undefined,nameLocation:"middle",nameGap:24,nameTextStyle:{fontSize:11,color:"#6b7a82"},axisLabel:{formatter:x=>fmtAxis(x,xf)},splitLine:{lineStyle:{color:"#eef1f4"}}},
+    yAxis:{type:"value",name:v.yName||undefined,nameLocation:"middle",nameGap:50,nameRotate:90,nameTextStyle:{fontSize:11,color:"#6b7a82"},axisLabel:{formatter:x=>fmtAxis(x,yf)},splitLine:{lineStyle:{color:"#eef1f4"}}},
     series},true);
   ch.off("click"); applyEch(v); ch.resize(); }
 /* ── Calendar heatmap: d (fecha), v (valor) → rejilla anual ── */
@@ -2735,7 +2739,8 @@ function fmtScatter(v){ const nf=(id,val)=>`<select id="${id}">${["num","money",
   return `<div class="row"><div><label>Color</label>${colorField("e_color",v.color||"#3D65A8")}</div><div><label>Formato tamaño (z)</label>${nf("e_fmt",v.fmt)}</div></div>
     <div class="row" style="margin-top:6px"><div><label>X (col)</label><input id="e_xcol" type="text" value="${esc(v.xCol||"x")}"></div><div><label>Y (col)</label><input id="e_ycol" type="text" value="${esc(v.yCol||"y")}"></div><div><label>Tamaño (col, opc.)</label><input id="e_zcol" type="text" value="${esc(v.zCol||"z")}"></div><div><label>Etiqueta (col)</label><input id="e_labelcol" type="text" value="${esc(v.labelCol||"k")}"></div></div>
     <div class="row"><div><label>Nombre eje X</label><input id="e_xname" type="text" value="${esc(v.xName||"")}"></div><div><label>Formato X</label>${nf("e_xfmt",v.xFmt||"num")}</div><div><label>Nombre eje Y</label><input id="e_yname" type="text" value="${esc(v.yName||"")}"></div><div><label>Formato Y</label>${nf("e_yfmt",v.yFmt||"num")}</div></div>
-    <div class="hint">Forma SQL: <code>x</code>, <code>y</code> (numéricos), opcional <code>z</code> (tamaño de burbuja) y <code>k</code> (etiqueta).</div>`; }
+    <div class="row"><div><label>Color por (col) <span class="hint">leyenda</span></label><input id="e_colorby" type="text" value="${esc(v.colorBy||"")}" placeholder="k = un color por punto"></div><div><label>Etiquetas en puntos</label><select id="e_scatterlabel">${[["none","no"],["name","etiqueta"],["x","valor X"],["y","valor Y"],["z","tamaño"]].map(([k,l])=>`<option value="${k}" ${(v.scatterLabel||"none")===k?"selected":""}>${l}</option>`).join("")}</select></div><div><label>Nombre del tamaño</label><input id="e_zname" type="text" value="${esc(v.zName||"Producción")}"></div></div>
+    <div class="hint">Forma SQL: <code>x</code>, <code>y</code> (numéricos), opcional <code>z</code> (tamaño de burbuja) y <code>k</code> (etiqueta). «Color por» agrupa en leyenda; <code>k</code> = un color por punto.</div>`; }
 function fmtCalheat(v){ const nf=id=>`<select id="${id}">${["int","num","money","pct"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
   return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div><div><label>Gradiente</label><select id="e_cs"><option value="" ${!v.colorScale?"selected":""}>teal</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.colorScale===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
     <div class="row" style="margin-top:6px"><div><label>Fecha (col)</label><input id="e_datecol" type="text" value="${esc(v.dateCol||"d")}"></div><div><label>Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div></div>
@@ -2854,6 +2859,7 @@ function readGraphic(v){ if($("e_color"))v.color=$("e_color").value; if($("e_fmt
   if($("e_xcol"))v.xCol=$("e_xcol").value.trim()||undefined; if($("e_ycol"))v.yCol=$("e_ycol").value.trim()||undefined; if($("e_zcol"))v.zCol=$("e_zcol").value.trim()||undefined; if($("e_labelcol"))v.labelCol=$("e_labelcol").value.trim()||undefined;
   if($("e_xname"))v.xName=$("e_xname").value.trim()||undefined; if($("e_yname"))v.yName=$("e_yname").value.trim()||undefined; if($("e_xfmt"))v.xFmt=$("e_xfmt").value||undefined; if($("e_yfmt"))v.yFmt=$("e_yfmt").value||undefined;
   if($("e_datecol"))v.dateCol=$("e_datecol").value.trim()||undefined;
+  if($("e_colorby"))v.colorBy=$("e_colorby").value.trim()||undefined; if($("e_scatterlabel"))v.scatterLabel=$("e_scatterlabel").value; if($("e_zname"))v.zName=$("e_zname").value.trim()||undefined;
   if($("e_pal"))v.palette=$("e_pal").value; if($("e_slice"))v.sliceLabels=$("e_slice").value==="1"; if($("e_center"))v.centerLabel=$("e_center").value==="1"; if($("e_ctext"))v.centerText=$("e_ctext").value;
   if($("e_legend"))v.legend=$("e_legend").value==="1"; if($("e_vmtype"))v.vmType=$("e_vmtype").value; if($("e_roam"))v.roam=$("e_roam").value==="1"; if($("e_maplabels"))v.mapLabels=$("e_maplabels").value==="1";
   if($("e_echarts")){ const t=$("e_echarts").value.trim(); if(!t)delete v.echartsOption; else{ try{ v.echartsOption=JSON.parse(t); }catch(e){ if(!LIVE)alert("ECharts avanzado: JSON inválido, se mantiene el anterior.\n"+e.message); } } }
