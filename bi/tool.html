@@ -317,19 +317,13 @@
   #cfbar .cfhint{color:#4b6b66;font-size:11px}
   #cfbar .cftoggle{cursor:pointer;color:#0a655c;font-weight:700;border:1px solid #0e8f82;border-radius:7px;padding:3px 9px;background:#fff;white-space:nowrap}
   #cfbar .cfclear{color:#0a655c;font-weight:700;border:1px solid #0e8f82;border-radius:7px;padding:3px 8px;cursor:pointer;white-space:nowrap}
-  .gfilt{position:absolute;top:7px;right:9px;z-index:8;display:none;cursor:pointer;width:26px;height:24px;align-items:center;justify-content:center;background:rgba(255,255,255,.95);border:1px solid var(--border);border-radius:7px;font-size:10px;color:var(--teal-d);box-shadow:0 1px 5px rgba(16,40,50,.14)}
-  /* modo embudo: página al pasar el ratón; crossfilter/emisor siempre */
-  body:not(.cf-min) .gcard:hover .gfilt.on,body:not(.cf-min) .gcard .gfilt.on.has-cf,body:not(.cf-min) .gcard .gfilt.on.cf-emit{display:flex}
-  .gcard.has-gfilt .gexp{right:40px} .gcard.has-gfilt .gctrl{right:40px}   /* deja hueco al icono de filtro en la esquina */
-  .gfilt.has-cf{border-color:#0e8f82;color:#0a655c;background:#dcf2ef}
-  .gfilt.has-cf::after{content:"";position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#0e8f82;border:1.5px solid #fff}
-  .gfilt.cf-emit{border-color:#e0a400;color:#9a7400;background:#fdf3d6}   /* emisor = oro */
-  .gfilt.cf-emit::after{content:"";position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#e0a400;border:1.5px solid #fff}
-  /* modo bolita (colapsado): embudo → punto. verde=receptor, oro=emisor, azul=página */
-  body.cf-min .gcard .gfilt.on{display:block;width:12px;height:12px;min-width:12px;border:2px solid #fff;border-radius:50%;padding:0;font-size:0;line-height:0;box-shadow:0 1px 4px rgba(16,40,50,.35);background:#5d8bc9;top:8px;right:11px}
-  body.cf-min .gcard .gfilt.on.has-cf{background:#0e8f82}
-  body.cf-min .gcard .gfilt.on.cf-emit{background:#e0a400}
-  body.cf-min .gcard .gfilt.on::after{display:none}
+  /* icono de filtro = punto (azul=página, verde=receptor, oro=emisor). Sin embudo. */
+  .gfilt{position:absolute;top:8px;right:11px;z-index:8;display:none;cursor:pointer;width:12px;height:12px;border:2px solid #fff;border-radius:50%;padding:0;font-size:0;box-shadow:0 1px 4px rgba(16,40,50,.35);background:#5d8bc9}
+  .gcard .gfilt.on{display:block}
+  .gfilt.on.has-cf{background:#0e8f82}
+  .gfilt.on.cf-emit{background:#e0a400}
+  .gcard.has-gfilt .gexp{right:34px} .gcard.has-gfilt .gctrl{right:34px}   /* deja hueco al punto en la esquina */
+  body.cf-icons-off .gcard .gfilt{display:none}   /* modo "ninguno" (gana en especificidad a .gcard .gfilt.on) */
   .gcf-badge{position:absolute;top:7px;left:9px;z-index:7;font-size:10px;font-weight:700;background:#fbf0dc;color:#b7791f;border:1px solid #d9a441;border-radius:7px;padding:2px 7px;display:none}
   .gcard .gcf-badge{display:inline-block}
   #cfpop{position:fixed;z-index:120;width:300px;max-width:92vw;background:#fff;border:1px solid #0e8f82;border-radius:11px;box-shadow:0 8px 28px rgba(16,40,50,.22);font-size:12px;overflow:hidden}
@@ -701,13 +695,13 @@ function renderCfBar(){ let bar=document.getElementById("cfbar");
     bar.onclick=ev=>{ const x=ev.target.closest(".cfx"); if(x){ cfClear(x.dataset.k); return; } if(ev.target.closest(".cfclear")){cfClearAll();return;} if(ev.target.closest(".cftoggle"))cfToggleIcons(); }; }
   const chips=entries.map(({k,e})=>{ const col=e.col||e.dim||"valor"; const val=e.values.map(x=>String(x)).join(", ");
     return `<span class="cfchip"><b>${esc(e.table)}</b> · ${esc(col)} = ${esc(val)} <span class="cfx" data-k="${esc(k)}">✕</span></span>`; }).join("");
-  const min=document.body.classList.contains("cf-min");
+  const off=document.body.classList.contains("cf-icons-off");
   bar.innerHTML=`<span class="cflab">⚡ Crossfilter</span><span class="cfchips">${chips}</span>`
-    +`<span class="cfright"><span class="cftoggle" title="Iconos en los gráficos: solo punto o embudo">iconos ${min?"●":"▽"}</span><span class="cfhint">Ctrl+clic acumula</span><span class="cfclear">✕ Limpiar todo</span></span>`; }
+    +`<span class="cfright"><span class="cftoggle" title="Iconos de filtro en los gráficos: punto o ninguno">${off?"○":"◉"} iconos</span><span class="cfhint">Ctrl+clic acumula</span><span class="cfclear">✕ Limpiar todo</span></span>`; }
 window.cfClear=k=>{ delete XF[k]; cfApply(); };
 window.cfClearAll=()=>{ XF={}; cfApply(); };
-function cfApplyIconPref(){ let full=false; try{ full=localStorage.getItem("bd_cf_icons")==="full"; }catch(e){} document.body.classList.toggle("cf-min",!full); }   // por defecto: bolita
-window.cfToggleIcons=()=>{ const min=document.body.classList.toggle("cf-min"); try{ localStorage.setItem("bd_cf_icons",min?"min":"full"); }catch(e){} renderCfBar(); };
+function cfApplyIconPref(){ let off=false; try{ off=localStorage.getItem("bd_cf_icons")==="off"; }catch(e){} document.body.classList.toggle("cf-icons-off",off); }   // por defecto: punto
+window.cfToggleIcons=()=>{ const off=document.body.classList.toggle("cf-icons-off"); try{ localStorage.setItem("bd_cf_icons",off?"off":"dot"); }catch(e){} renderCfBar(); if(typeof renderPanel==="function")renderPanel(); };
 /* ── transparencia (paso 4): icono de filtro por gráfico (Visor) + popover + badge "no usa" ── */
 function cfVisualFilters(v){ const page=[],cross=[],noUse=[],emits=[];
   const sids=new Set(CP().visuals.filter(x=>x.type==="slicer").map(x=>x.id));
@@ -1994,7 +1988,9 @@ function renderPanel(){ const P=PANEL(); const el=$("filterpanel"); const main=$
     if(side){ el.style.top="0";el.style.left="0";el.style.bottom="0";el.style.width=(P.size||320)+"px"; } else { el.style.top="0";el.style.left="0";el.style.right="0"; if(P.size)el.style.height=P.size+"px"; } }
   else { el.style.boxShadow=""; if(side) el.style.width=(P.size||320)+"px"; else if(P.size) el.style.height=P.size+"px"; }
   const clr=nA?`<span onclick="clearPageFilters()" title="limpiar todos los filtros">⌦ limpiar</span>`:"";
-  const headSp = viewMode ? (clr?`<span class="sp">${clr}</span>`:"") : `<span class="sp">${clr}<span onclick="togglePanelOrient()" title="arriba (barra) / izquierda (lateral)">⇄ ${P.orient==="vertical"?"lateral":"barra"}</span><span onclick="editPanel()" title="posición, tamaño, color, modo">✎ Editar</span><span onclick="togglePanel()" title="colapsar a pastilla">– colapsar</span><span onclick="togglePanelHidden()" title="ocultar el panel por completo">⊘ ocultar</span></span>`;
+  const iconsOff=document.body.classList.contains("cf-icons-off");
+  const icTog=`<span onclick="cfToggleIcons()" title="Iconos de filtro en los gráficos: punto o ninguno">${iconsOff?"○":"◉"} iconos</span>`;
+  const headSp = viewMode ? `<span class="sp">${clr}${icTog}</span>` : `<span class="sp">${clr}${icTog}<span onclick="togglePanelOrient()" title="arriba (barra) / izquierda (lateral)">⇄ ${P.orient==="vertical"?"lateral":"barra"}</span><span onclick="editPanel()" title="posición, tamaño, color, modo">✎ Editar</span><span onclick="togglePanel()" title="colapsar a pastilla">– colapsar</span><span onclick="togglePanelHidden()" title="ocultar el panel por completo">⊘ ocultar</span></span>`;
   el.innerHTML=`<div class="fp-head">⚑ Filtros${cnt}${headSp}</div>`+
     `<div class="fp-body">`+paramsPanelHTML()+(sls.length?sls.map(v=>`<div class="fslc" data-id="${v.id}"${v.ph?` data-ph="1"`:""}${(v.pw||v.ph)?` style="${v.pw?`flex:none;width:${v.pw}px;max-width:none;`:""}${v.ph?`--slph:${v.ph}px`:""}"`:""}><div class="fslabel"><span class="ttl">${esc(v.label||v.slColumn)}</span><span style="flex:0 0 auto"><span class="mv" title="editar" onclick="editVisual('${v.id}')">✎</span> <span class="mv" title="sacar al lienzo" onclick="moveSlicer('${v.id}','canvas')">↗</span> <span class="mv" title="quitar" onclick="delVisual('${v.id}')">✕</span></span></div><div id="body_${v.id}"></div>${viewMode?"":`<div class="fslc-rz" title="arrastrar la esquina para redimensionar"></div>`}</div>`).join(""):(viewMode?"":`<div class="hint">Panel vacío. Añade un filtro con <b>＋ Filtro</b>, o saca uno del lienzo con ↗.</div>`))+(viewMode?"":`<button class="sm pxadd" style="margin-top:6px" onclick="newFilter()">＋ Filtro</button>`)+`</div>`+(viewMode?"":`<div class="fp-rz"></div>`);
   if(!viewMode){ attachPanelResizer(); attachSlicerResizers(); } }
