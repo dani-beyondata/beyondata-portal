@@ -339,6 +339,9 @@
   #cfpop .cfp-v.no{background:#fbf0dc;color:#b7791f}
   #cfpop .cfp-em{width:8px;height:8px;border-radius:50%;background:#e0a400;flex:0 0 auto}
   #cfpop .cfp-v.em{background:#fdf3d6;color:#9a7400}
+  .dt.mx th .mx-sort,.dt.mx td .mx-sort{opacity:0;cursor:pointer;margin-left:5px;font-size:11px;color:var(--muted);transition:opacity .1s}
+  .dt.mx th:hover .mx-sort,.dt.mx td:hover .mx-sort{opacity:.7}
+  .dt.mx th .mx-sort:hover,.dt.mx td .mx-sort:hover{opacity:1;color:var(--teal-d)}
   .mglist{display:flex;flex-direction:column;gap:3px}
   .mgrow{padding:5px 10px;border-radius:7px;cursor:pointer;font-size:12.5px;border:1px solid transparent;transition:none}
   .mgrow:hover{background:#eef4f3}
@@ -685,6 +688,10 @@ function cfLegendClick(v,ch,params){ const dd=(v.crossfilter&&(v.crossfilter.dim
   const name=params&&params.name; if(name==null)return;
   if(!ch.__cfLegBusy){ ch.__cfLegBusy=true; try{ const sel={}; Object.keys(params.selected||{}).forEach(k=>sel[k]=true); ch.setOption({legend:[{selected:sel}]}); }catch(e){} ch.__cfLegBusy=false; }   // la leyenda filtra, no oculta la serie
   if(cfEmitDim(v,"series",name,false))cfApply(); }
+/* clic en fila de tabla / fila o columna de matriz → crossfilter (reusa el motor; DOM, no ECharts) */
+window.cfCellClick=(vId,dimKey,rawVal,ev)=>{ if(ev&&ev.stopPropagation)ev.stopPropagation(); const v=CP().visuals.find(x=>x.id===vId); if(!v||!v.crossfilter||!v.crossfilter.emit)return;
+  const acc=!!(ev&&(ev.ctrlKey||ev.metaKey)); if(cfEmitDim(v,dimKey,rawVal,acc))cfApply(); };
+function cfEmits(v,dimKey){ return !!(v&&v.crossfilter&&v.crossfilter.emit&&v.crossfilter.dims&&v.crossfilter.dims[dimKey]); }
 function cfApply(){ for(const k in XF)_cfSeen.add(XF[k].table); renderCfBar(); refreshAfterFilter([..._cfSeen]); }
 function renderCfBar(){ let bar=document.getElementById("cfbar");
   const entries=Object.keys(XF).map(k=>({k,e:XF[k]})).filter(o=>o.e&&(o.e.values||[]).length);
@@ -1880,16 +1887,22 @@ function readGroupSection(v){ if(!$("e_grp_on")){ return; } const on=$("e_grp_on
   if(on) v.group={on:true, topN:num("e_grp_topn"), pct:num("e_grp_pct"), min:num("e_grp_min"), label:lbl||undefined};
   else delete v.group; }
 /* ═══ Cross filters (#78) · sección del editor — emite / CTE por dimensión / recibe ═══ */
-const CF_EMIT_TYPES=["bar","line","pie","donut"];
-function cfDimsFor(type){ return (type==="pie"||type==="donut")
-  ? [{key:"series",label:"Porción / leyenda"}]
-  : [{key:"x",label:"Eje X"},{key:"series",label:"Serie / leyenda"}]; }
+const CF_EMIT_TYPES=["bar","line","pie","donut","table","matrix"];
+function cfDimsFor(type){ if(type==="pie"||type==="donut")return [{key:"series",label:"Porción / leyenda"}];
+  if(type==="table")return [{key:"row",label:"Fila (clic en la fila)"}];
+  if(type==="matrix")return [{key:"row",label:"Fila"},{key:"col",label:"Columna"}];
+  return [{key:"x",label:"Eje X"},{key:"series",label:"Serie / leyenda"}]; }
 function cfSqlTables(sql){ const s=String(sql||""); const re=/\b(?:from|join)\s+(?:public\.)?(\w+)/gi; const out=new Set(); let m; while((m=re.exec(s)))out.add(m[1].toLowerCase()); return [...out]; }
-function cfPrimaryDim(type){ return (type==="pie"||type==="donut")?"series":"x"; }
+function cfPrimaryDim(type){ if(type==="pie"||type==="donut")return "series"; if(type==="table"||type==="matrix")return "row"; return "x"; }
 function cfAutoDim(sql){ const s=String(sql||""); const fm=s.match(/\bselect\b([\s\S]*?)\bfrom\b/i); if(!fm)return null;
   const km=fm[1].match(/([\s\S]*?)\bas\s+k\b/i); const kexpr=km?km[1]:fm[1].split(",")[0];   // el 'k' = la dimensión que trocea
   const am=kexpr.match(/\b([a-z_]\w*)\.(\w+)\b/i); if(!am)return null;                        // primer alias.columna (en coalesce, el display)
   const tbl=cfResolveAliasTable(s,am[1]); if(!tbl)return null; return {table:tbl,column:am[2]}; }
+function cfAutoAlias(sql,aliasName){ const s=String(sql||""); const m=new RegExp("\\bas\\s+"+aliasName+"\\b","i").exec(s); if(!m)return null;   // última alias.columna antes de "as <alias>" (matriz: row/col)
+  const refs=[...s.slice(0,m.index).matchAll(/\b([a-z_]\w*)\.(\w+)\b/gi)]; const r=refs[refs.length-1]; if(!r)return null;
+  const tbl=cfResolveAliasTable(s,r[1]); if(!tbl)return null; return {table:tbl,column:r[2]}; }
+function cfAutoDimForDim(sql,type,dimKey){ if(dimKey===cfPrimaryDim(type)){ if(type==="matrix")return cfAutoAlias(sql,"row")||cfAutoDim(sql); return cfAutoDim(sql); }
+  if(type==="matrix"&&dimKey==="col")return cfAutoAlias(sql,"col"); return null; }
 function cfTableOpts(sel,extra){ const set=new Set(Object.keys(tableCols||{})); (extra||[]).forEach(t=>set.add(t)); if(sel)set.add(sel); const ts=[...set].sort(); return `<option value="">— tabla —</option>`+ts.map(t=>`<option ${t===sel?"selected":""}>${esc(t)}</option>`).join(""); }
 function cfColOpts(table,sel){ const set=new Set((tableCols&&tableCols[table])||[]); if(sel)set.add(sel); const cs=[...set]; return `<option value="">— columna —</option>`+cs.map(c=>`<option ${c===sel?"selected":""}>${esc(c)}</option>`).join(""); }
 function crossfilterSecHTML(v){
@@ -1898,7 +1911,7 @@ function crossfilterSecHTML(v){
   const emit=!!cf.emit, recv=cf.receive!==false;
   const esql=String(v.sql||v.html||""); const sqlTbls=cfSqlTables(esql); const prim=cfPrimaryDim(v.type);
   const rows=dims.map(d=>{ let dd=(cf.dims&&cf.dims[d.key])||{};
-    if(!dd.table&&!dd.col&&!dd.cte&&d.key===prim){ const a=cfAutoDim(esql); if(a)dd={table:a.table,col:a.column}; }   // pre-sugiere la dimensión que trocea
+    if(!dd.table&&!dd.col&&!dd.cte){ const a=cfAutoDimForDim(esql,v.type,d.key); if(a)dd={table:a.table,col:a.column}; }   // pre-sugiere cada dimensión detectable
     return `<div style="border:1px solid var(--border);border-radius:8px;padding:9px 10px;margin-top:8px;background:var(--bg)">
       <div style="font-weight:600;font-size:12px;margin-bottom:6px">${d.label} — filtrar por</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
@@ -1931,7 +1944,7 @@ window.cfTblChange=(dim)=>{ const t=((document.querySelector(`.e_cf_tbl[data-dim
 window.cfGen=(dim)=>{ const ts=document.querySelector(`.e_cf_tbl[data-dim="${dim}"]`), cs=document.querySelector(`.e_cf_colsel[data-dim="${dim}"]`), ta=document.querySelector(`.e_cf_cte[data-dim="${dim}"]`); if(!ta)return;
   const v=CP().visuals[_editIdx]; const sql=String((v&&(v.sql||v.html))||"");
   let t=(ts&&ts.value)||"", c=(cs&&cs.value)||"";
-  if(!t||!c){ const a=cfAutoDim(sql); if(a){ if(!t){ t=a.table; if(ts){ if(![...ts.options].some(o=>o.value===t))ts.add(new Option(t,t)); ts.value=t; } } if(!c){ c=a.column; if(cs){ cs.innerHTML=cfColOpts(t,c); cs.value=c; } } } }   // sin elegir → auto desde el 'k'
+  if(!t||!c){ const a=cfAutoDimForDim(sql,v.type,dim); if(a){ if(!t){ t=a.table; if(ts){ if(![...ts.options].some(o=>o.value===t))ts.add(new Option(t,t)); ts.value=t; } } if(!c){ c=a.column; if(cs){ cs.innerHTML=cfColOpts(t,c); cs.value=c; } } } }   // sin elegir → auto desde el 'k'/row/col
   if(!t||!c)return; ta.value=cfBuildCte(t,c,sql); };
 function cfResolveAliasTable(sql,alias){ const m=sql.match(new RegExp("(?:from|join)\\s+(?:public\\.)?(\\w+)\\s+"+alias+"\\b","i")); return m?m[1]:null; }
 function cfBuildCte(table,column,sql){ if(!table||!column)return "";
@@ -2670,7 +2683,8 @@ async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v),n
   if(levels.length>=2){ return renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels); }
   const head=`<tr>${cols.map(c=>`<th class="${isNum(c)?'num':''}" ${v.sortable!==false?`onclick="tblSort('${v.id}','${c}')" style="cursor:pointer"`:""}>${esc(c)}${st.sortCol===c?(st.sortDir==="asc"?" ▲":" ▼"):""}</th>`).join("")}</tr>`;
   const body=view.map(r=>{ const rk=rowKind(r); const isT=!!rk; const cls=[(topSet&&topSet.has(r))?"tbl-top":"", rk==="tot"?"tbl-tot":rk==="sub"?"tbl-sub":""].filter(Boolean).join(" ");
-    return `<tr${cls?` class="${cls}"`:""}>${cols.map(c=>{ const cc=cfg[c]||{}; const val=r[c]; const num=isNum(c)&&typeof val==="number"; let style="";
+    const cfA=(cfEmits(v,"row")&&!isT)?` data-k="${escA(String(r[cols[0]]==null?"":r[cols[0]]))}" onclick="cfCellClick('${v.id}','row',this.dataset.k,event)" style="cursor:pointer"`:"";
+    return `<tr${cls?` class="${cls}"`:""}${cfA}>${cols.map(c=>{ const cc=cfg[c]||{}; const val=r[c]; const num=isNum(c)&&typeof val==="number"; let style="";
       let inner;
       if(cc.spark){ inner=sparkCell(val); }
       else if(num){ const f=fmtOf(c);
@@ -2732,9 +2746,13 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v),
   const arrR=by=>(st.rowSort&&st.rowSort.by===by)?(st.rowSort.dir==="asc"?" ▲":" ▼"):""; const arrC=by=>(st.colSort&&st.colSort.by===by)?(st.colSort.dir==="asc"?" ▲":" ▼"):""; const cp=s=>esc(String(s));
   const active=st.rowSort||st.colSort;
   const corner=(clickable&&active)?`<th style="cursor:pointer;text-align:center" title="Restablecer orden" onclick="mxReset('${v.id}')">↺</th>`:`<th></th>`;
-  const thCol=c=>{ const tc=isTotCol(c)?" tot totcol":""; return clickable?`<th class="num${tc}" style="cursor:pointer" title="Ordenar filas por esta columna" onclick="mxSortRows('${v.id}','${cp(c)}')">${esc(c)}${arrR(c)}</th>`:`<th class="num${tc}">${esc(c)}</th>`; };
+  const thCol=c=>{ const tc=isTotCol(c)?" tot totcol":""; if(!clickable)return `<th class="num${tc}">${esc(c)}</th>`;
+    if(cfEmits(v,"col")&&!isTotCol(c))return `<th class="num${tc}" style="cursor:pointer" title="Filtrar por esta columna" onclick="cfCellClick('${v.id}','col','${cp(c)}',event)">${esc(c)}<span class="mx-sort" title="ordenar filas por esta columna" onclick="event.stopPropagation();mxSortRows('${v.id}','${cp(c)}')">⇅</span>${arrR(c)}</th>`;
+    return `<th class="num${tc}" style="cursor:pointer" title="Ordenar filas por esta columna" onclick="mxSortRows('${v.id}','${cp(c)}')">${esc(c)}${arrR(c)}</th>`; };
   const thTot=clickable?`<th class="num tot totcol" style="cursor:pointer" title="Ordenar filas por el total" onclick="mxSortRows('${v.id}','__total__')">Total${arrR("__total__")}</th>`:`<th class="num tot totcol">Total</th>`;
-  const tdRow=rw=>{ const tc=isTotRow(rw)?" tot":""; return clickable?`<td class="${tc.trim()}" style="cursor:pointer" title="Ordenar columnas por esta fila" onclick="mxSortCols('${v.id}','${cp(rw)}')">${esc(rw)}${arrC(rw)}</td>`:`<td class="${tc.trim()}">${esc(rw)}</td>`; };
+  const tdRow=rw=>{ const tc=isTotRow(rw)?" tot":""; if(!clickable)return `<td class="${tc.trim()}">${esc(rw)}</td>`;
+    if(cfEmits(v,"row")&&!isTotRow(rw))return `<td class="${tc.trim()}" style="cursor:pointer" title="Filtrar por esta fila" onclick="cfCellClick('${v.id}','row','${cp(rw)}',event)">${esc(rw)}<span class="mx-sort" title="ordenar columnas por esta fila" onclick="event.stopPropagation();mxSortCols('${v.id}','${cp(rw)}')">⇅</span>${arrC(rw)}</td>`;
+    return `<td class="${tc.trim()}" style="cursor:pointer" title="Ordenar columnas por esta fila" onclick="mxSortCols('${v.id}','${cp(rw)}')">${esc(rw)}${arrC(rw)}</td>`; };
   const tdTot=clickable?`<td style="cursor:pointer" title="Ordenar columnas por el total" onclick="mxSortCols('${v.id}','__total__')">Total${arrC("__total__")}</td>`:`<td>Total</td>`;
   let h=`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}${v.totalsFreeze!==false?' totfreeze':''}"><table class="dt mx"${totVars(v)}><thead><tr>${corner}`+colvals.map(thCol).join("")+(showTot?thTot:"")+`</tr></thead><tbody>`;
   rowvals.forEach(rw=>{h+=`<tr${isTotRow(rw)?' class="tot"':''}>${tdRow(rw)}`+colvals.map(c=>cellHTML(rw,c)).join("")+(showTot?`<td class="num tot totcol">${rowTotD[rw]==null?"":fmtCell(rowTotD[rw],rtFmt(rw))}</td>`:"")+`</tr>`;});
