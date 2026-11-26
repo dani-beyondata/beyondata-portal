@@ -2007,6 +2007,40 @@ function layoutStage(){ const stage=$("stage"); let maxB=300;
   stage.style.width=PAGE_W+"px"; stage.style.height=(maxB+40)+"px";
   CP().visuals.forEach(v=>{ if(VIS[v.type]&&VIS[v.type].engine==="echarts"){ $("body_"+v.id).innerHTML=`<div class="echart" id="ch_${v.id}"></div>`; charts[v.id]=echarts.init($("ch_"+v.id)); }});
   attachInteract(); }
+function _cssid(id){ return (window.CSS&&CSS.escape)?CSS.escape(id):id; }
+// #2 · Auto-altura de tablas/matrices: reflow en tiempo de render (NO persiste coordenadas).
+// Regla: una tabla/matriz con autoHeight crece/encoge hacia abajo; todo visual con top
+// ESTRICTAMENTE más bajo que el top de la tabla se desplaza por Δ (= altoContenido − altoGuardado).
+// Varias tablas: cada visual se desplaza por la SUMA de Δ de las tablas estrictamente por encima.
+function applyAutoHeight(){
+  const stage=$("stage"); if(!stage||typeof CP!=="function"||!CP()) return;
+  const vis=CP().visuals.filter(v=>!(v.type==="slicer"&&(v.dock||"panel")==="panel"));
+  const deltas=[];
+  vis.forEach(v=>{
+    const card=stage.querySelector('.gcard[data-id="'+_cssid(v.id)+'"]'); if(!card) return;
+    if((v.type==="table"||v.type==="matrix") && v.autoHeight){
+      const head=card.querySelector(".ghead"), body=card.querySelector(".vbody");
+      const tbl=body&&body.querySelector("table");
+      const tblH=tbl?tbl.offsetHeight:(body?body.scrollHeight:0);
+      const headH=head?head.offsetHeight:0;
+      const natural=headH+tblH+14;                 // padding vbody (4+8) + bordes
+      const minH=Math.max(48,v.minH||120), maxH=v.maxH||4000;
+      card.__autoH=Math.max(minH,Math.min(maxH,natural));
+      deltas.push({id:v.id, top:v.y, delta:card.__autoH - v.h});
+    } else card.__autoH=null;
+  });
+  let maxB=300;
+  vis.forEach(v=>{
+    const card=stage.querySelector('.gcard[data-id="'+_cssid(v.id)+'"]'); if(!card) return;
+    const offset=deltas.reduce((s,d)=> s + ((d.top < v.y && d.id!==v.id)? d.delta : 0), 0);
+    const top=v.y+offset, h=(card.__autoH!=null)?card.__autoH:v.h;
+    card.style.top=top+"px"; card.style.height=h+"px";
+    maxB=Math.max(maxB, top+h);
+  });
+  stage.style.height=(maxB+40)+"px";
+  try{ Object.keys(charts).forEach(k=>{ if(charts[k]) charts[k].resize(); }); }catch(e){}
+}
+window.applyAutoHeight=applyAutoHeight;
 
 /* Estados por visual: cargando (diferido), error+reintentar, sin datos. */
 const VSTATE_EMPTY_TYPES=new Set(["bar","line","area","combo","donut","pie","map","sankey","waterfall","treemap","gauge","funnel","pareto","radar","scatter","calheat","table"]);
@@ -2486,7 +2520,7 @@ async function _renderPool(vis){ const n=vis.length; if(!n)return; let done=0, i
   let barOn=false, barT=0;
   if(show) barT=setTimeout(()=>{ barOn=true; progStart(n); progTick(done,n); },160);  // la barra solo aparece si tarda >160ms (consultas reales); un cambio servido de caché no la enseña
   const size=Math.min(6,n); const worker=async()=>{ while(i<n){ const v=vis[i++]; try{ await renderVisual(v); }catch(e){} done++; if(barOn)progTick(done,n); } };
-  await Promise.all(Array.from({length:size},worker)); clearTimeout(barT); if(barOn)progEnd(); }
+  await Promise.all(Array.from({length:size},worker)); clearTimeout(barT); if(barOn)progEnd(); applyAutoHeight(); }
 async function refreshAll(opts){ if(opts&&opts.force) clearQCache();   // solo re-consulta la BD si se fuerza (botón Actualizar); si no, reutiliza QCACHE
   await _renderPool(CP().visuals.slice()); }
 window.refreshData=()=>refreshAll({force:true});   // fuerza re-consulta a la BD (p. ej. tras subir datos nuevos)
@@ -2503,6 +2537,7 @@ async function refreshVisualDeps(v){ if(!v){ await refreshAll(); return; }
   await renderVisual(v);
   if(v.type==="metricgroup"){ for(const id of (v.targets||[])){ const t=CP().visuals.find(x=>x.id===id); if(t)await renderVisual(t); } }
   if(v.type==="resultfilter"){ for(const t of CP().visuals){ if((t.rfilters||[]).some(rf=>rf.rf===v.id)) await renderVisual(t); } }
+  applyAutoHeight();
 }
 
 /* ═ Interacción: mover + redimensionar + guías ═ */
@@ -2826,6 +2861,8 @@ function fmtTable(v,id){ return `<div class="row">${fmtNumField(v)}<div><label>F
       <label class="fxrow2"><input type="checkbox" id="e_totals" ${v.totals?"checked":""}> Fila de totales (suma numéricas)</label>
       <label class="fxrow2"><input type="checkbox" id="e_totfreeze" ${v.totalsFreeze!==false?"checked":""}> Totales fijos al hacer scroll</label>
       <label class="fxrow2"><input type="checkbox" id="e_sortable" ${v.sortable!==false?"checked":""}> Ordenar al hacer clic en la cabecera</label></div>
+    <div class="optbox" style="margin-top:6px"><label class="fxrow2"><input type="checkbox" id="e_autoh" ${v.autoHeight?"checked":""} onchange="var m=document.getElementById('e_autoh_mm');if(m)m.style.display=this.checked?'':'none'"> Auto-altura (ajusta el alto al nº de filas; recoloca lo que queda por debajo)</label>
+      <div class="row" id="e_autoh_mm" style="${v.autoHeight?'':'display:none'}"><div><label>Alto mín (px)</label><input id="e_minh" type="text" value="${v.minH||120}"></div><div><label>Alto máx (px, vacío = sin tope)</label><input id="e_maxh" type="text" value="${v.maxH||''}"></div></div></div>
     <div style="margin-top:8px"><label>Formato por columna <button class="sm" style="float:right;padding:2px 9px" onclick="tblDetectGrid('${id}')">detectar columnas</button></label>
       <div id="colgrid">${(()=>{const ord=COLORDER[v.id]||[];const keys=[...ord,...Object.keys(v.cols||{}).filter(k=>!ord.includes(k))];return keys.map(k=>colRowHTML(k,(v.cols||{})[k])).join("");})()}</div>
       <button class="sm" onclick="colAddRow()">＋ columna</button>
@@ -2866,6 +2903,8 @@ function fmtMatrix(v){ const grp=groupCtrl(v); const hbCells=grp?"":`<div><label
     ${fmtNumField(v)}
     <div class="row">${hbCells}<div><label>Ordenar filas por total</label><select id="e_sortrows"><option value="none" ${(!v.sortRows||v.sortRows==="none")?"selected":""}>no</option><option value="desc" ${v.sortRows==="desc"?"selected":""}>mayor→menor</option><option value="asc" ${v.sortRows==="asc"?"selected":""}>menor→mayor</option></select></div></div>
     <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_zebra" ${v.zebra?"checked":""}> Filas alternas (zebra)</label><label class="fxrow2"><input type="checkbox" id="e_sticky" ${v.sticky?"checked":""}> Cabecera fija (al hacer scroll)</label><label class="fxrow2"><input type="checkbox" id="e_totfreeze" ${v.totalsFreeze!==false?"checked":""}> Totales fijos al hacer scroll</label></div>
+    <div class="optbox" style="margin-top:6px"><label class="fxrow2"><input type="checkbox" id="e_autoh" ${v.autoHeight?"checked":""} onchange="var m=document.getElementById('e_autoh_mm');if(m)m.style.display=this.checked?'':'none'"> Auto-altura (ajusta el alto al nº de filas; recoloca lo que queda por debajo)</label>
+      <div class="row" id="e_autoh_mm" style="${v.autoHeight?'':'display:none'}"><div><label>Alto mín (px)</label><input id="e_minh" type="text" value="${v.minH||120}"></div><div><label>Alto máx (px, vacío = sin tope)</label><input id="e_maxh" type="text" value="${v.maxH||''}"></div></div></div>
     <div class="row"><div style="flex:1 1 100%"><label>Formato por eje</label><select id="e_fmtaxis" onchange="mxAxisChanged('${v.id}')"><option value="off" ${!v.fmtAxis?"selected":""}>Global (uno para toda la matriz)</option><option value="row" ${v.fmtAxis==="row"?"selected":""}>Por fila</option><option value="col" ${v.fmtAxis==="col"?"selected":""}>Por columna</option></select></div></div>
     <div id="axgridwrap" style="display:${v.fmtAxis?"":"none"};margin-top:2px"><div class="hint">Formato / heat / barra / ▲▼ por cada etiqueta del eje. Si el SQL trae una columna <code>fmt</code> (y <code>arrow</code>) por fila, se usan como base.</div><div id="axgrid">${(()=>{ if(!v.fmtAxis)return ""; const st=MX_STATE[v.id]||{}; const labels=(v.fmtAxis==="row"?st.rowLabels:st.colLabels)||[]; const AF=v.axisFmt||{}; return labels.length?labels.map(l=>axRowHTML(l,AF[l])).join(""):`<div class="hint">No hay etiquetas todavía. Cierra el editor, deja que la matriz se dibuje, y vuelve a abrirlo.</div>`; })()}</div></div>
     <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_autototal" ${v.autoTotal!==false?"checked":""}> Añadir Total propio. Desactívalo si el Total viene del SQL.</label>
@@ -2897,7 +2936,7 @@ function readGraphic(v){ if($("e_color"))v.color=$("e_color").value; if($("e_fmt
   if($("e_echarts")){ const t=$("e_echarts").value.trim(); if(!t)delete v.echartsOption; else{ try{ v.echartsOption=JSON.parse(t); }catch(e){ if(!LIVE)alert("ECharts avanzado: JSON inválido, se mantiene el anterior.\n"+e.message); } } }
   if(document.querySelector(".fxlist"))readFx(v); }
 function readTable(v){ readMetricFmts(); if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIVE)commitSQLText(v,$("e_sql").value);
-  if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked; if($("e_totals"))v.totals=$("e_totals").checked; if($("e_totfreeze"))v.totalsFreeze=$("e_totfreeze").checked; if($("e_sortable"))v.sortable=$("e_sortable").checked;
+  if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked; if($("e_totals"))v.totals=$("e_totals").checked; if($("e_totfreeze"))v.totalsFreeze=$("e_totfreeze").checked; if($("e_sortable"))v.sortable=$("e_sortable").checked; if($("e_autoh")){v.autoHeight=$("e_autoh").checked;var _mn=parseInt(($("e_minh")||{}).value),_mx=parseInt(($("e_maxh")||{}).value);v.minH=isNaN(_mn)?undefined:_mn;v.maxH=isNaN(_mx)?undefined:_mx;}
   if($("e_pagesize"))v.pageSize=Math.max(0,parseInt($("e_pagesize").value)||0);
   const crows=document.querySelectorAll("#colgrid .colrow");
   if(crows.length){ const prev=v.cols||{}; const cols={};
@@ -2930,7 +2969,7 @@ function readTable(v){ readMetricFmts(); if($("e_fmt"))v.fmt=$("e_fmt").value; i
   if(document.querySelector(".fxlist"))readFx(v); }
 function readMatrix(v){ readMetricFmts(); if($("e_fmt"))v.fmt=$("e_fmt").value; if($("e_sql")&&!LIVE)commitSQLText(v,$("e_sql").value);
   if($("e_mpct"))v.pct=$("e_mpct").value; if($("e_heat"))v.heat=$("e_heat").value||undefined; if($("e_mbar"))v.bar=$("e_mbar").value==="1"; if($("e_sortrows"))v.sortRows=$("e_sortrows").value;
-  if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked; if($("e_totfreeze"))v.totalsFreeze=$("e_totfreeze").checked;
+  if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked; if($("e_totfreeze"))v.totalsFreeze=$("e_totfreeze").checked; if($("e_autoh")){v.autoHeight=$("e_autoh").checked;var _mn=parseInt(($("e_minh")||{}).value),_mx=parseInt(($("e_maxh")||{}).value);v.minH=isNaN(_mn)?undefined:_mn;v.maxH=isNaN(_mx)?undefined:_mx;}
   if($("e_autototal"))v.autoTotal=$("e_autototal").checked;
   if($("e_fmtaxis")){ const ax=$("e_fmtaxis").value; v.fmtAxis=(ax==="off")?undefined:ax;
     if(v.fmtAxis){ const af={}; document.querySelectorAll("#axgrid .axrow").forEach(r=>{ const name=r.getAttribute("data-ax"); if(name==null)return; const o={}; const f=r.querySelector(".ax-fmt")?.value; if(f)o.fmt=f; const h=r.querySelector(".ax-heat")?.value; if(h)o.heat=h; if(r.querySelector(".ax-bar")?.checked)o.bar=true; if(r.querySelector(".ax-arrow")?.checked)o.arrow=true; const ag=r.querySelector(".ax-agg")?.value; if(ag)o.agg=ag; if(Object.keys(o).length)af[name]=o; }); if(Object.keys(af).length)v.axisFmt=af; else delete v.axisFmt; }
