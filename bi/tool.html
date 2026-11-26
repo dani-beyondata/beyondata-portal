@@ -314,6 +314,23 @@
   #cfbar .cfx{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#0e8f82;color:#fff;cursor:pointer;font-size:10px}
   #cfbar .cfhint{color:#4b6b66;font-size:11px}
   #cfbar .cfclear{color:#0a655c;font-weight:700;border:1px solid #0e8f82;border-radius:7px;padding:3px 8px;cursor:pointer}
+  .gfilt{position:absolute;top:7px;right:40px;z-index:7;display:none;cursor:pointer;width:26px;height:24px;align-items:center;justify-content:center;background:rgba(255,255,255,.95);border:1px solid var(--border);border-radius:7px;font-size:10px;color:var(--teal-d);box-shadow:0 1px 5px rgba(16,40,50,.14)}
+  body.mode-view .gcard:hover .gfilt.on,body.mode-view .gcard .gfilt.on.has-cf{display:flex}
+  .gfilt.has-cf{border-color:#0e8f82;color:#0a655c;background:#dcf2ef}
+  .gfilt.has-cf::after{content:"";position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#0e8f82;border:1.5px solid #fff}
+  .gcf-badge{position:absolute;top:7px;left:9px;z-index:7;font-size:10px;font-weight:700;background:#fbf0dc;color:#b7791f;border:1px solid #d9a441;border-radius:7px;padding:2px 7px;display:none}
+  body.mode-view .gcard .gcf-badge{display:inline-block}
+  #cfpop{position:fixed;z-index:120;width:300px;max-width:92vw;background:#fff;border:1px solid #0e8f82;border-radius:11px;box-shadow:0 8px 28px rgba(16,40,50,.22);font-size:12px;overflow:hidden}
+  #cfpop .cfp-h{background:#f3f7fb;font-weight:800;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#64748b;padding:8px 12px;border-bottom:1px solid #e2e8f1}
+  #cfpop .cfp-grp{padding:8px 12px}#cfpop .cfp-grp+.cfp-grp{border-top:1px solid #eef2f7}
+  #cfpop .cfp-gl{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#64748b;margin-bottom:5px}
+  #cfpop .cfp-li{display:flex;align-items:center;gap:8px;margin:4px 0}
+  #cfpop .cfp-pf{width:8px;height:8px;border-radius:2px;background:#3D65A8;flex:0 0 auto}
+  #cfpop .cfp-cf{width:8px;height:8px;border-radius:50%;background:#0e8f82;flex:0 0 auto}
+  #cfpop .cfp-src{color:#94a3b8;font-size:10.5px}
+  #cfpop .cfp-v{padding:9px 12px;font-size:12px;border-top:1px solid #e2e8f1}
+  #cfpop .cfp-v.ok{background:#dcf2ef;color:#0a655c}
+  #cfpop .cfp-v.no{background:#fbf0dc;color:#b7791f}
   .mglist{display:flex;flex-direction:column;gap:3px}
   .mgrow{padding:5px 10px;border-radius:7px;cursor:pointer;font-size:12.5px;border:1px solid transparent;transition:none}
   .mgrow:hover{background:#eef4f3}
@@ -661,6 +678,39 @@ function renderCfBar(){ let bar=document.getElementById("cfbar");
   bar.innerHTML=`<span class="cflab">⚡ Crossfilter</span>${chips}<span class="cfhint">Ctrl+clic acumula</span><span class="cfclear">✕ Limpiar todo</span>`; }
 window.cfClear=k=>{ delete XF[k]; cfApply(); };
 window.cfClearAll=()=>{ XF={}; cfApply(); };
+/* ── transparencia (paso 4): icono de filtro por gráfico (Visor) + popover + badge "no usa" ── */
+function cfVisualFilters(v){ const page=[],cross=[],noUse=[];
+  const sids=new Set(CP().visuals.filter(x=>x.type==="slicer").map(x=>x.id));
+  for(const k in FILTERS){ if(!sids.has(k))continue; const f=FILTERS[k]; if(!fActive(f))continue;
+    if(visualUsesTable(v,f.table)) page.push({label:f.label||f.column,vals:(f.values||[]).join(", ")}); }
+  for(const k in XF){ const e=XF[k]; if(!e||!(e.values||[]).length)continue; if(e.srcId===v.id)continue;
+    if(visualUsesTable(v,e.table)) cross.push({table:e.table,col:e.col||e.dim,vals:e.values.join(", "),src:e.srcTitle||e.srcId});
+    else noUse.push(e.table); }
+  return {page,cross,noUse:[...new Set(noUse)]}; }
+function cfUpdateChrome(){ const stage=document.getElementById("stage"); if(!stage)return;
+  stage.querySelectorAll(".gcard[data-id]").forEach(card=>{ const id=card.dataset.id; const v=CP().visuals.find(x=>x.id===id); if(!v)return;
+    let icon=card.querySelector(".gfilt"), badge=card.querySelector(".gcf-badge");
+    if(["slicer","text","metricgroup","resultfilter"].includes(v.type)){ if(icon)icon.remove(); if(badge)badge.remove(); return; }
+    const f=cfVisualFilters(v);
+    if(!icon){ icon=document.createElement("span"); icon.className="gfilt"; icon.title="Filtros aplicados"; icon.textContent="▼"; icon.onclick=e=>cfPopover(e,id); card.appendChild(icon); }
+    icon.classList.toggle("on", !!(f.page.length||f.cross.length||f.noUse.length));
+    icon.classList.toggle("has-cf", !!(f.cross.length||f.noUse.length));
+    if(f.noUse.length){ if(!badge){ badge=document.createElement("span"); badge.className="gcf-badge"; card.appendChild(badge); } badge.textContent="⃠ no usa "+f.noUse.join(", "); }
+    else if(badge){ badge.remove(); }
+  }); }
+window.cfPopover=(ev,id)=>{ ev.stopPropagation(); const v=CP().visuals.find(x=>x.id===id); if(!v)return;
+  const old=document.getElementById("cfpop"); if(old)old.remove();
+  const f=cfVisualFilters(v);
+  const pg=f.page.length?`<div class="cfp-grp"><div class="cfp-gl">Página</div>${f.page.map(p=>`<div class="cfp-li"><i class="cfp-pf"></i>${esc(p.label)} = ${esc(p.vals)}</div>`).join("")}</div>`:"";
+  const cx=f.cross.length?`<div class="cfp-grp"><div class="cfp-gl">Crossfilters</div>${f.cross.map(c=>`<div class="cfp-li"><i class="cfp-cf"></i>${esc(c.table)} · ${esc(c.col)} = ${esc(c.vals)} <span class="cfp-src">· de ${esc(c.src)}</span></div>`).join("")}</div>`:"";
+  const body=(pg||cx)?pg+cx:`<div class="cfp-grp"><div class="cfp-li" style="color:var(--muted)">Sin filtros activos</div></div>`;
+  let verdict=""; if(f.cross.length)verdict=`<div class="cfp-v ok">✅ Usa la tabla → recibe el crossfilter</div>`; else if(f.noUse.length)verdict=`<div class="cfp-v no">⚠ No usa ${esc(f.noUse.join(", "))} → no le afecta</div>`;
+  const pop=document.createElement("div"); pop.id="cfpop"; pop.innerHTML=`<div class="cfp-h">Filtros de este gráfico</div>${body}${verdict}`;
+  document.body.appendChild(pop);
+  const r=ev.currentTarget.getBoundingClientRect(); let left=Math.min(r.right-300,window.innerWidth-308); if(left<8)left=8;
+  pop.style.left=left+"px"; pop.style.top=Math.min(r.bottom+6,window.innerHeight-20)+"px";
+  setTimeout(()=>document.addEventListener("click",cfPopClose),0); };
+function cfPopClose(e){ const p=document.getElementById("cfpop"); if(p&&!p.contains(e.target)){ p.remove(); document.removeEventListener("click",cfPopClose); } }
 /* Nivel 1 (solo display, read-only): los CTEs que los slicers de la página inyectan.
    Un bloque por tabla con slicer; el 1º lleva "with", los demás ",". Orden = aparición en el SQL. */
 function pageSlicerTables(){ const out=[],seen=new Set();
@@ -2629,7 +2679,7 @@ async function _renderPool(vis){ const n=vis.length; if(!n)return; let done=0, i
   let barOn=false, barT=0;
   if(show) barT=setTimeout(()=>{ barOn=true; progStart(n); progTick(done,n); },160);  // la barra solo aparece si tarda >160ms (consultas reales); un cambio servido de caché no la enseña
   const size=Math.min(6,n); const worker=async()=>{ while(i<n){ const v=vis[i++]; try{ await renderVisual(v); }catch(e){} done++; if(barOn)progTick(done,n); } };
-  await Promise.all(Array.from({length:size},worker)); clearTimeout(barT); if(barOn)progEnd(); applyAutoHeight(); }
+  await Promise.all(Array.from({length:size},worker)); clearTimeout(barT); if(barOn)progEnd(); applyAutoHeight(); cfUpdateChrome(); }
 async function refreshAll(opts){ if(opts&&opts.force) clearQCache();   // solo re-consulta la BD si se fuerza (botón Actualizar); si no, reutiliza QCACHE
   await _renderPool(CP().visuals.slice()); }
 window.refreshData=()=>refreshAll({force:true});   // fuerza re-consulta a la BD (p. ej. tras subir datos nuevos)
