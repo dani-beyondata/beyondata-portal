@@ -685,7 +685,7 @@ function cfClick(vId,params,ev){ const v=CP().visuals.find(x=>x.id===vId); if(!v
   if(v.type==="pie"||v.type==="donut"){ chg=cfEmitDim(v,"series",params.name,acc); }
   else { const catAxis=v.horizontal?"yAxis":"xAxis";
     if(params.componentType===catAxis) chg=cfEmitDim(v,"x",params.value,acc);          // clic en etiqueta del eje → solo X
-    else if(params.componentType==="series") chg=cfEmitDim(v,"x",params.name,acc); }    // clic en barra → solo X (la categoría), nunca la serie
+    else if(params.componentType==="series"){ const a=cfEmitDim(v,"x",params.name,acc); const b=cfEmitDim(v,"series",params.seriesName,acc); chg=a||b; } }   // clic en barra → X + Serie (la intersección)
   if(chg)cfApply(); }
 function cfLegendClick(v,ch,params){ const dd=(v.crossfilter&&(v.crossfilter.dims||{}).series); if(!v.crossfilter||!v.crossfilter.emit||!dd)return;
   const name=params&&params.name; if(name==null)return;
