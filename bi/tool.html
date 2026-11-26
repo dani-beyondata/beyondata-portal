@@ -1725,6 +1725,46 @@ function readGroupSection(v){ if(!$("e_grp_on")){ return; } const on=$("e_grp_on
   const lbl=$("e_grp_label")?$("e_grp_label").value.trim():"";
   if(on) v.group={on:true, topN:num("e_grp_topn"), pct:num("e_grp_pct"), min:num("e_grp_min"), label:lbl||undefined};
   else delete v.group; }
+/* ═══ Cross filters (#78) · sección del editor — emite / CTE por dimensión / recibe ═══ */
+const CF_EMIT_TYPES=["bar","line","pie","donut"];
+function cfDimsFor(type){ return (type==="pie"||type==="donut")
+  ? [{key:"series",label:"Porción / leyenda"}]
+  : [{key:"x",label:"Eje X"},{key:"series",label:"Serie / leyenda"}]; }
+function crossfilterSecHTML(v){
+  if(!CF_EMIT_TYPES.includes(v.type))return "";
+  const cf=v.crossfilter||{}; const dims=cfDimsFor(v.type);
+  const emit=!!cf.emit, recv=cf.receive!==false;
+  const rows=dims.map(d=>{ const dd=(cf.dims&&cf.dims[d.key])||{};
+    return `<div style="border:1px solid var(--border);border-radius:8px;padding:9px 10px;margin-top:8px;background:var(--bg)">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><label style="font-weight:600;min-width:118px">${d.label}</label>
+        <input type="text" class="e_cf_col" data-dim="${d.key}" value="${esc(dd.col||"")}" placeholder="columna (p.ej. month_number)" style="flex:1;min-width:0">
+        <button type="button" class="sm" onclick="cfSuggest('${d.key}')" title="Rellena una plantilla de CTE con la columna y la tabla del SQL">✨ Sugerir</button></div>
+      <textarea class="e_cf_cte" data-dim="${d.key}" placeholder="tabla as (select * from tabla where columna = {valor})" style="width:100%;min-height:66px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px">${esc(dd.cte||"")}</textarea>
+    </div>`; }).join("");
+  return `<div class="sec collapsed" style="margin-top:8px"><div class="sech">Cross filters <span class="hint" style="font-weight:400">· emite / recibe · #78</span></div>
+    <label style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="e_cf_emit" ${emit?"checked":""}> Emite crossfilter al clicar</label>
+    <div class="hint">Clic en un valor del gráfico filtra la página. Escribe el CTE por dimensión; <code>{valor}</code> = valor clicado. Deja vacía la dimensión que no emita.</div>
+    ${rows}
+    <label style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:10px"><input type="checkbox" id="e_cf_recv" ${recv?"checked":""}> Se deja filtrar por crossfilters de otros</label>
+    <div class="hint">Si lo desmarcas, este gráfico ignora los crossfilters de la página (como hoy).</div></div>`;
+}
+function readCrossfilter(v){
+  if(!$("e_cf_emit"))return;   // sección no presente para este tipo
+  const dims={};
+  document.querySelectorAll(".e_cf_cte").forEach(ta=>{ const key=ta.dataset.dim; const cte=ta.value.trim();
+    const colEl=document.querySelector(`.e_cf_col[data-dim="${key}"]`); const col=colEl?colEl.value.trim():"";
+    if(cte||col){ const o={}; if(col)o.col=col; if(cte)o.cte=cte; dims[key]=o; } });
+  const emit=$("e_cf_emit").checked, recv=$("e_cf_recv")?$("e_cf_recv").checked:true;
+  const hasDims=Object.keys(dims).length>0;
+  if(emit||!recv||hasDims){ const cf={emit,receive:recv}; if(hasDims)cf.dims=dims; v.crossfilter=cf; }
+  else delete v.crossfilter;
+}
+window.cfSuggest=(key)=>{ const colEl=document.querySelector(`.e_cf_col[data-dim="${key}"]`); const ta=document.querySelector(`.e_cf_cte[data-dim="${key}"]`); if(!ta)return;
+  const col=(colEl&&colEl.value.trim())||"columna";
+  const v=CP().visuals[_editIdx]; const sql=String((v&&(v.sql||v.html))||"");
+  const m=sql.match(/\b(?:from|join)\s+(?:public\.)?([a-z_][a-z0-9_]*)/i); const tbl=m?m[1]:"tabla";
+  ta.value=`${tbl} as (select * from ${tbl} where ${col} = {valor})`;
+  ta.dispatchEvent(new Event("input",{bubbles:true})); };
 window.slSearch=(id,qv)=>{ SLSEARCH[id]=qv; const v=CP().visuals.find(x=>x.id===id); renderSlicer(v); const host=$("body_"+id); const inp=host&&host.querySelector(".sl-search"); if(inp){ inp.focus(); try{inp.setSelectionRange(inp.value.length,inp.value.length);}catch(e){} } };
 window.slTog=(id,i)=>{ const v=CP().visuals.find(x=>x.id===id); const opt=(SLOPTS[id]||[])[i]; if(!opt)return; const val=opt.value; const f=FILTERS[id]; let cur=(f&&f.values)?f.values.slice():[];
   if(v.selMode==="single"){ cur=(cur.length===1&&cur[0]===val)?[]:[val]; } else { const j=cur.indexOf(val); j<0?cur.push(val):cur.splice(j,1); }
@@ -3110,7 +3150,7 @@ function editorFormHTML(v,id){ const def=VIS[v.type]||{};
   const actions=`<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><button class="danger" onclick="delVisualConfirm('${id}')">🗑 Eliminar visual</button></div>`;
   const jsonSec=`<div class="sec collapsed"><div class="sech">JSON del visual (editable)</div><textarea id="e_json" style="min-height:300px;white-space:pre">${esc(JSON.stringify(v,null,2))}</textarea><button class="sm" style="margin-top:8px" onclick="applyVisualJSON('${id}')">Aplicar JSON</button></div>`;
   const genOut=sqlInner?generalSec.replace('<div class="sec">','<div class="sec collapsed">'):generalSec;
-  return genOut+fmtSec+htmlSecExtra+sqlSec+jsonSec+`<div class="hint" id="e_err" style="color:#b4322a"></div>`+actions;
+  return genOut+fmtSec+htmlSecExtra+sqlSec+crossfilterSecHTML(v)+jsonSec+`<div class="hint" id="e_err" style="color:#b4322a"></div>`+actions;
 }
 /* ── Editor a pantalla completa con vista previa en vivo ── */
 let EDIT_ID=null,_editIdx=-1,_editBackup=null,LIVE=false,_liveT=null,_editMetricId=null,_editIsNew=false;
@@ -3183,7 +3223,7 @@ async function readEditor(v){ if($("e_w"))v.w=Math.max(120,+$("e_w").value||v.w)
   if($("e_wysiwyg"))v.html=$("e_wysiwyg").innerHTML; else if($("e_html"))v.html=$("e_html").value;
   if($("e_bgmode"))v.bg=$("e_bgmode").value==="color"?$("e_bg").value:undefined; else if($("e_bg"))v.bg=$("e_bg").value||undefined;
   if($("e_wysiwyg"))$("e_wysiwyg").style.background=v.bg||"#fff";
-  readRFBind(v); readGroupSection(v);
+  readRFBind(v); readGroupSection(v); readCrossfilter(v);
   const def=VIS[v.type]; if(def&&def.read)await def.read(v); }
 window.pieColorToggle=()=>{ const p=$("e_pal")&&$("e_pal").value; if($("e_colorwrap"))$("e_colorwrap").style.display=p==="single"?"":"none"; if($("e_cswrap"))$("e_cswrap").style.display=p==="scale"?"":"none"; };
 window.fmtEditorSQL=()=>{ const ta=$("e_sql")||$("e_sqlcy"); if(!ta)return; ta.value=formatSQL(ta.value); ta.dispatchEvent(new Event("input")); };
