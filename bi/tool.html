@@ -308,17 +308,28 @@
   .cte-leg i{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:5px}
   .cte-leg i.ci-page{background:#5d8bc9}
   .cte-leg i.ci-cf{background:#1fb0a0}
-  #cfbar{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:94vw;background:#dcf2ef;border:1px solid #0e8f82;border-radius:11px;padding:6px 10px;box-shadow:0 4px 18px rgba(16,40,50,.18);font-size:12px}
-  #cfbar .cflab{font-weight:800;color:#0a655c;display:flex;align-items:center;gap:5px}
+  #cfbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;background:#dcf2ef;border-bottom:1px solid #0e8f82;padding:7px 14px;font-size:12px;box-shadow:0 2px 6px rgba(16,40,50,.08);z-index:5}
+  #cfbar .cflab{font-weight:800;color:#0a655c;display:flex;align-items:center;gap:5px;white-space:nowrap}
+  #cfbar .cfchips{display:flex;flex-wrap:wrap;gap:6px}
+  #cfbar .cfright{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   #cfbar .cfchip{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid #0e8f82;color:#0a655c;border-radius:16px;padding:3px 5px 3px 11px;font-weight:600}
   #cfbar .cfx{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#0e8f82;color:#fff;cursor:pointer;font-size:10px}
   #cfbar .cfhint{color:#4b6b66;font-size:11px}
-  #cfbar .cfclear{color:#0a655c;font-weight:700;border:1px solid #0e8f82;border-radius:7px;padding:3px 8px;cursor:pointer}
+  #cfbar .cftoggle{cursor:pointer;color:#0a655c;font-weight:700;border:1px solid #0e8f82;border-radius:7px;padding:3px 9px;background:#fff;white-space:nowrap}
+  #cfbar .cfclear{color:#0a655c;font-weight:700;border:1px solid #0e8f82;border-radius:7px;padding:3px 8px;cursor:pointer;white-space:nowrap}
   .gfilt{position:absolute;top:7px;right:9px;z-index:8;display:none;cursor:pointer;width:26px;height:24px;align-items:center;justify-content:center;background:rgba(255,255,255,.95);border:1px solid var(--border);border-radius:7px;font-size:10px;color:var(--teal-d);box-shadow:0 1px 5px rgba(16,40,50,.14)}
-  .gcard:hover .gfilt.on,.gcard .gfilt.on.has-cf{display:flex}   /* página: al pasar el ratón · crossfilter: siempre. En ambos modos (edición y Visor) */
+  /* modo embudo: página al pasar el ratón; crossfilter/emisor siempre */
+  body:not(.cf-min) .gcard:hover .gfilt.on,body:not(.cf-min) .gcard .gfilt.on.has-cf,body:not(.cf-min) .gcard .gfilt.on.cf-emit{display:flex}
   .gcard.has-gfilt .gexp{right:40px} .gcard.has-gfilt .gctrl{right:40px}   /* deja hueco al icono de filtro en la esquina */
   .gfilt.has-cf{border-color:#0e8f82;color:#0a655c;background:#dcf2ef}
   .gfilt.has-cf::after{content:"";position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#0e8f82;border:1.5px solid #fff}
+  .gfilt.cf-emit{border-color:#e0a400;color:#9a7400;background:#fdf3d6}   /* emisor = oro */
+  .gfilt.cf-emit::after{content:"";position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#e0a400;border:1.5px solid #fff}
+  /* modo bolita (colapsado): embudo → punto. verde=receptor, oro=emisor, azul=página */
+  body.cf-min .gcard .gfilt.on{display:block;width:12px;height:12px;min-width:12px;border:2px solid #fff;border-radius:50%;padding:0;font-size:0;line-height:0;box-shadow:0 1px 4px rgba(16,40,50,.35);background:#5d8bc9;top:8px;right:11px}
+  body.cf-min .gcard .gfilt.on.has-cf{background:#0e8f82}
+  body.cf-min .gcard .gfilt.on.cf-emit{background:#e0a400}
+  body.cf-min .gcard .gfilt.on::after{display:none}
   .gcf-badge{position:absolute;top:7px;left:9px;z-index:7;font-size:10px;font-weight:700;background:#fbf0dc;color:#b7791f;border:1px solid #d9a441;border-radius:7px;padding:2px 7px;display:none}
   .gcard .gcf-badge{display:inline-block}
   #cfpop{position:fixed;z-index:120;width:300px;max-width:92vw;background:#fff;border:1px solid #0e8f82;border-radius:11px;box-shadow:0 8px 28px rgba(16,40,50,.22);font-size:12px;overflow:hidden}
@@ -332,6 +343,8 @@
   #cfpop .cfp-v{padding:9px 12px;font-size:12px;border-top:1px solid #e2e8f1}
   #cfpop .cfp-v.ok{background:#dcf2ef;color:#0a655c}
   #cfpop .cfp-v.no{background:#fbf0dc;color:#b7791f}
+  #cfpop .cfp-em{width:8px;height:8px;border-radius:50%;background:#e0a400;flex:0 0 auto}
+  #cfpop .cfp-v.em{background:#fdf3d6;color:#9a7400}
   .mglist{display:flex;flex-direction:column;gap:3px}
   .mgrow{padding:5px 10px;border-radius:7px;cursor:pointer;font-size:12.5px;border:1px solid transparent;transition:none}
   .mgrow:hover{background:#eef4f3}
@@ -655,7 +668,7 @@ function cfPredsByTable(exclSrc){ const byT={}; for(const k in XF){ const e=XF[k
 function cfActive(){ for(const k in XF){ if(XF[k]&&(XF[k].values||[]).length)return true; } return false; }
 /* ── runtime (paso 3): clic en emisor → XF, barra de chips, toggle/acumular, limpiar ── */
 let _cfSeen=new Set();
-function cfReset(){ XF={}; _cfSeen=new Set(); const b=document.getElementById("cfbar"); if(b)b.remove(); }
+function cfReset(){ XF={}; _cfSeen=new Set(); const b=document.getElementById("cfbar"); if(b)b.remove(); cfApplyIconPref(); }
 function cfBindClick(v,ch){ if(!(v.crossfilter&&v.crossfilter.emit&&CF_EMIT_TYPES.includes(v.type)))return;
   ch.on("click",params=>{ const ev=params&&params.event?(params.event.event||params.event):null; cfClick(v.id,params,ev); }); }
 function cfClick(vId,params,ev){ const v=CP().visuals.find(x=>x.id===vId); if(!v||!v.crossfilter||!v.crossfilter.emit)return;
@@ -673,30 +686,38 @@ function cfApply(){ for(const k in XF)_cfSeen.add(XF[k].table); renderCfBar(); r
 function renderCfBar(){ let bar=document.getElementById("cfbar");
   const entries=Object.keys(XF).map(k=>({k,e:XF[k]})).filter(o=>o.e&&(o.e.values||[]).length);
   if(!entries.length){ if(bar)bar.remove(); return; }
-  if(!bar){ bar=document.createElement("div"); bar.id="cfbar"; document.body.appendChild(bar);
-    bar.onclick=ev=>{ const x=ev.target.closest(".cfx"); if(x){ cfClear(x.dataset.k); return; } if(ev.target.closest(".cfclear"))cfClearAll(); }; }
+  if(!bar){ bar=document.createElement("div"); bar.id="cfbar";
+    const main=document.getElementById("main"), cw=document.getElementById("canvaswrap");
+    if(main&&cw)main.insertBefore(bar,cw); else document.body.appendChild(bar);   // debajo del panel de filtros, full-width
+    bar.onclick=ev=>{ const x=ev.target.closest(".cfx"); if(x){ cfClear(x.dataset.k); return; } if(ev.target.closest(".cfclear")){cfClearAll();return;} if(ev.target.closest(".cftoggle"))cfToggleIcons(); }; }
   const chips=entries.map(({k,e})=>{ const col=e.col||e.dim||"valor"; const val=e.values.map(x=>String(x)).join(", ");
     return `<span class="cfchip"><b>${esc(e.table)}</b> · ${esc(col)} = ${esc(val)} <span class="cfx" data-k="${esc(k)}">✕</span></span>`; }).join("");
-  bar.innerHTML=`<span class="cflab">⚡ Crossfilter</span>${chips}<span class="cfhint">Ctrl+clic acumula</span><span class="cfclear">✕ Limpiar todo</span>`; }
+  const min=document.body.classList.contains("cf-min");
+  bar.innerHTML=`<span class="cflab">⚡ Crossfilter</span><span class="cfchips">${chips}</span>`
+    +`<span class="cfright"><span class="cftoggle" title="Iconos en los gráficos: solo punto o embudo">iconos ${min?"●":"▽"}</span><span class="cfhint">Ctrl+clic acumula</span><span class="cfclear">✕ Limpiar todo</span></span>`; }
 window.cfClear=k=>{ delete XF[k]; cfApply(); };
 window.cfClearAll=()=>{ XF={}; cfApply(); };
+function cfApplyIconPref(){ let full=false; try{ full=localStorage.getItem("bd_cf_icons")==="full"; }catch(e){} document.body.classList.toggle("cf-min",!full); }   // por defecto: bolita
+window.cfToggleIcons=()=>{ const min=document.body.classList.toggle("cf-min"); try{ localStorage.setItem("bd_cf_icons",min?"min":"full"); }catch(e){} renderCfBar(); };
 /* ── transparencia (paso 4): icono de filtro por gráfico (Visor) + popover + badge "no usa" ── */
-function cfVisualFilters(v){ const page=[],cross=[],noUse=[];
+function cfVisualFilters(v){ const page=[],cross=[],noUse=[],emits=[];
   const sids=new Set(CP().visuals.filter(x=>x.type==="slicer").map(x=>x.id));
   for(const k in FILTERS){ if(!sids.has(k))continue; const f=FILTERS[k]; if(!fActive(f))continue;
     if(visualUsesTable(v,f.table)) page.push({label:f.label||f.column,vals:(f.values||[]).join(", ")}); }
-  for(const k in XF){ const e=XF[k]; if(!e||!(e.values||[]).length)continue; if(e.srcId===v.id)continue;
+  for(const k in XF){ const e=XF[k]; if(!e||!(e.values||[]).length)continue;
+    if(e.srcId===v.id){ emits.push({table:e.table,col:e.col||e.dim,vals:e.values.join(", ")}); continue; }   // emite (no se filtra a sí mismo)
     if(visualUsesTable(v,e.table)) cross.push({table:e.table,col:e.col||e.dim,vals:e.values.join(", "),src:e.srcTitle||e.srcId});
     else noUse.push(e.table); }
-  return {page,cross,noUse:[...new Set(noUse)]}; }
+  return {page,cross,noUse:[...new Set(noUse)],emits}; }
 function cfUpdateChrome(){ const stage=document.getElementById("stage"); if(!stage)return;
   stage.querySelectorAll(".gcard[data-id]").forEach(card=>{ const id=card.dataset.id; const v=CP().visuals.find(x=>x.id===id); if(!v)return;
     let icon=card.querySelector(".gfilt"), badge=card.querySelector(".gcf-badge");
     if(["slicer","text","metricgroup","resultfilter"].includes(v.type)){ if(icon)icon.remove(); if(badge)badge.remove(); return; }
-    const f=cfVisualFilters(v);
+    const f=cfVisualFilters(v); const emitting=f.emits.length>0;
     if(!icon){ icon=document.createElement("span"); icon.className="gfilt"; icon.title="Filtros aplicados"; icon.textContent="▼"; icon.onclick=e=>cfPopover(e,id); card.appendChild(icon); }
-    icon.classList.toggle("on", !!(f.page.length||f.cross.length||f.noUse.length));
-    icon.classList.toggle("has-cf", !!(f.cross.length||f.noUse.length));
+    icon.classList.toggle("on", !!(f.page.length||f.cross.length||f.noUse.length||emitting));
+    icon.classList.toggle("has-cf", !!(f.cross.length||f.noUse.length)&&!emitting);
+    icon.classList.toggle("cf-emit", emitting);   // emisor = oro
     card.classList.toggle("has-gfilt", icon.classList.contains("on"));
     if(f.noUse.length){ if(!badge){ badge=document.createElement("span"); badge.className="gcf-badge"; card.appendChild(badge); } badge.textContent="⃠ no usa "+f.noUse.join(", "); }
     else if(badge){ badge.remove(); }
@@ -706,8 +727,9 @@ window.cfPopover=(ev,id)=>{ ev.stopPropagation(); const v=CP().visuals.find(x=>x
   const f=cfVisualFilters(v);
   const pg=f.page.length?`<div class="cfp-grp"><div class="cfp-gl">Página</div>${f.page.map(p=>`<div class="cfp-li"><i class="cfp-pf"></i>${esc(p.label)} = ${esc(p.vals)}</div>`).join("")}</div>`:"";
   const cx=f.cross.length?`<div class="cfp-grp"><div class="cfp-gl">Crossfilters</div>${f.cross.map(c=>`<div class="cfp-li"><i class="cfp-cf"></i>${esc(c.table)} · ${esc(c.col)} = ${esc(c.vals)} <span class="cfp-src">· de ${esc(c.src)}</span></div>`).join("")}</div>`:"";
-  const body=(pg||cx)?pg+cx:`<div class="cfp-grp"><div class="cfp-li" style="color:var(--muted)">Sin filtros activos</div></div>`;
-  let verdict=""; if(f.cross.length)verdict=`<div class="cfp-v ok">✅ Usa la tabla → recibe el crossfilter</div>`; else if(f.noUse.length)verdict=`<div class="cfp-v no">⚠ No usa ${esc(f.noUse.join(", "))} → no le afecta</div>`;
+  const em=f.emits.length?`<div class="cfp-grp"><div class="cfp-gl">Emite</div>${f.emits.map(e=>`<div class="cfp-li"><i class="cfp-em"></i>${esc(e.table)} · ${esc(e.col)} = ${esc(e.vals)}</div>`).join("")}</div>`:"";
+  const body=(em||pg||cx)?em+pg+cx:`<div class="cfp-grp"><div class="cfp-li" style="color:var(--muted)">Sin filtros activos</div></div>`;
+  let verdict=""; if(f.emits.length)verdict=`<div class="cfp-v em">● Este gráfico <b>emite</b> el crossfilter (no se filtra a sí mismo)</div>`; else if(f.cross.length)verdict=`<div class="cfp-v ok">✅ Usa la tabla → recibe el crossfilter</div>`; else if(f.noUse.length)verdict=`<div class="cfp-v no">⚠ No usa ${esc(f.noUse.join(", "))} → no le afecta</div>`;
   const pop=document.createElement("div"); pop.id="cfpop"; pop.innerHTML=`<div class="cfp-h">Filtros de este gráfico</div>${body}${verdict}`;
   document.body.appendChild(pop);
   const r=ev.currentTarget.getBoundingClientRect(); let left=Math.min(r.right-300,window.innerWidth-308); if(left<8)left=8;
