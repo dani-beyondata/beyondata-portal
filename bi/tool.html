@@ -2248,7 +2248,7 @@ function applyAutoHeight(){
       const tblH=tbl?tbl.offsetHeight:(body?body.scrollHeight:0);
       const headH=head?head.offsetHeight:0;
       const natural=headH+tblH+14;                 // padding vbody (4+8) + bordes
-      const minH=Math.max(48,v.minH||120), maxH=v.maxH||4000;
+      const minH=Math.max(24,v.minH||40), maxH=v.maxH||4000;   // #2: antes 120 por defecto → una tabla filtrada pequeña no encogía
       card.__autoH=Math.max(minH,Math.min(maxH,natural));
       deltas.push({id:v.id, top:v.y, delta:card.__autoH - v.h});
     } else card.__autoH=null;
@@ -2262,7 +2262,8 @@ function applyAutoHeight(){
     maxB=Math.max(maxB, top+h);
   });
   stage.style.height=(maxB+40)+"px";
-  try{ Object.keys(charts).forEach(k=>{ if(charts[k]) charts[k].resize(); }); }catch(e){}
+  // #2: NO resize de charts aquí — al reencajar las tarjetas se mueven (cambia top), no cambian de tamaño,
+  // así que echarts no necesita resize. Resizear todos en cada pasada era gran parte de la lentitud.
 }
 window.applyAutoHeight=applyAutoHeight;
 
@@ -2743,7 +2744,7 @@ function progEnd(){ const b=$("bd-progbar"),t=$("bd-prog"); if(b){b.style.width=
 async function _renderPool(vis){ const n=vis.length; if(!n)return; let done=0, i=0; const show=n>1;
   let barOn=false, barT=0;
   if(show) barT=setTimeout(()=>{ barOn=true; progStart(n); progTick(done,n); },160);  // la barra solo aparece si tarda >160ms (consultas reales); un cambio servido de caché no la enseña
-  const size=Math.min(6,n); const worker=async()=>{ while(i<n){ const v=vis[i++]; try{ await renderVisual(v); }catch(e){} done++; if(barOn)progTick(done,n); } };
+  const size=Math.min(6,n); const worker=async()=>{ while(i<n){ const v=vis[i++]; try{ await renderVisual(v); if(v.autoHeight&&(v.type==="table"||v.type==="matrix"))applyAutoHeight(); }catch(e){} done++; if(barOn)progTick(done,n); } };   // #2: reajusta la tabla al instante, sin esperar al resto del pool
   await Promise.all(Array.from({length:size},worker)); clearTimeout(barT); if(barOn)progEnd(); applyAutoHeight(); cfUpdateChrome(); }
 async function refreshAll(opts){ if(opts&&opts.force) clearQCache();   // solo re-consulta la BD si se fuerza (botón Actualizar); si no, reutiliza QCACHE
   await _renderPool(CP().visuals.slice()); }
