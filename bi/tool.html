@@ -314,12 +314,13 @@
   #cfbar .cfx{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#0e8f82;color:#fff;cursor:pointer;font-size:10px}
   #cfbar .cfhint{color:#4b6b66;font-size:11px}
   #cfbar .cfclear{color:#0a655c;font-weight:700;border:1px solid #0e8f82;border-radius:7px;padding:3px 8px;cursor:pointer}
-  .gfilt{position:absolute;top:7px;right:40px;z-index:7;display:none;cursor:pointer;width:26px;height:24px;align-items:center;justify-content:center;background:rgba(255,255,255,.95);border:1px solid var(--border);border-radius:7px;font-size:10px;color:var(--teal-d);box-shadow:0 1px 5px rgba(16,40,50,.14)}
-  body.mode-view .gcard:hover .gfilt.on,body.mode-view .gcard .gfilt.on.has-cf{display:flex}
+  .gfilt{position:absolute;top:7px;right:9px;z-index:8;display:none;cursor:pointer;width:26px;height:24px;align-items:center;justify-content:center;background:rgba(255,255,255,.95);border:1px solid var(--border);border-radius:7px;font-size:10px;color:var(--teal-d);box-shadow:0 1px 5px rgba(16,40,50,.14)}
+  .gcard:hover .gfilt.on,.gcard .gfilt.on.has-cf{display:flex}   /* página: al pasar el ratón · crossfilter: siempre. En ambos modos (edición y Visor) */
+  .gcard.has-gfilt .gexp{right:40px} .gcard.has-gfilt .gctrl{right:40px}   /* deja hueco al icono de filtro en la esquina */
   .gfilt.has-cf{border-color:#0e8f82;color:#0a655c;background:#dcf2ef}
   .gfilt.has-cf::after{content:"";position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#0e8f82;border:1.5px solid #fff}
   .gcf-badge{position:absolute;top:7px;left:9px;z-index:7;font-size:10px;font-weight:700;background:#fbf0dc;color:#b7791f;border:1px solid #d9a441;border-radius:7px;padding:2px 7px;display:none}
-  body.mode-view .gcard .gcf-badge{display:inline-block}
+  .gcard .gcf-badge{display:inline-block}
   #cfpop{position:fixed;z-index:120;width:300px;max-width:92vw;background:#fff;border:1px solid #0e8f82;border-radius:11px;box-shadow:0 8px 28px rgba(16,40,50,.22);font-size:12px;overflow:hidden}
   #cfpop .cfp-h{background:#f3f7fb;font-weight:800;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#64748b;padding:8px 12px;border-bottom:1px solid #e2e8f1}
   #cfpop .cfp-grp{padding:8px 12px}#cfpop .cfp-grp+.cfp-grp{border-top:1px solid #eef2f7}
@@ -695,6 +696,7 @@ function cfUpdateChrome(){ const stage=document.getElementById("stage"); if(!sta
     if(!icon){ icon=document.createElement("span"); icon.className="gfilt"; icon.title="Filtros aplicados"; icon.textContent="▼"; icon.onclick=e=>cfPopover(e,id); card.appendChild(icon); }
     icon.classList.toggle("on", !!(f.page.length||f.cross.length||f.noUse.length));
     icon.classList.toggle("has-cf", !!(f.cross.length||f.noUse.length));
+    card.classList.toggle("has-gfilt", icon.classList.contains("on"));
     if(f.noUse.length){ if(!badge){ badge=document.createElement("span"); badge.className="gcf-badge"; card.appendChild(badge); } badge.textContent="⃠ no usa "+f.noUse.join(", "); }
     else if(badge){ badge.remove(); }
   }); }
@@ -711,6 +713,18 @@ window.cfPopover=(ev,id)=>{ ev.stopPropagation(); const v=CP().visuals.find(x=>x
   pop.style.left=left+"px"; pop.style.top=Math.min(r.bottom+6,window.innerHeight-20)+"px";
   setTimeout(()=>document.addEventListener("click",cfPopClose),0); };
 function cfPopClose(e){ const p=document.getElementById("cfpop"); if(p&&!p.contains(e.target)){ p.remove(); document.removeEventListener("click",cfPopClose); } }
+/* resalte del emisor: atenúa lo no seleccionado en el gráfico que emite (se reaplica en cada render) */
+function cfHighlight(v,ch){ if(!v||!v.crossfilter||!v.crossfilter.emit)return;
+  const xs=((XF[v.id+"::x"]&&XF[v.id+"::x"].values)||[]).map(String);
+  const ss=((XF[v.id+"::series"]&&XF[v.id+"::series"].values)||[]).map(String);
+  if(!xs.length&&!ss.length)return; let opt; try{opt=ch.getOption();}catch(e){return;} if(!opt||!opt.series||!opt.series.length)return;
+  const DIM=0.26;
+  if(v.type==="pie"||v.type==="donut"){ const sel=ss.length?ss:xs;
+    const series=opt.series.map(s=>({...s,data:(s.data||[]).map(d=>{ const o=(d&&typeof d==="object")?{...d}:{value:d}; const nm=String(o.name!=null?o.name:d); o.itemStyle={...(o.itemStyle||{}),opacity:sel.includes(nm)?1:DIM}; return o; })}));
+    try{ch.setOption({series});}catch(e){} return; }
+  const cats=((opt.xAxis&&opt.xAxis[0]&&opt.xAxis[0].data)||[]).map(String); if(!xs.length||!cats.length)return;
+  const series=opt.series.map(s=>({...s,data:(s.data||[]).map((d,i)=>{ const o=(d&&typeof d==="object")?{...d}:{value:d}; o.itemStyle={...(o.itemStyle||{}),opacity:xs.includes(cats[i])?1:DIM}; return o; })}));
+  try{ch.setOption({series});}catch(e){} }
 /* Nivel 1 (solo display, read-only): los CTEs que los slicers de la página inyectan.
    Un bloque por tabla con slicer; el 1º lleva "with", los demás ",". Orden = aparición en el SQL. */
 function pageSlicerTables(){ const out=[],seen=new Set();
@@ -2316,7 +2330,7 @@ function fxFam(v){ return v.type==="map"?"map":((v.type==="donut"||v.type==="pie
 function fxMerge(a,b){ for(const k in b){ const bv=b[k]; if(Array.isArray(bv)){ a[k]=Array.isArray(a[k])?a[k].slice():[]; bv.forEach((el,i)=>{ a[k][i]=(a[k][i]&&el&&typeof el==="object"&&!Array.isArray(el))?fxMerge(Object.assign({},a[k][i]),el):el; }); } else if(bv&&typeof bv==="object"){ a[k]=fxMerge(Object.assign({},a[k]||{}),bv); } else a[k]=bv; } return a; }
 function buildFx(v){ if(!v.fx)return null; const fam=fxFam(v); let out={},any=false; FX.forEach(f=>{ if(f.fam!==fam)return; const st=v.fx[f.id]; if(!st||!st.on)return; let part; try{ part=JSON.parse(st.json!=null?st.json:f.json); }catch(e){ return; } out=fxMerge(out,part); any=true; }); return any?out:null; }
 function applyOpt(ch,o,expand){ try{ if(expand&&o.series&&o.series.length===1){ const cur=ch.getOption().series; if(cur&&cur.length>1)o=Object.assign({},o,{series:cur.map(()=>o.series[0])}); } ch.setOption(o); }catch(e){} }
-function applyEch(v){ const ch=charts[v.id]; if(!ch)return; const fx=buildFx(v); if(fx)applyOpt(ch,fx,true); if(v.echartsOption){ try{ applyOpt(ch,typeof v.echartsOption==="string"?JSON.parse(v.echartsOption):v.echartsOption,false); }catch(e){} } cfBindClick(v,ch); }
+function applyEch(v){ const ch=charts[v.id]; if(!ch)return; const fx=buildFx(v); if(fx)applyOpt(ch,fx,true); if(v.echartsOption){ try{ applyOpt(ch,typeof v.echartsOption==="string"?JSON.parse(v.echartsOption):v.echartsOption,false); }catch(e){} } cfBindClick(v,ch); cfHighlight(v,ch); }
 function fxRows(v){ const fam=fxFam(v); return FX.filter(f=>f.fam===fam).map(f=>{ const st=(v.fx&&v.fx[f.id])||{}; const json=st.json!=null?st.json:f.json;
   return `<div class="fxitem"><label class="fxhead"><input type="checkbox" id="fx_${f.id}" ${st.on?"checked":""}><span>${esc(f.label)}</span></label><input type="text" class="fxjson" id="fxj_${f.id}" spellcheck="false" value="${escA(json)}"></div>`; }).join(""); }
 function readFx(v){ const fam=fxFam(v); const fx={}; FX.forEach(f=>{ if(f.fam!==fam)return; const cb=$("fx_"+f.id); if(!cb)return; const jf=$("fxj_"+f.id); const json=jf?jf.value:f.json; if(cb.checked||(json&&json!==f.json)) fx[f.id]={on:cb.checked,json}; }); if(Object.keys(fx).length)v.fx=fx; else delete v.fx; }
