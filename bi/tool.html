@@ -2018,6 +2018,8 @@ function _cssid(id){ return (window.CSS&&CSS.escape)?CSS.escape(id):id; }
 function applyAutoHeight(){
   const stage=$("stage"); if(!stage||typeof CP!=="function"||!CP()) return;
   const vis=CP().visuals.filter(v=>!(v.type==="slicer"&&(v.dock||"panel")==="panel"));
+  // Salida temprana: si NINGÚN visual tiene auto-altura, no tocamos nada (evita reflow/resize inútil en cada refresh)
+  if(!vis.some(v=>(v.type==="table"||v.type==="matrix")&&v.autoHeight)) return;
   const deltas=[];
   vis.forEach(v=>{
     const card=stage.querySelector('.gcard[data-id="'+_cssid(v.id)+'"]'); if(!card) return;
