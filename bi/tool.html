@@ -670,18 +670,27 @@ function cfActive(){ for(const k in XF){ if(XF[k]&&(XF[k].values||[]).length)ret
 let _cfSeen=new Set();
 function cfReset(){ XF={}; _cfSeen=new Set(); const b=document.getElementById("cfbar"); if(b)b.remove(); cfApplyIconPref(); }
 function cfBindClick(v,ch){ if(!(v.crossfilter&&v.crossfilter.emit&&CF_EMIT_TYPES.includes(v.type)))return;
-  ch.on("click",params=>{ const ev=params&&params.event?(params.event.event||params.event):null; cfClick(v.id,params,ev); }); }
+  if(v.type==="bar"||v.type==="line"){ const ax=v.horizontal?"yAxis":"xAxis"; const o={}; o[ax]=[{axisLabel:{triggerEvent:true}}]; try{ch.setOption(o);}catch(e){} }   // etiquetas del eje de categorías clicables
+  ch.off("click"); ch.on("click",params=>{ const ev=params&&params.event?(params.event.event||params.event):null; cfClick(v.id,params,ev); });
+  ch.off("legendselectchanged"); ch.on("legendselectchanged",params=>cfLegendClick(v,ch,params)); }
+function cfEmitDim(v,dimKey,rawVal,acc){ const dd=(v.crossfilter&&v.crossfilter.dims||{})[dimKey]; if(!dd)return false; if(rawVal==null||rawVal==="")return false;
+  const cte=(dd.cte&&dd.cte.trim())?dd.cte:cfBuildCte(dd.table,dd.col,String(v.sql||v.html||"")); if(!cte)return false;
+  const parsed=cfParseTemplate(cte); if(!parsed)return false; const key=v.id+"::"+dimKey;
+  let e=XF[key]; if(!e){ e={table:parsed.table,col:dd.col||null,pred:parsed.pred,values:[],srcId:v.id,srcTitle:v.title||v.id,dim:dimKey}; XF[key]=e; } else { e.table=parsed.table; e.pred=parsed.pred; }
+  const i=e.values.findIndex(x=>String(x)===String(rawVal));
+  if(acc){ i>=0?e.values.splice(i,1):e.values.push(rawVal); } else { e.values=(e.values.length===1&&i===0)?[]:[rawVal]; }
+  if(!e.values.length)delete XF[key]; return true; }
 function cfClick(vId,params,ev){ const v=CP().visuals.find(x=>x.id===vId); if(!v||!v.crossfilter||!v.crossfilter.emit)return;
-  const dims=v.crossfilter.dims||{}; const acc=!!(ev&&(ev.ctrlKey||ev.metaKey)); let changed=false;
-  const emit=(dimKey,rawVal)=>{ const dd=dims[dimKey]; if(!dd)return; if(rawVal==null||rawVal==="")return;
-    const cte=(dd.cte&&dd.cte.trim())?dd.cte:cfBuildCte(dd.table,dd.col,String(v.sql||v.html||"")); if(!cte)return;
-    const parsed=cfParseTemplate(cte); if(!parsed)return; const key=vId+"::"+dimKey;
-    let e=XF[key]; if(!e){ e={table:parsed.table,col:dd.col||null,pred:parsed.pred,values:[],srcId:vId,srcTitle:v.title||vId,dim:dimKey}; XF[key]=e; } else { e.table=parsed.table; e.pred=parsed.pred; }
-    const i=e.values.findIndex(x=>String(x)===String(rawVal));
-    if(acc){ i>=0?e.values.splice(i,1):e.values.push(rawVal); } else { e.values=(e.values.length===1&&i===0)?[]:[rawVal]; }
-    if(!e.values.length)delete XF[key]; changed=true; };
-  if(v.type==="pie"||v.type==="donut"){ emit("series",params.name); } else { emit("x",params.name); emit("series",params.seriesName); }
-  if(changed)cfApply(); }
+  const acc=!!(ev&&(ev.ctrlKey||ev.metaKey)); let chg=false;
+  if(v.type==="pie"||v.type==="donut"){ chg=cfEmitDim(v,"series",params.name,acc); }
+  else { const catAxis=v.horizontal?"yAxis":"xAxis";
+    if(params.componentType===catAxis) chg=cfEmitDim(v,"x",params.value,acc);          // clic en etiqueta del eje → solo X
+    else if(params.componentType==="series") chg=cfEmitDim(v,"x",params.name,acc); }    // clic en barra → solo X (la categoría), nunca la serie
+  if(chg)cfApply(); }
+function cfLegendClick(v,ch,params){ const dd=(v.crossfilter&&(v.crossfilter.dims||{}).series); if(!v.crossfilter||!v.crossfilter.emit||!dd)return;
+  const name=params&&params.name; if(name==null)return;
+  if(!ch.__cfLegBusy){ ch.__cfLegBusy=true; try{ const sel={}; Object.keys(params.selected||{}).forEach(k=>sel[k]=true); ch.setOption({legend:[{selected:sel}]}); }catch(e){} ch.__cfLegBusy=false; }   // la leyenda filtra, no oculta la serie
+  if(cfEmitDim(v,"series",name,false))cfApply(); }
 function cfApply(){ for(const k in XF)_cfSeen.add(XF[k].table); renderCfBar(); refreshAfterFilter([..._cfSeen]); }
 function renderCfBar(){ let bar=document.getElementById("cfbar");
   const entries=Object.keys(XF).map(k=>({k,e:XF[k]})).filter(o=>o.e&&(o.e.values||[]).length);
