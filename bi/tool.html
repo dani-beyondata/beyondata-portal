@@ -701,7 +701,7 @@ function renderCfBar(){ let bar=document.getElementById("cfbar");
 window.cfClear=k=>{ delete XF[k]; cfApply(); };
 window.cfClearAll=()=>{ XF={}; cfApply(); };
 function cfApplyIconPref(){ let off=false; try{ off=localStorage.getItem("bd_cf_icons")==="off"; }catch(e){} document.body.classList.toggle("cf-icons-off",off); }   // por defecto: punto
-window.cfToggleIcons=()=>{ const off=document.body.classList.toggle("cf-icons-off"); try{ localStorage.setItem("bd_cf_icons",off?"off":"dot"); }catch(e){} renderCfBar(); if(typeof renderPanel==="function")renderPanel(); };
+window.cfToggleIcons=()=>{ const off=document.body.classList.toggle("cf-icons-off"); try{ localStorage.setItem("bd_cf_icons",off?"off":"dot"); }catch(e){} renderCfBar(); if(typeof paintPanel==="function")paintPanel(); };   // paintPanel (no renderPanel) para no vaciar los slicers
 /* ── transparencia (paso 4): icono de filtro por gráfico (Visor) + popover + badge "no usa" ── */
 function cfVisualFilters(v){ const page=[],cross=[],noUse=[],emits=[];
   const sids=new Set(CP().visuals.filter(x=>x.type==="slicer").map(x=>x.id));
