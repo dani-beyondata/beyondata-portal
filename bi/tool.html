@@ -660,8 +660,9 @@ function cfBindClick(v,ch){ if(!(v.crossfilter&&v.crossfilter.emit&&CF_EMIT_TYPE
   ch.on("click",params=>{ const ev=params&&params.event?(params.event.event||params.event):null; cfClick(v.id,params,ev); }); }
 function cfClick(vId,params,ev){ const v=CP().visuals.find(x=>x.id===vId); if(!v||!v.crossfilter||!v.crossfilter.emit)return;
   const dims=v.crossfilter.dims||{}; const acc=!!(ev&&(ev.ctrlKey||ev.metaKey)); let changed=false;
-  const emit=(dimKey,rawVal)=>{ const dd=dims[dimKey]; if(!dd||!dd.cte)return; if(rawVal==null||rawVal==="")return;
-    const parsed=cfParseTemplate(dd.cte); if(!parsed)return; const key=vId+"::"+dimKey;
+  const emit=(dimKey,rawVal)=>{ const dd=dims[dimKey]; if(!dd)return; if(rawVal==null||rawVal==="")return;
+    const cte=(dd.cte&&dd.cte.trim())?dd.cte:cfBuildCte(dd.table,dd.col,String(v.sql||v.html||"")); if(!cte)return;
+    const parsed=cfParseTemplate(cte); if(!parsed)return; const key=vId+"::"+dimKey;
     let e=XF[key]; if(!e){ e={table:parsed.table,col:dd.col||null,pred:parsed.pred,values:[],srcId:vId,srcTitle:v.title||vId,dim:dimKey}; XF[key]=e; } else { e.table=parsed.table; e.pred=parsed.pred; }
     const i=e.values.findIndex(x=>String(x)===String(rawVal));
     if(acc){ i>=0?e.values.splice(i,1):e.values.push(rawVal); } else { e.values=(e.values.length===1&&i===0)?[]:[rawVal]; }
@@ -1858,17 +1859,25 @@ const CF_EMIT_TYPES=["bar","line","pie","donut"];
 function cfDimsFor(type){ return (type==="pie"||type==="donut")
   ? [{key:"series",label:"Porción / leyenda"}]
   : [{key:"x",label:"Eje X"},{key:"series",label:"Serie / leyenda"}]; }
-function cfTableOpts(sel){ const ts=Object.keys(tableCols||{}).sort(); return `<option value="">— tabla —</option>`+ts.map(t=>`<option ${t===sel?"selected":""}>${esc(t)}</option>`).join(""); }
-function cfColOpts(table,sel){ const cs=(tableCols&&tableCols[table])||[]; return `<option value="">— columna —</option>`+cs.map(c=>`<option ${c===sel?"selected":""}>${esc(c)}</option>`).join(""); }
+function cfSqlTables(sql){ const s=String(sql||""); const re=/\b(?:from|join)\s+(?:public\.)?(\w+)/gi; const out=new Set(); let m; while((m=re.exec(s)))out.add(m[1].toLowerCase()); return [...out]; }
+function cfPrimaryDim(type){ return (type==="pie"||type==="donut")?"series":"x"; }
+function cfAutoDim(sql){ const s=String(sql||""); const fm=s.match(/\bselect\b([\s\S]*?)\bfrom\b/i); if(!fm)return null;
+  const km=fm[1].match(/([\s\S]*?)\bas\s+k\b/i); const kexpr=km?km[1]:fm[1].split(",")[0];   // el 'k' = la dimensión que trocea
+  const am=kexpr.match(/\b([a-z_]\w*)\.(\w+)\b/i); if(!am)return null;                        // primer alias.columna (en coalesce, el display)
+  const tbl=cfResolveAliasTable(s,am[1]); if(!tbl)return null; return {table:tbl,column:am[2]}; }
+function cfTableOpts(sel,extra){ const set=new Set(Object.keys(tableCols||{})); (extra||[]).forEach(t=>set.add(t)); if(sel)set.add(sel); const ts=[...set].sort(); return `<option value="">— tabla —</option>`+ts.map(t=>`<option ${t===sel?"selected":""}>${esc(t)}</option>`).join(""); }
+function cfColOpts(table,sel){ const set=new Set((tableCols&&tableCols[table])||[]); if(sel)set.add(sel); const cs=[...set]; return `<option value="">— columna —</option>`+cs.map(c=>`<option ${c===sel?"selected":""}>${esc(c)}</option>`).join(""); }
 function crossfilterSecHTML(v){
   if(!CF_EMIT_TYPES.includes(v.type))return "";
   const cf=v.crossfilter||{}; const dims=cfDimsFor(v.type);
   const emit=!!cf.emit, recv=cf.receive!==false;
-  const rows=dims.map(d=>{ const dd=(cf.dims&&cf.dims[d.key])||{};
+  const esql=String(v.sql||v.html||""); const sqlTbls=cfSqlTables(esql); const prim=cfPrimaryDim(v.type);
+  const rows=dims.map(d=>{ let dd=(cf.dims&&cf.dims[d.key])||{};
+    if(!dd.table&&!dd.col&&!dd.cte&&d.key===prim){ const a=cfAutoDim(esql); if(a)dd={table:a.table,col:a.column}; }   // pre-sugiere la dimensión que trocea
     return `<div style="border:1px solid var(--border);border-radius:8px;padding:9px 10px;margin-top:8px;background:var(--bg)">
       <div style="font-weight:600;font-size:12px;margin-bottom:6px">${d.label} — filtrar por</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <select class="e_cf_tbl" data-dim="${d.key}" onchange="cfTblChange('${d.key}')">${cfTableOpts(dd.table)}</select>
+        <select class="e_cf_tbl" data-dim="${d.key}" onchange="cfTblChange('${d.key}')">${cfTableOpts(dd.table,sqlTbls)}</select>
         <select class="e_cf_colsel" data-dim="${d.key}" onchange="cfGen('${d.key}')">${cfColOpts(dd.table,dd.col)}</select>
         <button type="button" class="sm" onclick="cfGen('${d.key}')" title="Rellena el SQL a partir de tabla y columna">✨ Sugerir SQL</button></div>
       <textarea class="e_cf_cte" data-dim="${d.key}" placeholder="elige tabla y columna, o escribe el CTE a mano" style="width:100%;min-height:64px;margin-top:7px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px">${esc(dd.cte||"")}</textarea>
@@ -1894,10 +1903,14 @@ function readCrossfilter(v){
   else delete v.crossfilter;
 }
 window.cfTblChange=(dim)=>{ const t=((document.querySelector(`.e_cf_tbl[data-dim="${dim}"]`)||{}).value||""); const cs=document.querySelector(`.e_cf_colsel[data-dim="${dim}"]`); if(cs)cs.innerHTML=cfColOpts(t,""); };
-window.cfGen=(dim)=>{ const t=((document.querySelector(`.e_cf_tbl[data-dim="${dim}"]`)||{}).value||""); const c=((document.querySelector(`.e_cf_colsel[data-dim="${dim}"]`)||{}).value||""); const ta=document.querySelector(`.e_cf_cte[data-dim="${dim}"]`); if(!ta||!t||!c)return; ta.value=cfBuildCte(t,c); };
-function cfResolveAliasTable(sql,alias){ const m=sql.match(new RegExp("(?:from|join)\\s+(?:public\\.)?(\\w+)\\s+"+alias+"\\b","i")); return m?m[1]:null; }
-function cfBuildCte(table,column){ if(!table||!column)return "";
+window.cfGen=(dim)=>{ const ts=document.querySelector(`.e_cf_tbl[data-dim="${dim}"]`), cs=document.querySelector(`.e_cf_colsel[data-dim="${dim}"]`), ta=document.querySelector(`.e_cf_cte[data-dim="${dim}"]`); if(!ta)return;
   const v=CP().visuals[_editIdx]; const sql=String((v&&(v.sql||v.html))||"");
+  let t=(ts&&ts.value)||"", c=(cs&&cs.value)||"";
+  if(!t||!c){ const a=cfAutoDim(sql); if(a){ if(!t){ t=a.table; if(ts){ if(![...ts.options].some(o=>o.value===t))ts.add(new Option(t,t)); ts.value=t; } } if(!c){ c=a.column; if(cs){ cs.innerHTML=cfColOpts(t,c); cs.value=c; } } } }   // sin elegir → auto desde el 'k'
+  if(!t||!c)return; ta.value=cfBuildCte(t,c,sql); };
+function cfResolveAliasTable(sql,alias){ const m=sql.match(new RegExp("(?:from|join)\\s+(?:public\\.)?(\\w+)\\s+"+alias+"\\b","i")); return m?m[1]:null; }
+function cfBuildCte(table,column,sql){ if(!table||!column)return "";
+  sql=String(sql||"");
   // dimensión unida por LEFT JOIN → filtra el HECHO con IN(subquery); tabla base/inner → sombra directa
   const isLeft=new RegExp("\\bleft\\s+join\\s+(?:public\\.)?"+table+"\\b","i").test(sql);
   if(isLeft){ const jm=sql.match(new RegExp("\\bjoin\\s+(?:public\\.)?"+table+"\\s+(\\w+)\\s+on\\b([\\s\\S]*?)(?=\\b(?:left|inner|join|where|group|order)\\b|$)","i"));
