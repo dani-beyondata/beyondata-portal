@@ -302,6 +302,12 @@
   .sqlro{margin:0;padding:9px 11px;font-family:Consolas,Monaco,monospace;font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;background:#11223D;color:#E3EDFB;border:1px dashed var(--border);border-radius:8px;overflow:auto;max-height:170px}
   .cte-warn{margin-top:7px;padding:7px 10px;border-radius:7px;background:#fff4e5;border:1px solid #f0c67a;color:#8a5a12;font-size:12px;line-height:1.45}
   .cte-note{margin-top:7px;padding:6px 10px;border-radius:7px;background:#eef4fb;border:1px solid #c5d8ee;color:#3a5a82;font-size:12px;line-height:1.45}
+  .cte-page{background:rgba(93,139,201,.34);border-radius:3px;padding:0 1px}
+  .cte-cf{background:rgba(31,176,160,.40);border-radius:3px;padding:0 1px}
+  .cte-leg{display:flex;gap:16px;margin-top:6px;font-size:11px;color:var(--muted)}
+  .cte-leg i{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:5px}
+  .cte-leg i.ci-page{background:#5d8bc9}
+  .cte-leg i.ci-cf{background:#1fb0a0}
   .mglist{display:flex;flex-direction:column;gap:3px}
   .mgrow{padding:5px 10px;border-radius:7px;cursor:pointer;font-size:12.5px;border:1px solid transparent;transition:none}
   .mgrow:hover{background:#eef4f3}
@@ -602,28 +608,46 @@ function predOf(f){ const c=f.column;
   if(!f.values||!f.values.length)return null; return `${c} IN (${sqlVals(f.values)})`; }
 /* FILTROS = un bloque WITH por tabla, ya filtrada por SUS PROPIOS slicers (columnas de esa tabla).
    Sin relaciones ni semi-joins: para cruzar tablas, escribe el JOIN en tu SQL. */
-function cteDefs(){ const ids=new Set(CP().visuals.map(v=>v.id)); const byTable={};
+function cteDefs(includeCf){ if(includeCf===undefined)includeCf=true; const ids=new Set(CP().visuals.map(v=>v.id)); const byTable={};
   for(const key in FILTERS){ if(!ids.has(key))continue; const f=FILTERS[key]; if(!fActive(f))continue; if(!(tableCols[f.table]||[]).includes(f.column))continue; const p=predOf(f); if(p)(byTable[f.table]=byTable[f.table]||[]).push(p); }
+  if(includeCf){ const cfb=cfPredsByTable(); for(const t in cfb)for(const p of cfb[t])(byTable[t]=byTable[t]||[]).push(p); }  // #78: crossfilters al MISMO CTE por tabla (AND)
   // Solo envolvemos las tablas con filtro ACTIVO (no las 23 en passthrough): sin filtros,
   // cteDefs=[] y applyWhere devuelve el SQL tal cual (overhead cero).
   return Object.keys(byTable).filter(t=>byTable[t]&&byTable[t].length).map(t=>{ const preds=byTable[t].join(" AND "); return {table:t,where:preds,def:`${t} AS NOT MATERIALIZED (SELECT * FROM public.${t} WHERE ${preds})`}; }); }
 function ctePrefix(){ const d=cteDefs(); return d.length?("WITH\n  "+d.map(x=>x.def).join(",\n  ")+"\n"):""; }
+/* ═══ Cross filters (#78) · estado runtime + motor de predicados ═══
+   XF: `${srcId}::${dim}` -> {table, col, pred (where-body con {valor}), values:[], srcId, srcTitle}
+   El clic (paso 3) rellena XF; aquí solo se compone el SQL. */
+let XF={};
+function cfLit(x){ if(x==null)return "NULL"; const s=String(x); return /^-?\d+(\.\d+)?$/.test(s)?s:("'"+s.replace(/'/g,"''")+"'"); }
+function cfParseTemplate(tpl){ const s=String(tpl||""); const tm=s.match(/^\s*([a-z_][\w]*)\s+as\s*\(/i); if(!tm)return null;
+  const wm=s.match(/\bwhere\b([\s\S]*?)\)\s*$/i); if(!wm)return null; return {table:tm[1].toLowerCase(), pred:wm[1].trim()}; }
+function cfEntryPred(e){ const vals=(e&&e.values)||[]; if(!vals.length||!e.pred)return null;
+  if(vals.length===1) return e.pred.replace(/\{valor\}/g,cfLit(vals[0]));
+  const m=e.pred.trim().match(/^([\w".]+)\s*=\s*\{valor\}$/i);           // "col = {valor}" acumulado → IN (...)
+  if(m) return `${m[1]} IN (${vals.map(cfLit).join(", ")})`;
+  return "("+vals.map(x=>`(${e.pred.replace(/\{valor\}/g,cfLit(x))})`).join(" OR ")+")"; }  // genérico → OR
+function cfPredsByTable(){ const byT={}; for(const k in XF){ const e=XF[k]; const p=cfEntryPred(e); if(p)(byT[e.table]=byT[e.table]||[]).push(p); } return byT; }
+function cfActive(){ for(const k in XF){ if(XF[k]&&(XF[k].values||[]).length)return true; } return false; }
 /* Nivel 1 (solo display, read-only): los CTEs que los slicers de la página inyectan.
    Un bloque por tabla con slicer; el 1º lleva "with", los demás ",". Orden = aparición en el SQL. */
 function pageSlicerTables(){ const out=[],seen=new Set();
   for(const v of CP().visuals){ if(v.type==="slicer"&&v.slTable&&!seen.has(v.slTable)){ seen.add(v.slTable); out.push(v.slTable); } }
   return out; }
 function cteDisplay(v){
-  const tables=pageSlicerTables(); if(!tables.length)return null;
-  const ids=new Set(CP().visuals.filter(x=>x.type==="slicer").map(x=>x.id)); const byTable={};
-  for(const key in FILTERS){ if(!ids.has(key))continue; const f=FILTERS[key]; if(!fActive(f))continue; if(!(tableCols[f.table]||[]).includes(f.column))continue; const p=predOf(f); if(p)(byTable[f.table]=byTable[f.table]||[]).push(p); }
+  const sids=new Set(CP().visuals.filter(x=>x.type==="slicer").map(x=>x.id)); const pageT={};
+  for(const key in FILTERS){ if(!sids.has(key))continue; const f=FILTERS[key]; if(!fActive(f))continue; if(!(tableCols[f.table]||[]).includes(f.column))continue; const p=predOf(f); if(p)(pageT[f.table]=pageT[f.table]||[]).push(p); }
+  const cfT=cfPredsByTable();
+  const tables=[...new Set([...Object.keys(pageT),...Object.keys(cfT)])]; if(!tables.length)return null;
   const sql=String((v&&(v.sql||v.html))||"").toLowerCase();
   const pos=t=>{ const m=sql.search(new RegExp("\\b"+t.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b")); return m<0?1e9:m; };
   const sorted=tables.slice().sort((a,b)=>pos(a)-pos(b)||a.localeCompare(b));
-  const lines=sorted.map((t,i)=>{ const preds=(byTable[t]&&byTable[t].length)?byTable[t].join(" AND "):null;
-    const body=preds?`select * from public.${t} where ${preds}`:`select * from public.${t}`;
+  // sentinelas \u0010..\u0013 = página / crossfilter, coloreadas tras hlSQL en cteBlockHTML
+  const lines=sorted.map((t,i)=>{ const pg=(pageT[t]||[]).join(" AND "); const cf=(cfT[t]||[]).join(" AND ");
+    let body="select * from public."+t;
+    if(pg||cf){ body+=" where "; if(pg)body+="\u0010"+pg+"\u0011"; if(pg&&cf)body+=" and "; if(cf)body+="\u0012"+cf+"\u0013"; }
     return (i===0?"with ":", ")+`${t} as (${body})`; });
-  return {tables:sorted,lines,used:sorted.filter(t=>pos(t)<1e9)};
+  return {tables:sorted,lines,used:sorted.filter(t=>pos(t)<1e9),pageT,cfT};
 }
 const _reEsc=s=>String(s).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
 function sqlRefUnq(sql,t){ return new RegExp("(?:from|join|,)\\s+"+_reEsc(t)+"\\b","i").test(sql); }   // FROM tabla (CTE filtrado)
@@ -633,17 +657,25 @@ function slicerAffects(t){ return CP().visuals.filter(x=>x.type!=="slicer"&&sqlR
 function cteBlockHTML(v){ const d=cteDisplay(v); if(!d)return "";
   const sql=String(v.sql||v.html||"");
   const ids=new Set(CP().visuals.filter(x=>x.type==="slicer").map(x=>x.id));
-  const active=new Set(); for(const k in FILTERS){ if(ids.has(k)&&fActive(FILTERS[k]))active.add(FILTERS[k].table); }
-  const missing=[],bypassed=[];
-  for(const t of d.tables){ if(!active.has(t))continue; if(sqlRefUnq(sql,t))continue; if(sqlRefMain(sql,t)){bypassed.push(t);continue;} missing.push(t); }
+  const activePage=new Set(); for(const k in FILTERS){ if(ids.has(k)&&fActive(FILTERS[k]))activePage.add(FILTERS[k].table); }
+  const cfTables=new Set(Object.keys(d.cfT||{}));
+  const missing=[],bypassed=[],cfMissing=[];
+  for(const t of d.tables){ if(sqlRefUnq(sql,t))continue; if(sqlRefMain(sql,t)){bypassed.push(t);continue;}
+    if(cfTables.has(t))cfMissing.push(t); else if(activePage.has(t))missing.push(t); }
   let warn="";
   if(missing.length)warn+=`<div class="cte-warn">⚠ Slicer(s) activo(s) que <b>no filtran este visual</b> (su tabla no aparece en el SQL): <b>${esc(missing.join(", "))}</b>. ¿Falta un <code>JOIN</code> / <code>FROM</code>?</div>`;
+  if(cfMissing.length)warn+=`<div class="cte-warn">⚠ Crossfilter activo sobre <b>${esc(cfMissing.join(", "))}</b> que <b>no filtra este visual</b> (su tabla no aparece en el SQL). Su CTE queda inerte (coste cero).</div>`;
   if(bypassed.length)warn+=`<div class="cte-note">ℹ Ignoras a propósito el filtro de <b>${esc(bypassed.join(", "))}</b> (usas <code>public.</code>).</div>`;
+  let body=hlSQL(d.lines.join("\n"))
+    .replace(/\u0010/g,'<span class="cte-page">').replace(/\u0011/g,'</span>')
+    .replace(/\u0012/g,'<span class="cte-cf">').replace(/\u0013/g,'</span>');
+  const leg=cfTables.size?`<div class="cte-leg"><span><i class="ci-page"></i>filtro de página</span><span><i class="ci-cf"></i>crossfilter</span></div>`:"";
   return `<div style="margin-bottom:10px"><label>Filtros aplicados (automático)</label>`
-    +`<pre class="sqlro">${hlSQL(d.lines.join("\n"))}</pre>${warn}`
-    +`<div class="hint">Lo inyectan los <b>slicers de la página</b> (no editable). Tu SQL hace <code>FROM tabla</code> y ya sale filtrado; para ignorar un filtro, escribe <code>FROM public.tabla</code>.</div></div>`; }
-function applyWhere(sql,year){ let s=String(sql||"").replace(/\{\{filters:\w+(?::\w+)?\}\}/g,"1=1").replaceAll("$YEAR",year==null?"2026":year);
-  let defs=cteDefs(); if(defs.length) defs=defs.filter(d=> new RegExp("\\b"+d.table.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","i").test(s));  // Fase 3: solo CTEs de tablas que el visual referencia (un CTE inerte no cambia el resultado)
+    +`<pre class="sqlro">${body}</pre>${leg}${warn}`
+    +`<div class="hint">Lo inyectan los <b>slicers de la página</b> y los <b>crossfilters</b> (no editable). Tu SQL hace <code>FROM tabla</code> y ya sale filtrado; para ignorarlo, escribe <code>FROM public.tabla</code>.</div></div>`; }
+function applyWhere(sql,year,v){ let s=String(sql||"").replace(/\{\{filters:\w+(?::\w+)?\}\}/g,"1=1").replaceAll("$YEAR",year==null?"2026":year);
+  const includeCf=!(v&&v.crossfilter&&v.crossfilter.receive===false);  // #78: "se deja filtrar" off ⇒ sin crossfilters (sí mantiene filtros de página)
+  let defs=cteDefs(includeCf); if(defs.length) defs=defs.filter(d=> new RegExp("\\b"+d.table.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","i").test(s));  // Fase 3: solo CTEs de tablas que el visual referencia (un CTE inerte no cambia el resultado)
   if(!defs.length)return s;
   const head="WITH\n  "+defs.map(x=>x.def).join(",\n  "); const body=s.replace(/^\s+/,"");
   // si tu SELECT ya trae su propio WITH, fusionamos (no puede haber dos WITH)
@@ -2099,7 +2131,7 @@ async function renderVisual(v){ const def=VIS[v.type]; if(!def)return; const el=
   if(el && def.needsRows){ loadT=setTimeout(()=>{ el.innerHTML=vstateLoading(); },120); }   // diferido 120ms: un cache hit no enseña spinner
   const clearState=()=>{ if(el){ const c=el.firstElementChild; if(c&&c.classList&&c.classList.contains("vstate")) el.innerHTML=""; } };  // quita placeholder (carga/error/vacío) antes de pintar; no toca un visual real (reuso en recargas)
   try{
-    if(def.needsRows){ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); clearTimeout(loadT);
+    if(def.needsRows){ const rows=await q(applyRF(applyWhere(effSQL(v),null,v),v)); clearTimeout(loadT);
       if(el && (!rows||!rows.length) && VSTATE_EMPTY_TYPES.has(v.type)){ el.innerHTML=vstateEmpty(); return; }
       clearState();
       return await def.render(v,rows); }
@@ -2119,7 +2151,7 @@ function ctrlAssemble(rows){ if(!rows||!rows.length)return rows||[]; const cs=ro
   if(rows[0].metric_label!==undefined){ let pm=null; for(const r of rows){ if(r.metric!==pm){ r.rowcls="first"; r.lbl=r.metric_label; pm=r.metric; } else { r.rowcls="sub"; r.lbl=r.line_label; } } }
   return rows; }
 async function renderHTML(v){ const el=$("body_"+v.id); if(!el)return; let rows=[];
-  if(v.sql){ try{ rows=await q(applyRF(applyWhere(v.sql),v)); }catch(e){ el.innerHTML=`<div class="hint" style="color:#b4322a;padding:8px">Error en el SQL: ${esc(e.message)}</div>`; return; } }
+  if(v.sql){ try{ rows=await q(applyRF(applyWhere(v.sql,null,v),v)); }catch(e){ el.innerHTML=`<div class="hint" style="color:#b4322a;padding:8px">Error en el SQL: ${esc(e.message)}</div>`; return; } }
   if(v.post==="ctrl")rows=ctrlAssemble(rows);
   el.innerHTML=renderTpl(v.html||"",rows); }
 /* analiza la plantilla y dice qué columnas debe devolver el SQL */
@@ -2141,7 +2173,7 @@ window.htmlAnalyze=async()=>{ const box=$("html_contract"); if(!box)return; cons
 window.htmlUseSkel=()=>{ if($("e_sql")&&window.__htmlSkel){ $("e_sql").value=window.__htmlSkel; $("e_sql").dispatchEvent(new Event("input",{bubbles:true})); const v=CP().visuals[_editIdx]; if(v)v.sql=window.__htmlSkel; fsPreview(); } };
 window.htmlPreset=k=>{ const p=HTML_PRESETS[k]; if(!p)return; const v=CP().visuals[_editIdx]; if(v){ v.html=p.html; v.sql=p.sql; } if($("e_html")){ $("e_html").value=p.html; $("e_html").dispatchEvent(new Event("input",{bubbles:true})); } if($("e_sql")){ $("e_sql").value=p.sql; $("e_sql").dispatchEvent(new Event("input",{bubbles:true})); } fsPreview(); htmlAnalyze(); };
 async function renderKPI(v){ const CY=paramVal("$CY",2026), LY=paramVal("$LY",2025);
-  const cy=(await q(applyWhere(v.sqlCY,CY)))[0]?.v??null; const ly=(await q(applyWhere(v.sqlCY,LY)))[0]?.v??null; const tgt=(await q(applyWhere(v.sqlTGT,CY)))[0]?.v??null;
+  const cy=(await q(applyWhere(v.sqlCY,CY,v)))[0]?.v??null; const ly=(await q(applyWhere(v.sqlCY,LY,v)))[0]?.v??null; const tgt=(await q(applyWhere(v.sqlTGT,CY,v)))[0]?.v??null;
   let fy=null; try{ fy=(await q(String(v.sqlCY).replaceAll("$YEAR",CY)))[0]?.v??null; }catch(e){}
   $("body_"+v.id).innerHTML=kpiHTML(computeKPI(v,cy,ly,tgt,fy)); }
 function computeKPI(v,cy,ly,tgt,fy){ const isPct=!!v.isPct,kind=v.kind||"money"; const yoyN=isPct?(cy-ly)*100:(ly?(cy-ly)/ly:null);
@@ -2469,7 +2501,7 @@ function renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels){
   const bar=`<div style="display:flex;gap:6px;margin-bottom:6px"><button class="sm" onclick="tblExpandAll('${v.id}')">⊞ Expandir todo</button><button class="sm" onclick="tblCollapseAll('${v.id}')">⊟ Colapsar todo</button><button class="sm" onclick="tblExpandNext('${v.id}')">▸ Siguiente nivel</button></div>`;
   el.innerHTML=tableFxCSS(v.id,buildFx(v))+bar+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}"><table class="dt"${totVars(v)}><thead>${head}</thead><tbody>${out.join("")}${totals}</tbody></table></div>`;
 }
-async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
+async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v),null,v),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
   const allCols=Object.keys(rows[0]); const hasRK=allCols.includes("_rowkind"); const cols=allCols.filter(c=>c!=="_rowkind"); COLORDER[v.id]=cols; const isNum=c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number");
   const cfg=v.cols||{}; const st=TBL_STATE[v.id]=TBL_STATE[v.id]||{};
   // fila de total/subtotal: por marcador _rowkind de la SQL, o por nombre de la 1ª columna como fallback
@@ -2505,7 +2537,7 @@ const MX_STATE={};
 window.mxSortRows=(id,by)=>{ const st=MX_STATE[id]=MX_STATE[id]||{}; const c=st.rowSort; if(c&&c.by===by){ if(c.dir==="desc")c.dir="asc"; else st.rowSort=null; } else st.rowSort={by,dir:"desc"}; const v=CP().visuals.find(x=>x.id===id); if(v)renderMatrix(v); };
 window.mxSortCols=(id,by)=>{ const st=MX_STATE[id]=MX_STATE[id]||{}; const c=st.colSort; if(c&&c.by===by){ if(c.dir==="desc")c.dir="asc"; else st.colSort=null; } else st.colSort={by,dir:"desc"}; const v=CP().visuals.find(x=>x.id===id); if(v)renderMatrix(v); };
 window.mxReset=id=>{ const st=MX_STATE[id]=MX_STATE[id]||{}; st.rowSort=null; st.colSort=null; const v=CP().visuals.find(x=>x.id===id); if(v)renderMatrix(v); };
-async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
+async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v),null,v),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
   let rowvals=[...new Set(rows.map(r=>r.row))]; let colvals=[...new Set(rows.map(r=>r.col))]; if('colOrd'in rows[0]){const om={};rows.forEach(r=>om[r.col]=r.colOrd);colvals.sort((a,b)=>om[a]-om[b]);}
   const cell={}; rows.forEach(r=>cell[r.row+"||"+r.col]=+r.v||0); const colTot={},rowTot={}; let grand=0; rowvals.forEach(r=>rowTot[r]=0); colvals.forEach(c=>colTot[c]=0); rows.forEach(r=>{rowTot[r.row]+=(+r.v||0);colTot[r.col]+=(+r.v||0);grand+=(+r.v||0);});
   const dataFmt={}, dataArrow={}; rows.forEach(r=>{ if(r.fmt!=null)dataFmt[r.row]=r.fmt; if(r.arrow!=null)dataArrow[r.row]=(r.arrow===true||r.arrow==="true"||r.arrow===1||r.arrow==="1"); });
@@ -2612,7 +2644,7 @@ function snapResize(v,nw,nh){ const gs=[]; const sibs=siblings(v.id);
 /* ═ Multi-selección estilo PowerPoint ═ */
 let SEL=new Set();
 /* ── Exportar datos de un visual (CSV / copiar) — solo lo filtrado (métrica + result filter actuales) ── */
-function expRows(v){ return q(applyRF(applyWhere(effSQL(v)),v)); }
+function expRows(v){ return q(applyRF(applyWhere(effSQL(v),null,v),v)); }
 function dlBlob(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},800); }
 function expToast(msg){ let t=$("exptoast"); if(!t){t=document.createElement("div");t.id="exptoast";document.body.appendChild(t);} t.textContent=msg; t.classList.add("on"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),1600); }
 /* ── Exportar la página actual a PDF / PNG (html2canvas + jsPDF, cargadas bajo demanda) ── */
@@ -2887,7 +2919,7 @@ window.mxAxisChanged=(id)=>{ const v=CP().visuals.find(x=>x.id===id); const sel=
   grid.innerHTML = labels.length?labels.map(l=>axRowHTML(l,AF[l])).join(""):`<div class="hint">No hay etiquetas todavía. Cierra el editor, deja que la matriz se dibuje, y vuelve a abrirlo.</div>`; };
 window.colsFromJSON=()=>{ const g=$("colgrid"),t=$("e_cols"); if(!g||!t)return; let o; try{o=JSON.parse(t.value.trim()||"{}");}catch(e){alert("JSON inválido: "+e.message);return;} g.innerHTML=Object.keys(o).map(k=>colRowHTML(k,o[k])).join(""); };
 window.tblDetectGrid=async id=>{ const v=CP().visuals.find(x=>x.id===id); const g=$("colgrid"); if(!v||!g)return;
-  try{ const rows=await q(applyRF(applyWhere(effSQL(v)),v)); if(!rows.length){alert("La query no devuelve filas.");return;}
+  try{ const rows=await q(applyRF(applyWhere(effSQL(v),null,v),v)); if(!rows.length){alert("La query no devuelve filas.");return;}
     const cols=Object.keys(rows[0]); const isNum=c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number");
     const have=new Set([...g.querySelectorAll(".cr-name")].map(i=>i.value.trim()));
     cols.filter(c=>isNum(c)&&!have.has(c)).forEach(c=>g.insertAdjacentHTML("beforeend",colRowHTML(c,{fmt:v.fmt||"num"}))); }catch(e){ alert("No pude detectar columnas: "+e.message); } };
@@ -3194,8 +3226,8 @@ async function fsPreview(){ const v=CP().visuals[_editIdx]; if(!v)return; if(v.t
 /* Visor de la tabla resultante (la query final, en vivo) — cuadrante inferior izquierdo del editor */
 async function renderResultGrid(pv){ const host=$("fs_result"); if(!host)return;
   let sql=null;
-  if(pv.type==="kpi") sql=pv.sqlCY?applyWhere(pv.sqlCY,2026):null;
-  else if(pv.sql) sql=applyRF(applyWhere(pv.sql),pv);
+  if(pv.type==="kpi") sql=pv.sqlCY?applyWhere(pv.sqlCY,2026,pv):null;
+  else if(pv.sql) sql=applyRF(applyWhere(pv.sql,null,pv),pv);
   if(!sql){ host.innerHTML='<div class="rinfo">Este visual no tiene SQL.</div>'; return; }
   try{ const rows=await q(sql); const cols=rows.length?Object.keys(rows[0]):[];
     host.innerHTML=`<div class="rinfo">${rows.length} fila(s) · ${cols.length} columna(s)${rows.length>200?" · mostrando 200":""}</div><table class="dt"><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>`+rows.slice(0,200).map(r=>`<tr>${cols.map(c=>`<td>${esc(typeof r[c]==="number"?nf(r[c],Number.isInteger(r[c])?0:2):(r[c]==null?"":String(r[c])))}</td>`).join("")}</tr>`).join("")+`</tbody></table>`;
@@ -3230,7 +3262,7 @@ window.fmtEditorSQL=()=>{ const ta=$("e_sql")||$("e_sqlcy"); if(!ta)return; ta.v
 window.applyEdit=async id=>{ const v=CP().visuals.find(x=>x.id===id); await readEditor(v); saveDash(); relayoutOne(v); paintPanel();
   try{ await refreshVisualDeps(v); if($("e_err")){$("e_err").style.color="#2F7A34";$("e_err").textContent="✓ Aplicado (el editor sigue abierto)";setTimeout(()=>{const e=$("e_err");if(e){e.textContent="";e.style.color="";}},1600);} }
   catch(e){ if($("e_err")){$("e_err").style.color="";$("e_err").textContent=e.message;} } };
-window.tryQuery=async id=>{ const v=CP().visuals.find(x=>x.id===id); await readEditor(v); const sql=v.type==="kpi"?applyWhere(v.sqlCY,2026):applyRF(applyWhere(v.sql),v); if(!sql){$("e_prev").innerHTML="";return;}
+window.tryQuery=async id=>{ const v=CP().visuals.find(x=>x.id===id); await readEditor(v); const sql=v.type==="kpi"?applyWhere(v.sqlCY,2026,v):applyRF(applyWhere(v.sql,null,v),v); if(!sql){$("e_prev").innerHTML="";return;}
   try{ const rows=await q(sql); const cols=rows.length?Object.keys(rows[0]):[]; $("e_prev").innerHTML=`<div class="hint" style="margin-top:4px">${rows.length} fila(s). Columnas: ${cols.map(c=>`<code>${esc(c)}</code>`).join(" ")||"—"}</div><div class="qprev"><table class="dt"><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>`+rows.slice(0,6).map(r=>`<tr>${cols.map(c=>`<td>${esc(typeof r[c]==="number"?nf(r[c],Number.isInteger(r[c])?0:2):r[c])}</td>`).join("")}</tr>`).join("")+`</tbody></table></div>`;
   }catch(e){ $("e_prev").innerHTML=`<div class="hint" style="color:#b4322a">Error: ${esc(e.message)}</div>`; } };
 window.applyVisualJSON=async id=>{ try{ const nv=JSON.parse($("e_json").value); nv.id=id; const i=CP().visuals.findIndex(x=>x.id===id); CP().visuals[i]=nv; saveDash(); delete charts[id]; if(nv.type==="slicer")await buildSlicerOpts(); relayoutOne(nv); paintPanel(); await refreshVisualDeps(nv); editVisual(id); }catch(e){ $("e_err").textContent="JSON inválido: "+e.message; } };
