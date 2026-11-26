@@ -308,6 +308,12 @@
   .cte-leg i{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:5px}
   .cte-leg i.ci-page{background:#5d8bc9}
   .cte-leg i.ci-cf{background:#1fb0a0}
+  #cfbar{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:94vw;background:#dcf2ef;border:1px solid #0e8f82;border-radius:11px;padding:6px 10px;box-shadow:0 4px 18px rgba(16,40,50,.18);font-size:12px}
+  #cfbar .cflab{font-weight:800;color:#0a655c;display:flex;align-items:center;gap:5px}
+  #cfbar .cfchip{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid #0e8f82;color:#0a655c;border-radius:16px;padding:3px 5px 3px 11px;font-weight:600}
+  #cfbar .cfx{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#0e8f82;color:#fff;cursor:pointer;font-size:10px}
+  #cfbar .cfhint{color:#4b6b66;font-size:11px}
+  #cfbar .cfclear{color:#0a655c;font-weight:700;border:1px solid #0e8f82;border-radius:7px;padding:3px 8px;cursor:pointer}
   .mglist{display:flex;flex-direction:column;gap:3px}
   .mgrow{padding:5px 10px;border-radius:7px;cursor:pointer;font-size:12.5px;border:1px solid transparent;transition:none}
   .mgrow:hover{background:#eef4f3}
@@ -608,9 +614,9 @@ function predOf(f){ const c=f.column;
   if(!f.values||!f.values.length)return null; return `${c} IN (${sqlVals(f.values)})`; }
 /* FILTROS = un bloque WITH por tabla, ya filtrada por SUS PROPIOS slicers (columnas de esa tabla).
    Sin relaciones ni semi-joins: para cruzar tablas, escribe el JOIN en tu SQL. */
-function cteDefs(includeCf){ if(includeCf===undefined)includeCf=true; const ids=new Set(CP().visuals.map(v=>v.id)); const byTable={};
+function cteDefs(includeCf,exclSrc){ if(includeCf===undefined)includeCf=true; const ids=new Set(CP().visuals.map(v=>v.id)); const byTable={};
   for(const key in FILTERS){ if(!ids.has(key))continue; const f=FILTERS[key]; if(!fActive(f))continue; if(!(tableCols[f.table]||[]).includes(f.column))continue; const p=predOf(f); if(p)(byTable[f.table]=byTable[f.table]||[]).push(p); }
-  if(includeCf){ const cfb=cfPredsByTable(); for(const t in cfb)for(const p of cfb[t])(byTable[t]=byTable[t]||[]).push(p); }  // #78: crossfilters al MISMO CTE por tabla (AND)
+  if(includeCf){ const cfb=cfPredsByTable(exclSrc); for(const t in cfb)for(const p of cfb[t])(byTable[t]=byTable[t]||[]).push(p); }  // #78: crossfilters al MISMO CTE por tabla (AND)
   // Solo envolvemos las tablas con filtro ACTIVO (no las 23 en passthrough): sin filtros,
   // cteDefs=[] y applyWhere devuelve el SQL tal cual (overhead cero).
   return Object.keys(byTable).filter(t=>byTable[t]&&byTable[t].length).map(t=>{ const preds=byTable[t].join(" AND "); return {table:t,where:preds,def:`${t} AS NOT MATERIALIZED (SELECT * FROM public.${t} WHERE ${preds})`}; }); }
@@ -627,8 +633,34 @@ function cfEntryPred(e){ const vals=(e&&e.values)||[]; if(!vals.length||!e.pred)
   const m=e.pred.trim().match(/^([\w".]+)\s*=\s*\{valor\}$/i);           // "col = {valor}" acumulado → IN (...)
   if(m) return `${m[1]} IN (${vals.map(cfLit).join(", ")})`;
   return "("+vals.map(x=>`(${e.pred.replace(/\{valor\}/g,cfLit(x))})`).join(" OR ")+")"; }  // genérico → OR
-function cfPredsByTable(){ const byT={}; for(const k in XF){ const e=XF[k]; const p=cfEntryPred(e); if(p)(byT[e.table]=byT[e.table]||[]).push(p); } return byT; }
+function cfPredsByTable(exclSrc){ const byT={}; for(const k in XF){ const e=XF[k]; if(exclSrc&&e&&e.srcId===exclSrc)continue; const p=cfEntryPred(e); if(p)(byT[e.table]=byT[e.table]||[]).push(p); } return byT; }   // exclSrc: el visual no se filtra con su propio crossfilter
 function cfActive(){ for(const k in XF){ if(XF[k]&&(XF[k].values||[]).length)return true; } return false; }
+/* ── runtime (paso 3): clic en emisor → XF, barra de chips, toggle/acumular, limpiar ── */
+let _cfSeen=new Set();
+function cfReset(){ XF={}; _cfSeen=new Set(); const b=document.getElementById("cfbar"); if(b)b.remove(); }
+function cfBindClick(v,ch){ if(!(v.crossfilter&&v.crossfilter.emit&&CF_EMIT_TYPES.includes(v.type)))return;
+  ch.on("click",params=>{ const ev=params&&params.event?(params.event.event||params.event):null; cfClick(v.id,params,ev); }); }
+function cfClick(vId,params,ev){ const v=CP().visuals.find(x=>x.id===vId); if(!v||!v.crossfilter||!v.crossfilter.emit)return;
+  const dims=v.crossfilter.dims||{}; const acc=!!(ev&&(ev.ctrlKey||ev.metaKey)); let changed=false;
+  const emit=(dimKey,rawVal)=>{ const dd=dims[dimKey]; if(!dd||!dd.cte)return; if(rawVal==null||rawVal==="")return;
+    const parsed=cfParseTemplate(dd.cte); if(!parsed)return; const key=vId+"::"+dimKey;
+    let e=XF[key]; if(!e){ e={table:parsed.table,col:dd.col||null,pred:parsed.pred,values:[],srcId:vId,srcTitle:v.title||vId,dim:dimKey}; XF[key]=e; } else { e.table=parsed.table; e.pred=parsed.pred; }
+    const i=e.values.findIndex(x=>String(x)===String(rawVal));
+    if(acc){ i>=0?e.values.splice(i,1):e.values.push(rawVal); } else { e.values=(e.values.length===1&&i===0)?[]:[rawVal]; }
+    if(!e.values.length)delete XF[key]; changed=true; };
+  if(v.type==="pie"||v.type==="donut"){ emit("series",params.name); } else { emit("x",params.name); emit("series",params.seriesName); }
+  if(changed)cfApply(); }
+function cfApply(){ for(const k in XF)_cfSeen.add(XF[k].table); renderCfBar(); refreshAfterFilter([..._cfSeen]); }
+function renderCfBar(){ let bar=document.getElementById("cfbar");
+  const entries=Object.keys(XF).map(k=>({k,e:XF[k]})).filter(o=>o.e&&(o.e.values||[]).length);
+  if(!entries.length){ if(bar)bar.remove(); return; }
+  if(!bar){ bar=document.createElement("div"); bar.id="cfbar"; document.body.appendChild(bar);
+    bar.onclick=ev=>{ const x=ev.target.closest(".cfx"); if(x){ cfClear(x.dataset.k); return; } if(ev.target.closest(".cfclear"))cfClearAll(); }; }
+  const chips=entries.map(({k,e})=>{ const col=e.col||e.dim||"valor"; const val=e.values.map(x=>String(x)).join(", ");
+    return `<span class="cfchip"><b>${esc(e.table)}</b> · ${esc(col)} = ${esc(val)} <span class="cfx" data-k="${esc(k)}">✕</span></span>`; }).join("");
+  bar.innerHTML=`<span class="cflab">⚡ Crossfilter</span>${chips}<span class="cfhint">Ctrl+clic acumula</span><span class="cfclear">✕ Limpiar todo</span>`; }
+window.cfClear=k=>{ delete XF[k]; cfApply(); };
+window.cfClearAll=()=>{ XF={}; cfApply(); };
 /* Nivel 1 (solo display, read-only): los CTEs que los slicers de la página inyectan.
    Un bloque por tabla con slicer; el 1º lleva "with", los demás ",". Orden = aparición en el SQL. */
 function pageSlicerTables(){ const out=[],seen=new Set();
@@ -637,7 +669,7 @@ function pageSlicerTables(){ const out=[],seen=new Set();
 function cteDisplay(v){
   const sids=new Set(CP().visuals.filter(x=>x.type==="slicer").map(x=>x.id)); const pageT={};
   for(const key in FILTERS){ if(!sids.has(key))continue; const f=FILTERS[key]; if(!fActive(f))continue; if(!(tableCols[f.table]||[]).includes(f.column))continue; const p=predOf(f); if(p)(pageT[f.table]=pageT[f.table]||[]).push(p); }
-  const cfT=cfPredsByTable();
+  const cfT=cfPredsByTable(v&&v.id);
   const tables=[...new Set([...Object.keys(pageT),...Object.keys(cfT)])]; if(!tables.length)return null;
   const sql=String((v&&(v.sql||v.html))||"").toLowerCase();
   const pos=t=>{ const m=sql.search(new RegExp("\\b"+t.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b")); return m<0?1e9:m; };
@@ -675,7 +707,7 @@ function cteBlockHTML(v){ const d=cteDisplay(v); if(!d)return "";
     +`<div class="hint">Lo inyectan los <b>slicers de la página</b> y los <b>crossfilters</b> (no editable). Tu SQL hace <code>FROM tabla</code> y ya sale filtrado; para ignorarlo, escribe <code>FROM public.tabla</code>.</div></div>`; }
 function applyWhere(sql,year,v){ let s=String(sql||"").replace(/\{\{filters:\w+(?::\w+)?\}\}/g,"1=1").replaceAll("$YEAR",year==null?"2026":year);
   const includeCf=!(v&&v.crossfilter&&v.crossfilter.receive===false);  // #78: "se deja filtrar" off ⇒ sin crossfilters (sí mantiene filtros de página)
-  let defs=cteDefs(includeCf); if(defs.length) defs=defs.filter(d=> new RegExp("\\b"+d.table.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","i").test(s));  // Fase 3: solo CTEs de tablas que el visual referencia (un CTE inerte no cambia el resultado)
+  let defs=cteDefs(includeCf, v&&v.id); if(defs.length) defs=defs.filter(d=> new RegExp("\\b"+d.table.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","i").test(s));  // Fase 3: solo CTEs de tablas que el visual referencia (un CTE inerte no cambia el resultado). exclSrc=v.id: el emisor no se autofiltra
   if(!defs.length)return s;
   const head="WITH\n  "+defs.map(x=>x.def).join(",\n  "); const body=s.replace(/^\s+/,"");
   // si tu SELECT ya trae su propio WITH, fusionamos (no puede haber dos WITH)
@@ -1904,7 +1936,7 @@ async function detectMode(){ let email=''; try{ if(window.sbClient){ const {data
 window.toggleTools=(ev)=>{ if(ev)ev.stopPropagation(); const d=$('toolsDrop'); if(!d)return; const willOpen=!d.classList.contains('open'); d.classList.toggle('open',willOpen);
   if(willOpen){ const close=(e)=>{ if(!d.contains(e.target)){ d.classList.remove('open'); document.removeEventListener('mousedown',close); } }; setTimeout(()=>document.addEventListener('mousedown',close),0); } };
 window.toolsDo=(fn)=>{ const d=$('toolsDrop'); if(d)d.classList.remove('open'); try{ if(typeof fn==='function')fn(); }catch(e){} };
-function renderPage(){ if(typeof SEL!=="undefined")SEL.clear(); disposeCharts(); renderTabs(); layoutStage(); paintPanel(); refreshAll(); if(VFIT==="width"||VFIT==="page")recalcFit(); }
+function renderPage(){ if(typeof SEL!=="undefined")SEL.clear(); disposeCharts(); cfReset(); renderTabs(); layoutStage(); paintPanel(); refreshAll(); if(VFIT==="width"||VFIT==="page")recalcFit(); }
 // ── Zoom / ajuste de vista (estilo Power BI) ──
 let VZOOM=1, VFIT='actual';
 function _stageH(){ const s=$("stage"); if(!s)return 600; return Math.max(300, parseInt(s.style.height)||s.scrollHeight||600); }
@@ -2234,7 +2266,7 @@ function fxFam(v){ return v.type==="map"?"map":((v.type==="donut"||v.type==="pie
 function fxMerge(a,b){ for(const k in b){ const bv=b[k]; if(Array.isArray(bv)){ a[k]=Array.isArray(a[k])?a[k].slice():[]; bv.forEach((el,i)=>{ a[k][i]=(a[k][i]&&el&&typeof el==="object"&&!Array.isArray(el))?fxMerge(Object.assign({},a[k][i]),el):el; }); } else if(bv&&typeof bv==="object"){ a[k]=fxMerge(Object.assign({},a[k]||{}),bv); } else a[k]=bv; } return a; }
 function buildFx(v){ if(!v.fx)return null; const fam=fxFam(v); let out={},any=false; FX.forEach(f=>{ if(f.fam!==fam)return; const st=v.fx[f.id]; if(!st||!st.on)return; let part; try{ part=JSON.parse(st.json!=null?st.json:f.json); }catch(e){ return; } out=fxMerge(out,part); any=true; }); return any?out:null; }
 function applyOpt(ch,o,expand){ try{ if(expand&&o.series&&o.series.length===1){ const cur=ch.getOption().series; if(cur&&cur.length>1)o=Object.assign({},o,{series:cur.map(()=>o.series[0])}); } ch.setOption(o); }catch(e){} }
-function applyEch(v){ const ch=charts[v.id]; if(!ch)return; const fx=buildFx(v); if(fx)applyOpt(ch,fx,true); if(v.echartsOption){ try{ applyOpt(ch,typeof v.echartsOption==="string"?JSON.parse(v.echartsOption):v.echartsOption,false); }catch(e){} } }
+function applyEch(v){ const ch=charts[v.id]; if(!ch)return; const fx=buildFx(v); if(fx)applyOpt(ch,fx,true); if(v.echartsOption){ try{ applyOpt(ch,typeof v.echartsOption==="string"?JSON.parse(v.echartsOption):v.echartsOption,false); }catch(e){} } cfBindClick(v,ch); }
 function fxRows(v){ const fam=fxFam(v); return FX.filter(f=>f.fam===fam).map(f=>{ const st=(v.fx&&v.fx[f.id])||{}; const json=st.json!=null?st.json:f.json;
   return `<div class="fxitem"><label class="fxhead"><input type="checkbox" id="fx_${f.id}" ${st.on?"checked":""}><span>${esc(f.label)}</span></label><input type="text" class="fxjson" id="fxj_${f.id}" spellcheck="false" value="${escA(json)}"></div>`; }).join(""); }
 function readFx(v){ const fam=fxFam(v); const fx={}; FX.forEach(f=>{ if(f.fam!==fam)return; const cb=$("fx_"+f.id); if(!cb)return; const jf=$("fxj_"+f.id); const json=jf?jf.value:f.json; if(cb.checked||(json&&json!==f.json)) fx[f.id]={on:cb.checked,json}; }); if(Object.keys(fx).length)v.fx=fx; else delete v.fx; }
