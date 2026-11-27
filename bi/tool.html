@@ -3236,12 +3236,13 @@ function readMetricFmts(){ const grid=$("mfmtgrid"); if(!grid)return; const g=CP
     const ac=r.querySelector(".mf-arrow"); if(ac){ if(ac.checked)chip.arrow=true; else delete chip.arrow; } }); }
 function fmtMatrix(v){ const grp=groupCtrl(v); const hbCells=grp?"":`<div><label>Heatmap de celda</label><select id="e_heat"><option value="" ${!v.heat?"selected":""}>no</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.heat===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Barras de datos</label><select id="e_mbar"><option value="0" ${!v.bar?"selected":""}>no</option><option value="1" ${v.bar?"selected":""}>sí</option></select></div>`;
   return `
-    <div class="sec"><div class="sech">Valores y formato</div>
+    <div class="sec collapsed"><div class="sech">Valores y formato</div>
       <div class="row"><div style="flex:1 1 100%"><label>Mostrar como %</label><select id="e_mpct"><option value="none" ${(!v.pct||v.pct==="none")?"selected":""}>no (valores)</option><option value="row" ${v.pct==="row"?"selected":""}>% de fila</option><option value="col" ${v.pct==="col"?"selected":""}>% de columna</option><option value="total" ${v.pct==="total"?"selected":""}>% del total</option></select></div></div>
       <div class="row" style="margin-top:6px"><div style="flex:1 1 100%"><label>Formato de número</label><select id="e_fmtaxis" onchange="mxAxisChanged('${v.id}')"><option value="off" ${!v.fmtAxis?"selected":""}>Global (uno para toda la matriz)</option><option value="row" ${v.fmtAxis==="row"?"selected":""}>Por fila</option><option value="col" ${v.fmtAxis==="col"?"selected":""}>Por columna</option></select></div></div>
       <div id="fmtglobalwrap" style="display:${v.fmtAxis?"none":""};margin-top:4px">${fmtNumField(v)}</div>
       <div id="axgridwrap" style="display:${v.fmtAxis?"":"none"};margin-top:4px"><div class="hint">Formato / heat / barra / ▲▼ por cada etiqueta del eje. Si el SQL trae una columna <code>fmt</code> (y <code>arrow</code>) por fila, se usan como base.</div><div id="axgrid">${(()=>{ if(!v.fmtAxis)return ""; const st=MX_STATE[v.id]||{}; const labels=(v.fmtAxis==="row"?st.rowLabels:st.colLabels)||[]; const AF=v.axisFmt||{}; return labels.length?labels.map(l=>axRowHTML(l,AF[l]||((v.fmtAxis==="row"&&st.rowFmt&&st.rowFmt[l]!=null)?{fmt:st.rowFmt[l]}:undefined))).join(""):`<div class="hint">No hay etiquetas todavía. Cierra el editor, deja que la matriz se dibuje, y vuelve a abrirlo.</div>`; })()}</div></div>
       <div class="row" style="margin-top:6px">${hbCells}<div><label>Ordenar filas por total</label><select id="e_sortrows"><option value="none" ${(!v.sortRows||v.sortRows==="none")?"selected":""}>no</option><option value="desc" ${v.sortRows==="desc"?"selected":""}>mayor&#8594;menor</option><option value="asc" ${v.sortRows==="asc"?"selected":""}>menor&#8594;mayor</option></select></div></div>
+      <div class="hint" style="margin-top:6px">Celdas = la medida. Forma SQL: <code>row</code>, <code>col</code>, <code>v</code> (+ <code>colOrd</code>, y opcional <code>fmt</code>/<code>arrow</code> por fila).</div>
     </div>
     <div class="sec collapsed"><div class="sech">Estilo de tabla</div>
       <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_zebra" ${v.zebra?"checked":""}> Filas alternas (zebra)</label><label class="fxrow2"><input type="checkbox" id="e_sticky" ${v.sticky?"checked":""}> Cabecera fija (al hacer scroll)</label><label class="fxrow2"><input type="checkbox" id="e_totfreeze" ${v.totalsFreeze!==false?"checked":""}> Totales fijos al hacer scroll</label></div>
@@ -3257,7 +3258,7 @@ function fmtMatrix(v){ const grp=groupCtrl(v); const hbCells=grp?"":`<div><label
           ${totStyleRow("Subtotal","sub",(v.totStyle&&v.totStyle.sub)||{},!!(v.totStyle&&v.totStyle.sub))}
         </div></details>
     </div>
-    <div class="hint" style="margin-top:6px">Celdas = la medida. Forma SQL: <code>row</code>, <code>col</code>, <code>v</code> (+ <code>colOrd</code>, y opcional <code>fmt</code>/<code>arrow</code> por fila).</div>`; }
+`; }
 /* lecturas del editor → objeto del visual */
 function readGraphic(v){ if($("e_color"))v.color=$("e_color").value; const _fb=$("e_fmtbox"); if(_fb)v.fmt=readFmtComposer(_fb,true);
   if($("e_x2"))v.x2=$("e_x2").value.trim()||"k"; if($("e_y2"))v.y2=$("e_y2").value.trim()||"v"; if($("e_series"))v.series=$("e_series").value.trim()||"series";
