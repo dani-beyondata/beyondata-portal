@@ -200,6 +200,9 @@
   .fxrow2 input[type=checkbox]{width:15px;height:15px}
   table.mx tr.tot>td,table.mx tr.tot>th{font-weight:var(--tot-w,800);background:var(--tot-bg,#e9eff5);color:var(--tot-fg,#1E3A5F);border-top:var(--tot-bd,2px solid #aab8c2)}
   table.mx td.tot,table.mx th.tot{font-weight:var(--tot-w,800);background:var(--tot-bg,#e9eff5);color:var(--tot-fg,#1E3A5F)}
+  table.mx.mx-cfgtot td.totcol,table.mx.mx-cfgtot th.totcol{border-left:0;background:transparent;font-weight:inherit;color:inherit}
+  table.mx.mx-cfgtot td.tot,table.mx.mx-cfgtot th.tot,table.mx.mx-cfgtot tr.tot>td,table.mx.mx-cfgtot tr.tot>th{border-top:0;background:transparent;font-weight:inherit;color:inherit}
+  .tbl-wrap.totfreeze table.dt.mx.mx-cfgtot tbody tr.tot td{background:transparent}
   #drawer{position:fixed;top:0;right:0;height:100%;width:560px;max-width:97vw;background:#fff;border-left:1px solid var(--border);box-shadow:-6px 0 24px rgba(16,40,50,.12);transform:translateX(100%);transition:transform .18s;z-index:70;display:flex;flex-direction:column}
   #drawer.open{transform:none}
   #drawer .dhead{background:var(--teal);color:#fff;padding:11px 15px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
@@ -2808,6 +2811,7 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v),
   const _TR=v.totRows, _TC=v.totCols, _cfgTot=!!(_TR||_TC), _nameTot=x=>/^total(es)?$/i.test(String(x));
   const isTotCol=c=> _TC ? (String(c) in _TC) : _nameTot(c); const isTotRow=rw=> _TR ? (String(rw) in _TR) : _nameTot(rw);
   const totStyFor=(rw,c)=>{ let o=null; if(_TR&&(String(rw) in _TR))o=Object.assign({},_TR[String(rw)]); if(_TC&&(String(c) in _TC))o=Object.assign(o||{},_TC[String(c)]); return o; };
+  const totInline=(o)=>{ if(!o)return ""; let x=""; if(o.bg)x+="background:"+o.bg+" !important;"; if(o.fg)x+="color:"+o.fg+" !important;"; x+="font-weight:"+(o.bold!==false?"700":"500")+";"; if(o.border)x+="border:1px solid #aab8c2;"; return x; };
   if(clickable&&st.colSort&&st.colSort.by){ const by=st.colSort.by,d=st.colSort.dir==="asc"?1:-1; const kf=by==="__total__"?(c=>colTot[c]):(c=>{const k=by+"||"+c;return (k in cell)?cell[k]:-Infinity;}); colvals.sort((a,b)=>{const x=kf(a),y=kf(b);return (x>y?1:x<y?-1:0)*d;}); }
   if(clickable&&st.rowSort&&st.rowSort.by){ const by=st.rowSort.by,d=st.rowSort.dir==="asc"?1:-1; const kf=by==="__total__"?(rw=>rowTot[rw]):(rw=>{const k=rw+"||"+by;return (k in cell)?cell[k]:-Infinity;}); rowvals.sort((a,b)=>{const x=kf(a),y=kf(b);return (x>y?1:x<y?-1:0)*d;}); }
   else if(v.sortRows==="desc")rowvals.sort((a,b)=>rowTot[b]-rowTot[a]); else if(v.sortRows==="asc")rowvals.sort((a,b)=>rowTot[a]-rowTot[b]);
@@ -2832,20 +2836,20 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v),
     if(F.arrow){ const up=d>=0; inner=`<span style="color:${up?'#2F7A34':'#b4322a'}">${up?'▲':'▼'} ${fmtCell(Math.abs(d),F.fmt)}</span>`; }
     if(F.heat && (!isT || (_cfgTot && !(ts&&ts.bg))))style+=condStyle(d,R.mn,R.mx,F.heat);
     if(F.bar && (!isT || _cfgTot))inner=condBar(inner,d,R.mn,R.mx,F.bar);
-    if(ts){ if(ts.bg)style+="background:"+ts.bg+" !important;"; if(ts.fg)style+="color:"+ts.fg+" !important;"; style+="font-weight:"+(ts.bold!==false?"700":"500")+";"; if(ts.border)style+="border:1px solid #aab8c2;"; }
+    if(ts)style+=totInline(ts);
     return `<td class="num${tcls(rw,c)}" style="${style}">${inner}</td>`; };
   const arrR=by=>(st.rowSort&&st.rowSort.by===by)?(st.rowSort.dir==="asc"?" ▲":" ▼"):""; const arrC=by=>(st.colSort&&st.colSort.by===by)?(st.colSort.dir==="asc"?" ▲":" ▼"):""; const cp=s=>esc(String(s));
   const active=st.rowSort||st.colSort;
   const corner=(clickable&&active)?`<th style="cursor:pointer;text-align:center" title="Restablecer orden" onclick="mxReset('${v.id}')">↺</th>`:`<th></th>`;
-  const thCol=c=>{ const tc=isTotCol(c)?" tot totcol":""; if(!clickable)return `<th class="num${tc}">${esc(c)}</th>`;
+  const thCol=c=>{ const tc=isTotCol(c)?" tot totcol":""; const csty=(_cfgTot&&isTotCol(c))?totInline(_TC[String(c)]):""; if(!clickable)return `<th class="num${tc}" style="${csty}">${esc(c)}</th>`;
     if(cfEmits(v,"col")&&!isTotCol(c))return `<th class="num${tc}" style="cursor:pointer" title="Filtrar por esta columna" onclick="cfCellClick('${v.id}','col','${cp(c)}',event)">${esc(c)}<span class="mx-sort" title="ordenar filas por esta columna" onclick="event.stopPropagation();mxSortRows('${v.id}','${cp(c)}')">⇅</span>${arrR(c)}</th>`;
-    return `<th class="num${tc}" style="cursor:pointer" title="Ordenar filas por esta columna" onclick="mxSortRows('${v.id}','${cp(c)}')">${esc(c)}${arrR(c)}</th>`; };
+    return `<th class="num${tc}" style="cursor:pointer;${csty}" title="Ordenar filas por esta columna" onclick="mxSortRows('${v.id}','${cp(c)}')">${esc(c)}${arrR(c)}</th>`; };
   const thTot=clickable?`<th class="num tot totcol" style="cursor:pointer" title="Ordenar filas por el total" onclick="mxSortRows('${v.id}','__total__')">Total${arrR("__total__")}</th>`:`<th class="num tot totcol">Total</th>`;
-  const tdRow=rw=>{ const tc=isTotRow(rw)?" tot":""; if(!clickable)return `<td class="${tc.trim()}">${esc(rw)}</td>`;
+  const tdRow=rw=>{ const tc=isTotRow(rw)?" tot":""; const rsty=(_cfgTot&&isTotRow(rw))?totInline(_TR[String(rw)]):""; if(!clickable)return `<td class="${tc.trim()}" style="${rsty}">${esc(rw)}</td>`;
     if(cfEmits(v,"row")&&!isTotRow(rw))return `<td class="${tc.trim()}" style="cursor:pointer" title="Filtrar por esta fila" onclick="cfCellClick('${v.id}','row','${cp(rw)}',event)">${esc(rw)}<span class="mx-sort" title="ordenar columnas por esta fila" onclick="event.stopPropagation();mxSortCols('${v.id}','${cp(rw)}')">⇅</span>${arrC(rw)}</td>`;
-    return `<td class="${tc.trim()}" style="cursor:pointer" title="Ordenar columnas por esta fila" onclick="mxSortCols('${v.id}','${cp(rw)}')">${esc(rw)}${arrC(rw)}</td>`; };
+    return `<td class="${tc.trim()}" style="cursor:pointer;${rsty}" title="Ordenar columnas por esta fila" onclick="mxSortCols('${v.id}','${cp(rw)}')">${esc(rw)}${arrC(rw)}</td>`; };
   const tdTot=clickable?`<td style="cursor:pointer" title="Ordenar columnas por el total" onclick="mxSortCols('${v.id}','__total__')">Total${arrC("__total__")}</td>`:`<td>Total</td>`;
-  let h=`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}${v.totalsFreeze!==false?' totfreeze':''}"><table class="dt mx"${totVars(v)}><thead><tr>${corner}`+colvals.map(thCol).join("")+(showTot?thTot:"")+`</tr></thead><tbody>`;
+  let h=`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}${v.totalsFreeze!==false?' totfreeze':''}"><table class="dt mx${_cfgTot?' mx-cfgtot':''}"${totVars(v)}><thead><tr>${corner}`+colvals.map(thCol).join("")+(showTot?thTot:"")+`</tr></thead><tbody>`;
   rowvals.forEach(rw=>{h+=`<tr${isTotRow(rw)?' class="tot"':''}>${tdRow(rw)}`+colvals.map(c=>cellHTML(rw,c)).join("")+(showTot?`<td class="num tot totcol">${rowTotD[rw]==null?"":fmtCell(rowTotD[rw],rtFmt(rw))}</td>`:"")+`</tr>`;});
   if(showTot)h+=`<tr class="tot">${tdTot}`+colvals.map(c=>`<td class="num">${colTotD[c]==null?"":fmtCell(colTotD[c],ctFmt(c))}</td>`).join("")+`<td class="num totcol">${fmtCell(grand,v.fmt)}</td></tr>`;
   h+=`</tbody></table></div>`; el.innerHTML=tableFxCSS(v.id,buildFx(v))+h; }
@@ -3189,8 +3193,8 @@ function totMkRowHTML(kind,label,s,labels){ s=s||{};
   const opts=['<option value="">(elige)</option>'].concat((labels||[]).map(l=>`<option value="${escA(l)}" ${String(l)===String(label)?"selected":""}>${esc(l)}</option>`)).join("");
   return `<div class="totmk-row" data-kind="${kind}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:5px">
     <select class="tm-label" style="width:150px;flex:0 0 auto">${opts}</select>
-    <label class="fxrow2" style="margin:0"><input type="checkbox" class="tm-bgon" ${s.bg?"checked":""}> fondo</label><input type="color" class="tm-bg" value="${s.bg||"#e9eff5"}" style="width:32px;height:26px;padding:1px;border:1px solid var(--border);border-radius:6px">
-    <label class="fxrow2" style="margin:0"><input type="checkbox" class="tm-fgon" ${s.fg?"checked":""}> texto</label><input type="color" class="tm-fg" value="${s.fg||"#1e3a5f"}" style="width:32px;height:26px;padding:1px;border:1px solid var(--border);border-radius:6px">
+    <label class="fxrow2" style="margin:0"><input type="checkbox" class="tm-bgon" ${s.bg?"checked":""}> fondo</label><input type="color" class="tm-bg" value="${s.bg||"#e9eff5"}" oninput="this.nextElementSibling.value=this.value" style="width:30px;height:26px;padding:1px;border:1px solid var(--border);border-radius:6px"><input type="text" class="tm-bghex" value="${s.bg||"#e9eff5"}" spellcheck="false" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))this.previousElementSibling.value=this.value" style="width:74px;padding:3px 5px;font-family:monospace;font-size:11px">
+    <label class="fxrow2" style="margin:0"><input type="checkbox" class="tm-fgon" ${s.fg?"checked":""}> texto</label><input type="color" class="tm-fg" value="${s.fg||"#1e3a5f"}" oninput="this.nextElementSibling.value=this.value" style="width:30px;height:26px;padding:1px;border:1px solid var(--border);border-radius:6px"><input type="text" class="tm-fghex" value="${s.fg||"#1e3a5f"}" spellcheck="false" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))this.previousElementSibling.value=this.value" style="width:74px;padding:3px 5px;font-family:monospace;font-size:11px">
     <label class="fxrow2" style="margin:0"><input type="checkbox" class="tm-bold" ${s.bold!==false?"checked":""}> negrita</label>
     <label class="fxrow2" style="margin:0"><input type="checkbox" class="tm-bd" ${s.border?"checked":""}> borde</label>
     <button type="button" class="sm" onclick="totDelMk(this)" title="Quitar">&#10005;</button>
