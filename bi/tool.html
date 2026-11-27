@@ -492,13 +492,25 @@ const FMT_PRESETS={
   num:{u:'none',sc:'none',d:'nz2'}, dec:{u:'none',sc:'none',d:'nz2'},
   int:{u:'none',sc:'auto'}, k:{u:'none',sc:'k',d:1}, m:{u:'none',sc:'m',d:1}, auto:{u:'none',sc:'auto'} };
 function formatNumber(v,spec){ if(v==null||isNaN(v))return "–"; spec=spec||{}; const u=spec.u||'none';
-  if(u==='pct')return nf(v*100,spec.d==null?0:spec.d)+"%";
-  if(u==='pp')return nf(v*100,spec.d==null?1:spec.d)+" p.p.";
+  if(u==='pct'){ let d=spec.d; d=(d==null)?0:(d==='auto'?((v*100%1)?1:0):d); return nf(v*100,d)+"%"; }
+  if(u==='pp'){ let d=spec.d; d=(d==null)?1:(d==='auto'?((v*100%1)?1:0):d); return nf(v*100,d)+" p.p."; }
   let sc=spec.sc||'none'; const a=Math.abs(v); let div=1,suf='';
   if(sc==='auto'){ if(a>=1e6){div=1e6;suf='M';} else if(a>=1e4){div=1e3;suf='K';} } else if(sc==='k'){div=1e3;suf='K';} else if(sc==='m'){div=1e6;suf='M';}
-  const x=v/div; let d=spec.d; if(d==null)d=suf?1:0; else if(d==='nz1')d=(x%1)?1:0; else if(d==='nz2')d=(x%1)?2:0;
+  const x=v/div; let d=spec.d; if(d==null)d=suf?1:0; else if(d==='auto')d=suf?1:((x%1)?(u==='eur'?1:2):0); else if(d==='nz1')d=(x%1)?1:0; else if(d==='nz2')d=(x%1)?2:0;
   const num=spec.sep===false?Number(x).toFixed(d).replace('.',','):nf(x,d);
   const cur=u==='eur'; return num+(cur?(suf?' '+suf+'€':' €'):(suf?' '+suf:'')); }
+/* #82 · composer de formato por columna/eje: 4 controles (unidad·decimales·escala·miles) ↔ spec objeto */
+function cfSpecOf(fmt){ if(fmt&&typeof fmt==='object')return {u:fmt.u||'none',d:(fmt.d==null?'auto':fmt.d),sc:fmt.sc||'none',sep:fmt.sep!==false};
+  const p=FMT_PRESETS[fmt]; if(!p)return {u:'none',d:'auto',sc:'none',sep:true};
+  return {u:p.u||'none',d:(p.d==null||p.d==='nz1'||p.d==='nz2')?'auto':p.d,sc:p.sc||'none',sep:p.sep!==false}; }
+function fmtComposerHTML(spec){ spec=cfSpecOf(spec); const sel=(cls,w,opts,val)=>`<select class="${cls}" style="width:${w}px">${opts.map(([k,l])=>`<option value="${k}" ${String(val)===String(k)?'selected':''}>${l}</option>`).join('')}</select>`;
+  return sel('cf-u',52,[['none','nº'],['eur','€'],['pct','%'],['pp','p.p.']],spec.u)
+    +sel('cf-d',74,[['auto','dec: auto'],['0','0 dec'],['1','1 dec'],['2','2 dec'],['3','3 dec']],spec.d)
+    +sel('cf-sc',82,[['none','escala: ×1'],['k','×1000 K'],['m','×1M M'],['auto','auto K/M']],spec.sc)
+    +sel('cf-sep',70,[['1','miles: sí'],['0','miles: no']],spec.sep?'1':'0'); }
+function readFmtComposer(r){ const g=c=>r.querySelector('.'+c); const u=(g('cf-u')||{}).value||'none', d=(g('cf-d')||{}).value||'auto', sc=(g('cf-sc')||{}).value||'none', sep=(g('cf-sep')?(g('cf-sep').value==='1'):true);
+  if(u==='none'&&d==='auto'&&sc==='none'&&sep)return null;   // todo por defecto → sin formato propio
+  const o={u}; o.d=(d==='auto')?'auto':parseInt(d,10); o.sc=sc; if(!sep)o.sep=false; return o; }
 function fmtValue(v,kind){ if(v==null||isNaN(v))return "–"; if(kind&&typeof kind==='object')return formatNumber(v,kind);
   return formatNumber(v,FMT_PRESETS[kind]||FMT_PRESETS.money); }
 function fmtAxis(x,fmt){ if(fmt==="pct")return Math.round(x*100)+"%"; if(fmt==="money"||fmt==="int")return Math.abs(x)>=1000?nf(x/1000,0)+"k":nf(x,0); return nf(x,0); }
@@ -3115,7 +3127,7 @@ window.colAddRow=()=>{ const g=$("colgrid"); if(g)g.insertAdjacentHTML("beforeen
 /* mini-grid de formato por eje (fila/columna) para la matriz: etiqueta (no editable) → fmt/heat/bar/▲▼ */
 function axRowHTML(label,cc){ cc=cc||{}; return `<div class="axrow" data-ax="${esc(label)}" style="display:flex;gap:5px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
     <span class="ax-name" title="${esc(label)}" style="flex:1 1 130px;min-width:90px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(label)}</span>
-    <select class="ax-fmt" style="width:90px">${["","money","autoeur","eur","keur","meur","pct","pct1","pp","int","dec","k"].map(f=>`<option value="${f}" ${(cc.fmt||"")===f?"selected":""}>${f||"fmt…"}</option>`).join("")}</select>
+    ${fmtComposerHTML(cc.fmt)}
     <select class="ax-heat" style="width:74px"><option value="">heat…</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${cc.heat===k?"selected":""}>${k}</option>`).join("")}</select>
     <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="ax-bar" ${cc.bar?"checked":""}>bar</label>
     <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="ax-arrow" ${cc.arrow?"checked":""}>▲▼</label>
@@ -3256,7 +3268,7 @@ function readMatrix(v){ readMetricFmts(); if($("e_fmt"))v.fmt=$("e_fmt").value; 
   if($("e_zebra"))v.zebra=$("e_zebra").checked; if($("e_sticky"))v.sticky=$("e_sticky").checked; if($("e_totfreeze"))v.totalsFreeze=$("e_totfreeze").checked; if($("e_autoh")){v.autoHeight=$("e_autoh").checked;var _mn=parseInt(($("e_minh")||{}).value),_mx=parseInt(($("e_maxh")||{}).value);v.minH=isNaN(_mn)?undefined:_mn;v.maxH=isNaN(_mx)?undefined:_mx;}
   if($("e_autototal"))v.autoTotal=$("e_autototal").checked;
   if($("e_fmtaxis")){ const ax=$("e_fmtaxis").value; v.fmtAxis=(ax==="off")?undefined:ax;
-    if(v.fmtAxis){ const af={}; document.querySelectorAll("#axgrid .axrow").forEach(r=>{ const name=r.getAttribute("data-ax"); if(name==null)return; const o={}; const f=r.querySelector(".ax-fmt")?.value; if(f)o.fmt=f; const h=r.querySelector(".ax-heat")?.value; if(h)o.heat=h; if(r.querySelector(".ax-bar")?.checked)o.bar=true; if(r.querySelector(".ax-arrow")?.checked)o.arrow=true; const ag=r.querySelector(".ax-agg")?.value; if(ag)o.agg=ag; if(Object.keys(o).length)af[name]=o; }); if(Object.keys(af).length)v.axisFmt=af; else delete v.axisFmt; }
+    if(v.fmtAxis){ const af={}; document.querySelectorAll("#axgrid .axrow").forEach(r=>{ const name=r.getAttribute("data-ax"); if(name==null)return; const o={}; const sp=readFmtComposer(r); if(sp)o.fmt=sp; const h=r.querySelector(".ax-heat")?.value; if(h)o.heat=h; if(r.querySelector(".ax-bar")?.checked)o.bar=true; if(r.querySelector(".ax-arrow")?.checked)o.arrow=true; const ag=r.querySelector(".ax-agg")?.value; if(ag)o.agg=ag; if(Object.keys(o).length)af[name]=o; }); if(Object.keys(af).length)v.axisFmt=af; else delete v.axisFmt; }
   const ts={}; if($("ts_tot_on")?.checked)ts.total={bg:$("ts_tot_bg").value,fg:$("ts_tot_fg").value,bold:$("ts_tot_bold").checked,border:$("ts_tot_bd").checked}; if($("ts_sub_on")?.checked)ts.sub={bg:$("ts_sub_bg").value,fg:$("ts_sub_fg").value,bold:$("ts_sub_bold").checked,border:$("ts_sub_bd").checked}; if(Object.keys(ts).length)v.totStyle=ts; else if($("ts_tot_on"))delete v.totStyle; }
   if(document.querySelector(".fxlist"))readFx(v); }
 function readKpi(v){ v.label=$("e_label")?.value||v.title; v.kind=$("e_kind")?.value||"money"; v.isPct=$("e_pct")?.value==="1"; if($("e_sqlcy")&&!LIVE)v.sqlCY=$("e_sqlcy").value; if($("e_sqltgt")&&!LIVE)v.sqlTGT=$("e_sqltgt").value; }
