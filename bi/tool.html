@@ -508,12 +508,14 @@ function fmtComposerHTML(spec){ spec=cfSpecOf(spec); const sel=(cls,w,opts,val)=
     +sel('cf-d',74,[['auto','dec: auto'],['0','0 dec'],['1','1 dec'],['2','2 dec'],['3','3 dec']],spec.d)
     +sel('cf-sc',82,[['none','escala: ×1'],['k','×1000 K'],['m','×1M M'],['auto','auto K/M']],spec.sc)
     +sel('cf-sep',70,[['1','miles: sí'],['0','miles: no']],spec.sep?'1':'0'); }
-function readFmtComposer(r){ const g=c=>r.querySelector('.'+c); const u=(g('cf-u')||{}).value||'none', d=(g('cf-d')||{}).value||'auto', sc=(g('cf-sc')||{}).value||'none', sep=(g('cf-sep')?(g('cf-sep').value==='1'):true);
-  if(u==='none'&&d==='auto'&&sc==='none'&&sep)return null;   // todo por defecto → sin formato propio
+function readFmtComposer(r,force){ const g=c=>r.querySelector('.'+c); const u=(g('cf-u')||{}).value||'none', d=(g('cf-d')||{}).value||'auto', sc=(g('cf-sc')||{}).value||'none', sep=(g('cf-sep')?(g('cf-sep').value==='1'):true);
+  if(u==='none'&&d==='auto'&&sc==='none'&&sep&&!force)return null;   // todo por defecto → sin formato propio (force=true en visual-level, siempre devuelve spec)
   const o={u}; o.d=(d==='auto')?'auto':parseInt(d,10); o.sc=sc; if(!sep)o.sep=false; return o; }
 function fmtValue(v,kind){ if(v==null||isNaN(v))return "–"; if(kind&&typeof kind==='object')return formatNumber(v,kind);
   return formatNumber(v,FMT_PRESETS[kind]||FMT_PRESETS.money); }
-function fmtAxis(x,fmt){ if(fmt==="pct")return Math.round(x*100)+"%"; if(fmt==="money"||fmt==="int")return Math.abs(x)>=1000?nf(x/1000,0)+"k":nf(x,0); return nf(x,0); }
+function fmtAxis(x,fmt){ if(fmt&&typeof fmt==='object')return formatNumber(x,fmt);
+  if(fmt==="pct")return Math.round(x*100)+"%"; if(fmt==="money"||fmt==="int")return Math.abs(x)>=1000?nf(x/1000,0)+"k":nf(x,0);
+  if(FMT_PRESETS[fmt])return formatNumber(x,FMT_PRESETS[fmt]); return nf(x,0); }
 function fmtCell(v,fmt){ if(typeof v!=="number")return esc(v); if(fmt&&fmt!=="num")return fmtValue(v,fmt); return Number.isInteger(v)?nf(v,0):nf(v,2); }
 
 /* ─ formateador + resaltado SQL ─ */
@@ -3050,7 +3052,7 @@ window.addSlicer=async()=>{ const slTable=$("as_table").value,slColumn=$("as_col
 /* ═══════════ Registro de tipos de visual (VIS) ═══════════
    Añadir un tipo = añadir UNA entrada en VIS (engine, shape, defaults, formato, read, render).
    Los puntos genéricos (dispatch, init, editor, lectura, menú, forma) leen de aquí. */
-function fmtChart(v){ let h=`<div class="row"><div><label>Color</label>${colorField("e_color",v.color||"#3D65A8")}</div><div><label>Formato nº</label><select id="e_fmt">${["money","autoeur","keur","meur","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
+function fmtChart(v){ let h=`<div class="row"><div><label>Color</label>${colorField("e_color",v.color||"#3D65A8")}</div><div><label>Formato nº</label><div id="e_fmtbox">${fmtComposerHTML(v.fmt)}</div></div></div>
     <div class="row" style="margin-top:6px"><div><label>X (col)</label><input id="e_x2" type="text" value="${esc(v.x2||"k")}"></div><div><label>Y (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div><div><label>Serie (col)</label><input id="e_series" type="text" value="${esc(v.series||"series")}"></div></div>
       <div class="row"><div><label>Valores</label><select id="e_dl">${["none","top","inside"].map(k=>`<option ${v.dataLabels===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Apilado</label><select id="e_stacked"><option value="0" ${!v.stacked?"selected":""}>no</option><option value="1" ${v.stacked?"selected":""}>sí</option></select></div><div><label>100%</label><select id="e_s100"><option value="0" ${!v.stack100?"selected":""}>no</option><option value="1" ${v.stack100?"selected":""}>sí</option></select></div><div><label>Horizontal</label><select id="e_horiz"><option value="0" ${!v.horizontal?"selected":""}>no</option><option value="1" ${v.horizontal?"selected":""}>sí</option></select></div></div>
       <div class="row"><div><label>Ordenar</label><select id="e_sort">${["","desc","asc"].map(k=>`<option value="${k}" ${v.sort===k?"selected":""}>${k||"no"}</option>`).join("")}</select></div><div><label>Color por valor (barras)</label><select id="e_cs"><option value="" ${!v.colorScale?"selected":""}>no</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.colorScale===k?"selected":""}>${k}</option>`).join("")}</select></div></div>`;
@@ -3061,41 +3063,41 @@ function fmtChart(v){ let h=`<div class="row"><div><label>Color</label>${colorFi
     <div class="hint">Barra/línea y eje se deciden por el nombre de la serie. En la SQL, <code>series</code> es la métrica (p. ej. filas 'Producción' y 'Ocupación %').</div></div>`;
   return h; }
 function fmtPie(v){ const donut=v.type==="donut"; const pal=v.palette||(v.blue?"blue":"multi");
-  return `<div class="row"><div><label>Esquema de color</label><select id="e_pal" onchange="pieColorToggle()"><option value="multi" ${pal==="multi"?"selected":""}>Paleta (un color por porción)</option><option value="scale" ${pal==="scale"||pal==="blue"?"selected":""}>Gradiente por valor</option><option value="single" ${pal==="single"?"selected":""}>Un solo color</option></select></div><div><label>Formato nº</label><select id="e_fmt">${["money","autoeur","keur","meur","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
+  return `<div class="row"><div><label>Esquema de color</label><select id="e_pal" onchange="pieColorToggle()"><option value="multi" ${pal==="multi"?"selected":""}>Paleta (un color por porción)</option><option value="scale" ${pal==="scale"||pal==="blue"?"selected":""}>Gradiente por valor</option><option value="single" ${pal==="single"?"selected":""}>Un solo color</option></select></div><div><label>Formato nº</label><div id="e_fmtbox">${fmtComposerHTML(v.fmt)}</div></div></div>
     <div class="row"><div id="e_colorwrap" style="${pal==="single"?"":"display:none"}"><label>Color único</label>${colorField("e_color",v.color||"#3D65A8")}</div><div id="e_cswrap" style="${pal==="scale"?"":"display:none"}"><label>Gradiente</label><select id="e_cs"><option value="" ${!v.colorScale?"selected":""}>teal</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.colorScale===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
     <div class="row" style="margin-top:6px"><div><label>Etiquetas % en porciones</label><select id="e_slice"><option value="1" ${v.sliceLabels!==false?"selected":""}>sí</option><option value="0" ${v.sliceLabels===false?"selected":""}>no</option></select></div>${donut?`<div><label>Valor en el centro</label><select id="e_center"><option value="1" ${v.centerLabel!==false?"selected":""}>sí</option><option value="0" ${v.centerLabel===false?"selected":""}>no</option></select></div><div><label>Texto bajo el centro</label><input id="e_ctext" type="text" value="${esc(v.centerText||"Total")}"></div>`:""}</div>`; }
 function fmtKpi(v){ return `<div class="row"><div><label>Etiqueta</label><input id="e_label" type="text" value="${esc(v.label||"")}"></div><div><label>Formato</label><select id="e_kind">${["money","int","pct","ratio"].map(k=>`<option ${v.kind===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>%</label><select id="e_pct"><option value="0" ${!v.isPct?"selected":""}>no</option><option value="1" ${v.isPct?"selected":""}>sí</option></select></div></div>`; }
-function fmtMap(v){ return `<div class="row"><div><label>Gradiente (color por valor)</label><select id="e_cs"><option value="" ${!v.colorScale?"selected":""}>teal</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.colorScale===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Formato nº</label><select id="e_fmt">${["money","autoeur","keur","meur","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
+function fmtMap(v){ return `<div class="row"><div><label>Gradiente (color por valor)</label><select id="e_cs"><option value="" ${!v.colorScale?"selected":""}>teal</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.colorScale===k?"selected":""}>${k}</option>`).join("")}</select></div><div><label>Formato nº</label><div id="e_fmtbox">${fmtComposerHTML(v.fmt)}</div></div></div>
     <div class="row"><div><label>Leyenda (visualMap)</label><select id="e_legend"><option value="1" ${v.legend!==false?"selected":""}>sí</option><option value="0" ${v.legend===false?"selected":""}>no</option></select></div><div><label>Tipo de leyenda</label><select id="e_vmtype"><option value="continuous" ${v.vmType!=="piecewise"?"selected":""}>continua (gradiente)</option><option value="piecewise" ${v.vmType==="piecewise"?"selected":""}>por tramos</option></select></div></div>
     <div class="row"><div><label>Zoom/arrastre (roam)</label><select id="e_roam"><option value="1" ${v.roam!==false?"selected":""}>sí</option><option value="0" ${v.roam===false?"selected":""}>no</option></select></div><div><label>Nombres de país</label><select id="e_maplabels"><option value="0" ${!v.mapLabels?"selected":""}>no</option><option value="1" ${v.mapLabels?"selected":""}>sí</option></select></div></div>
     <div class="hint">Forma SQL: <code>k</code> = país (nombre en inglés, p.ej. <code>Spain</code>), <code>v</code> = valor. El SQL por defecto hace el <code>CASE</code> de ISO2 → nombre.</div>`; }
 function fmtSankey(v){ const nf=id=>`<select id="${id}">${["money","int","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
-  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div><div><label>Orientación</label><select id="e_sankorient"><option value="horizontal" ${v.orient!=="vertical"?"selected":""}>horizontal</option><option value="vertical" ${v.orient==="vertical"?"selected":""}>vertical</option></select></div></div>
+  return `<div class="row"><div><label>Formato nº</label><div id="e_fmtbox">${fmtComposerHTML(v.fmt)}</div></div><div><label>Orientación</label><select id="e_sankorient"><option value="horizontal" ${v.orient!=="vertical"?"selected":""}>horizontal</option><option value="vertical" ${v.orient==="vertical"?"selected":""}>vertical</option></select></div></div>
     <div class="row" style="margin-top:6px"><div><label>Origen (col)</label><input id="e_csource" type="text" value="${esc(v.cSource||"source")}"></div><div><label>Destino (col)</label><input id="e_ctarget" type="text" value="${esc(v.cTarget||"target")}"></div><div><label>Valor (col)</label><input id="e_cvalue" type="text" value="${esc(v.cValue||"v")}"></div></div>
     <div class="hint">Forma SQL: <code>source</code>, <code>target</code>, <code>v</code> (un enlace por fila). Encadena niveles con más filas (p. ej. canal→grupo y grupo→país).</div>`; }
 function fmtTreemap(v){ const nf=id=>`<select id="${id}">${["money","int","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
-  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div></div>
+  return `<div class="row"><div><label>Formato nº</label><div id="e_fmtbox">${fmtComposerHTML(v.fmt)}</div></div></div>
     <div class="row" style="margin-top:6px"><div><label>Hoja / etiqueta (col)</label><input id="e_x2" type="text" value="${esc(v.x2||"k")}"></div><div><label>Grupo / padre (col, opc.)</label><input id="e_tgroup" type="text" value="${esc(v.treeGroup||"group")}"></div><div><label>Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div></div>
     <div class="hint">Forma SQL: <code>k</code> (hoja), <code>v</code> (valor) y opcional <code>group</code> (padre) para anidar en 2 niveles.</div>`; }
 function fmtWaterfall(v){ const nf=id=>`<select id="${id}">${["money","int","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
-  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div><div><label>Barra de Total al final</label><select id="e_watertotal"><option value="1" ${v.waterTotal!==false?"selected":""}>sí</option><option value="0" ${v.waterTotal===false?"selected":""}>no</option></select></div></div>
+  return `<div class="row"><div><label>Formato nº</label><div id="e_fmtbox">${fmtComposerHTML(v.fmt)}</div></div><div><label>Barra de Total al final</label><select id="e_watertotal"><option value="1" ${v.waterTotal!==false?"selected":""}>sí</option><option value="0" ${v.waterTotal===false?"selected":""}>no</option></select></div></div>
     <div class="row" style="margin-top:6px"><div><label>Categoría (col)</label><input id="e_x2" type="text" value="${esc(v.x2||"k")}"></div><div><label>Δ Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div></div>
     <div class="row"><div><label>Color +</label>${colorField("e_poscolor",v.posColor||"#56B14E")}</div><div><label>Color −</label>${colorField("e_negcolor",v.negColor||"#A0453D")}</div><div><label>Etiquetas</label><select id="e_dl">${["none","top"].map(k=>`<option ${(v.dataLabels||"none")===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
     <div class="hint">Forma SQL: <code>k</code> (categoría), <code>v</code> (aporte, +/-). Barras flotantes acumuladas; opcional Total al final.</div>`; }
 function fmtRadar(v){ const nf=id=>`<select id="${id}">${["money","int","num","pct"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
-  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div><div><label>Color (serie única)</label>${colorField("e_color",v.color||"#3D65A8")}</div></div>
+  return `<div class="row"><div><label>Formato nº</label><div id="e_fmtbox">${fmtComposerHTML(v.fmt)}</div></div><div><label>Color (serie única)</label>${colorField("e_color",v.color||"#3D65A8")}</div></div>
     <div class="row" style="margin-top:6px"><div><label>Indicador (col)</label><input id="e_x2" type="text" value="${esc(v.x2||"k")}"></div><div><label>Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div><div><label>Serie (col, opc.)</label><input id="e_series" type="text" value="${esc(v.series||"series")}"></div></div>
     <div class="hint">Forma SQL: <code>k</code> (eje/indicador), <code>v</code> (valor), opcional <code>series</code> para comparar varios.</div>`; }
 function fmtGauge(v){ const nf=id=>`<select id="${id}">${["pct","money","int","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
-  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div><div><label>Color</label>${colorField("e_color",v.color||"#3D65A8")}</div></div>
+  return `<div class="row"><div><label>Formato nº</label><div id="e_fmtbox">${fmtComposerHTML(v.fmt)}</div></div><div><label>Color</label>${colorField("e_color",v.color||"#3D65A8")}</div></div>
     <div class="row" style="margin-top:6px"><div><label>Máximo <span class="hint">(vacío=auto; pct→1)</span></label><input id="e_gaugemax" type="text" value="${esc(v.gaugeMax!=null?v.gaugeMax:"")}"></div><div><label>Etiqueta</label><input id="e_gaugelabel" type="text" value="${esc(v.gaugeLabel||"")}"></div><div><label>Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div></div>
     <div class="hint">Forma SQL: 1 fila con <code>v</code> (y opcional <code>max</code>). Con formato <code>pct</code> el máximo es 1.</div>`; }
 function fmtFunnel(v){ const nf=id=>`<select id="${id}">${["money","int","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
-  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div></div>
+  return `<div class="row"><div><label>Formato nº</label><div id="e_fmtbox">${fmtComposerHTML(v.fmt)}</div></div></div>
     <div class="row" style="margin-top:6px"><div><label>Etapa (col)</label><input id="e_x2" type="text" value="${esc(v.x2||"k")}"></div><div><label>Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div></div>
     <div class="hint">Forma SQL: <code>k</code> (etapa), <code>v</code> (valor). Se ordena de mayor a menor.</div>`; }
 function fmtPareto(v){ const nf=id=>`<select id="${id}">${["money","int","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
-  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div><div><label>Color barras</label>${colorField("e_color",v.color||"#3D65A8")}</div></div>
+  return `<div class="row"><div><label>Formato nº</label><div id="e_fmtbox">${fmtComposerHTML(v.fmt)}</div></div><div><label>Color barras</label>${colorField("e_color",v.color||"#3D65A8")}</div></div>
     <div class="row" style="margin-top:6px"><div><label>Categoría (col)</label><input id="e_x2" type="text" value="${esc(v.x2||"k")}"></div><div><label>Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div></div>
     <div class="hint">Forma SQL: <code>k</code>, <code>v</code>. Barras (desc) + línea acumulada % (2º eje) con marca al 80%.</div>`; }
 function fmtScatter(v){ const nf=(id,val)=>`<select id="${id}">${["num","money","int","pct"].map(k=>`<option ${val===k?"selected":""}>${k}</option>`).join("")}</select>`;
@@ -3105,12 +3107,12 @@ function fmtScatter(v){ const nf=(id,val)=>`<select id="${id}">${["num","money",
     <div class="row"><div><label>Color por (col) <span class="hint">leyenda</span></label><input id="e_colorby" type="text" value="${esc(v.colorBy||"")}" placeholder="k = un color por punto"></div><div><label>Etiquetas en puntos</label><select id="e_scatterlabel">${[["none","no"],["name","etiqueta"],["x","valor X"],["y","valor Y"],["z","tamaño"]].map(([k,l])=>`<option value="${k}" ${(v.scatterLabel||"none")===k?"selected":""}>${l}</option>`).join("")}</select></div><div><label>Nombre del tamaño</label><input id="e_zname" type="text" value="${esc(v.zName||"Producción")}"></div></div>
     <div class="hint">Forma SQL: <code>x</code>, <code>y</code> (numéricos), opcional <code>z</code> (tamaño de burbuja) y <code>k</code> (etiqueta). «Color por» agrupa en leyenda; <code>k</code> = un color por punto.</div>`; }
 function fmtCalheat(v){ const nf=id=>`<select id="${id}">${["int","num","money","pct"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select>`;
-  return `<div class="row"><div><label>Formato nº</label>${nf("e_fmt")}</div><div><label>Gradiente</label><select id="e_cs"><option value="" ${!v.colorScale?"selected":""}>teal</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.colorScale===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
+  return `<div class="row"><div><label>Formato nº</label><div id="e_fmtbox">${fmtComposerHTML(v.fmt)}</div></div><div><label>Gradiente</label><select id="e_cs"><option value="" ${!v.colorScale?"selected":""}>teal</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${v.colorScale===k?"selected":""}>${k}</option>`).join("")}</select></div></div>
     <div class="row" style="margin-top:6px"><div><label>Fecha (col)</label><input id="e_datecol" type="text" value="${esc(v.dateCol||"d")}"></div><div><label>Valor (col)</label><input id="e_y2" type="text" value="${esc(v.y2||"v")}"></div></div>
     <div class="hint">Forma SQL: <code>d</code> (fecha YYYY-MM-DD), <code>v</code> (valor por día). Rejilla anual.</div>`; }
 function colRowHTML(name,cc){ cc=cc||{}; return `<div class="colrow" style="display:flex;gap:5px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
     <input class="cr-name" type="text" value="${escA(name||"")}" placeholder="columna" style="flex:1 1 90px;min-width:90px;width:auto">
-    <select class="cr-fmt" style="width:84px">${["","money","int","pct","num"].map(f=>`<option value="${f}" ${(cc.fmt||"")===f?"selected":""}>${f||"fmt…"}</option>`).join("")}</select>
+    ${fmtComposerHTML(cc.fmt)}
     <select class="cr-heat" style="width:78px"><option value="">heat…</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${cc.heat===k?"selected":""}>${k}</option>`).join("")}</select>
     <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="cr-bar" ${cc.bar?"checked":""}>bar</label>
     <label class="fxrow2" style="white-space:nowrap;margin:0"><input type="checkbox" class="cr-arrow" ${cc.arrow?"checked":""}>▲▼</label>
@@ -3183,14 +3185,14 @@ function fmtTable(v,id){ return `<div class="row">${fmtNumField(v)}<div><label>F
       <div class="hint">Agrupa la tabla por estas columnas en orden, plegable con ▸/▾ (subtotales en columnas aditivas). La última es la hoja; las columnas de nivel dejan de mostrarse como columnas de valor. Vacío = tabla plana.</div></div>`; }
 function groupCtrl(v){ return CP().visuals.find(x=>x.type==="metricgroup"&&(x.id===v.group||(x.targets||[]).includes(v.id)))||null; }
 function mfRowHTML(c,hb){ c=c||{}; const heatBar=hb?`<select class="mf-heat" style="width:74px;height:28px;flex:0 0 auto"><option value="">heat…</option>${Object.keys(SCALES).map(k=>`<option value="${k}" ${c.heat===k?"selected":""}>${k}</option>`).join("")}</select><label class="fxrow2" style="white-space:nowrap;margin:0;flex:0 0 auto"><input type="checkbox" class="mf-bar" ${c.bar?"checked":""}>bar</label><label class="fxrow2" style="white-space:nowrap;margin:0;flex:0 0 auto"><input type="checkbox" class="mf-arrow" ${c.arrow?"checked":""}>▲▼</label>`:"";
-  return `<div class="mfmt-row" data-cid="${escA(c.id||"")}" style="display:flex;gap:8px;align-items:center;padding:6px 2px;border-bottom:1px solid var(--border);flex-wrap:nowrap"><span style="flex:1 1 auto;min-width:120px;font-size:12.5px;font-weight:600;color:var(--teal-d)">${esc(c.label||c.id||"")}</span><select class="mf-fmt" style="width:104px;height:28px;flex:0 0 auto">${["","money","int","pct","num"].map(f=>`<option value="${f}" ${(c.fmt||"")===f?"selected":""}>${f||"formato…"}</option>`).join("")}</select>${heatBar}</div>`; }
+  return `<div class="mfmt-row" data-cid="${escA(c.id||"")}" style="display:flex;gap:8px;align-items:center;padding:6px 2px;border-bottom:1px solid var(--border);flex-wrap:nowrap"><span style="flex:1 1 auto;min-width:120px;font-size:12.5px;font-weight:600;color:var(--teal-d)">${esc(c.label||c.id||"")}</span>${fmtComposerHTML(c.fmt)}${heatBar}</div>`; }
 function fmtNumField(v){ const g=groupCtrl(v);
   if(g){ const chips=g.chips||[]; const hb=v.type==="matrix"; return `<div><label>Formato por métrica · grupo «${esc(g.label||'Métrica')}»</label>
     <div id="mfmtgrid" data-gid="${escA(g.id)}" style="border:1px solid var(--border);border-radius:8px;padding:6px 8px;background:var(--surface)">${chips.map(c=>mfRowHTML(c,hb)).join("")}</div>
     <div class="hint">Cada métrica: formato${hb?" · heat · barra":""}, se aplica al elegirla. Se guarda en el grupo (a todos los visuales que lo usan).</div></div>`; }
-  return `<div><label>Formato nº</label><select id="e_fmt">${["money","autoeur","keur","meur","int","pct","num"].map(k=>`<option ${v.fmt===k?"selected":""}>${k}</option>`).join("")}</select></div>`; }
+  return `<div><label>Formato nº</label><div id="e_fmtbox">${fmtComposerHTML(v.fmt)}</div></div>`; }
 function readMetricFmts(){ const grid=$("mfmtgrid"); if(!grid)return; const g=CP().visuals.find(x=>x.id===grid.getAttribute("data-gid")); if(!g)return;
-  grid.querySelectorAll(".mfmt-row").forEach(r=>{ const chip=(g.chips||[]).find(c=>c.id===r.getAttribute("data-cid")); if(!chip)return; const f=(r.querySelector(".mf-fmt")?.value||"").trim(); if(f)chip.fmt=f; else delete chip.fmt;
+  grid.querySelectorAll(".mfmt-row").forEach(r=>{ const chip=(g.chips||[]).find(c=>c.id===r.getAttribute("data-cid")); if(!chip)return; const sp=readFmtComposer(r); if(sp)chip.fmt=sp; else delete chip.fmt;
     const hs=r.querySelector(".mf-heat"); if(hs){ const h=hs.value.trim(); if(h)chip.heat=h; else delete chip.heat; }
     const bc=r.querySelector(".mf-bar"); if(bc){ if(bc.checked)chip.bar=true; else delete chip.bar; }
     const ac=r.querySelector(".mf-arrow"); if(ac){ if(ac.checked)chip.arrow=true; else delete chip.arrow; } }); }
@@ -3212,7 +3214,7 @@ function fmtMatrix(v){ const grp=groupCtrl(v); const hbCells=grp?"":`<div><label
       </div></details>
     <div class="hint">Celdas = la medida. Forma SQL: <code>row</code>, <code>col</code>, <code>v</code> (+ <code>colOrd</code>, y opcional <code>fmt</code>/<code>arrow</code> por fila).</div>`; }
 /* lecturas del editor → objeto del visual */
-function readGraphic(v){ if($("e_color"))v.color=$("e_color").value; if($("e_fmt"))v.fmt=$("e_fmt").value;
+function readGraphic(v){ if($("e_color"))v.color=$("e_color").value; const _fb=$("e_fmtbox"); if(_fb)v.fmt=readFmtComposer(_fb,true);
   if($("e_x2"))v.x2=$("e_x2").value.trim()||"k"; if($("e_y2"))v.y2=$("e_y2").value.trim()||"v"; if($("e_series"))v.series=$("e_series").value.trim()||"series";
   if($("e_dl"))v.dataLabels=$("e_dl").value; if($("e_stacked"))v.stacked=$("e_stacked").value==="1"; if($("e_s100"))v.stack100=$("e_s100").value==="1"; if($("e_horiz"))v.horizontal=$("e_horiz").value==="1";
   if($("e_sort"))v.sort=$("e_sort").value; if($("e_cs"))v.colorScale=$("e_cs").value||undefined; if($("e_blue"))v.blue=$("e_blue").value==="1"; if($("e_sql")&&!LIVE)commitSQLText(v,$("e_sql").value);
@@ -3237,7 +3239,7 @@ function readTable(v){ readMetricFmts(); if($("e_fmt"))v.fmt=$("e_fmt").value; i
   const crows=document.querySelectorAll("#colgrid .colrow");
   if(crows.length){ const prev=v.cols||{}; const cols={};
     crows.forEach(r=>{ const name=(r.querySelector(".cr-name")?.value||"").trim(); if(!name)return; const o={};
-      const f=r.querySelector(".cr-fmt")?.value; if(f)o.fmt=f;
+      const sp=readFmtComposer(r); if(sp)o.fmt=sp;
       const h=r.querySelector(".cr-heat")?.value; if(h)o.heat=h;
       if(r.querySelector(".cr-bar")?.checked)o.bar=(typeof prev[name]?.bar==="string")?prev[name].bar:true;
       if(r.querySelector(".cr-arrow")?.checked)o.arrow=true;
@@ -3425,7 +3427,7 @@ function commitSQLText(v,txt){ if(v.group&&_editMetricId){ (v.metricSQL=v.metric
 window.mgBind=()=>{ const v=CP().visuals[_editIdx]; if(!v)return; v.group=$("e_group").value||undefined; if(v.group&&!v.metricSQL)v.metricSQL={}; _editMetricId=null; attachFsEditor(v,v.id); fsPreview(); };
 window.mgEditChip=cid=>{ const v=CP().visuals[_editIdx]; const g=metricGroupOf(v); if(!g||!(g.chips||[]).some(c=>c.id===cid))return;
   if($("e_sql"))commitSQLText(v,$("e_sql").value); _editMetricId=cid; attachFsEditor(v,v.id); fsPreview(); };
-function wireLive(){ const pane=$("fs_right"); const h=e=>{ const t=e.target; if(!t)return; if(t.id==="e_group"){ mgBind(); return; } if(/^(e_sql|e_sqlcy|e_sqltgt|e_json)$/.test(t.id))return; if(!t.id && !t.closest("#colgrid,#mgchiprows,#mfmtgrid"))return;
+function wireLive(){ const pane=$("fs_right"); const h=e=>{ const t=e.target; if(!t)return; if(t.id==="e_group"){ mgBind(); return; } if(/^(e_sql|e_sqlcy|e_sqltgt|e_json)$/.test(t.id))return; if(!t.id && !t.closest("#colgrid,#mgchiprows,#mfmtgrid,#e_fmtbox,#axgrid"))return;
     clearTimeout(_liveT); _liveT=setTimeout(async()=>{ const v=CP().visuals[_editIdx]; if(!v)return; LIVE=true; try{ await readEditor(v); }catch(err){} LIVE=false; await fsPreview(); }, 70); };
   pane.oninput=h; pane.onchange=h; }
 window.fsRunSQL=async()=>{ const v=CP().visuals[_editIdx]; if(!v)return; if($("e_sql"))commitSQLText(v,$("e_sql").value); if($("e_sqlcy"))v.sqlCY=$("e_sqlcy").value; if($("e_sqltgt"))v.sqlTGT=$("e_sqltgt").value; if($("e_html"))v.html=$("e_html").value; await fsPreview(); };
