@@ -2641,6 +2641,7 @@ function totVars(v){ const cfg=v&&v.totStyle; if(!cfg)return ""; let o=""; const
 function renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels){
   const SEP="␟"; const groupLevels=levels.slice(0,-1); const leafLabel=levels[levels.length-1]; const valueCols=cols.filter(c=>!levels.includes(c));
   const stats={}; valueCols.forEach(c=>{ if(isNum(c)){ const vs=rows.map(r=>r[c]).filter(x=>typeof x==="number"); if(vs.length)stats[c]={mn:Math.min(...vs),mx:Math.max(...vs)}; }});
+  if(st.leafOnly) return renderHierLeafOnly(v,rows,cfg,st,el,isNum,fmtOf,leafLabel,valueCols);   // #87: ver solo el nivel más profundo
   const grp=(arr,lvls)=>{ const [lv,...rest]=lvls; const m=new Map(); arr.forEach(r=>{ const k=r[lv]==null?"∅":String(r[lv]); if(!m.has(k))m.set(k,[]); m.get(k).push(r); }); return [...m.entries()].map(([k,rs])=>({key:k,rows:rs,kids:rest.length?grp(rs,rest):null})); };
   const tree=grp(rows,groupLevels);
   const nodeList=[]; (function collect(nodes,parent,depth){ nodes.forEach(n=>{ const pk=(parent?parent+SEP:"")+n.key; nodeList.push({pathKey:pk,parentKey:parent||null,depth}); if(n.kids)collect(n.kids,pk,depth+1); }); })(tree,"",0);
@@ -2664,8 +2665,31 @@ function renderTableHier(v,rows,cols,cfg,st,el,isNum,fmtOf,levels){
   }); })(tree,0,"");
   const head=`<tr><th>${esc(levels.join(" / "))}</th>${valueCols.map(c=>`<th class="${isNum(c)?'num':''}" ${v.sortable!==false?`onclick="tblSort('${v.id}','${escA(c)}')" style="cursor:pointer"`:""}>${esc(c)}${st.sortCol===c?(st.sortDir==="asc"?" ▲":" ▼"):""}</th>`).join("")}</tr>`;
   let totals=""; if(v.totals){ totals=`<tr class="tbl-tot"><td>Total</td>${valueCols.map(c=>{ const s=_subtot(rows,c,isNum,cfg[c]||{}); return `<td class="num">${s==null?"":fmtCell(s,fmtOf(c))}</td>`; }).join("")}</tr>`; }
-  const bar=`<div style="display:flex;gap:6px;margin-bottom:6px"><button class="sm" onclick="tblExpandAll('${v.id}')">⊞ Expandir todo</button><button class="sm" onclick="tblCollapseAll('${v.id}')">⊟ Colapsar todo</button><button class="sm" onclick="tblExpandNext('${v.id}')">▸ Siguiente nivel</button></div>`;
+  const bar=hierBar(v,st,leafLabel);
   el.innerHTML=tableFxCSS(v.id,buildFx(v))+bar+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}"><table class="dt"${totVars(v)}><thead>${head}</thead><tbody>${out.join("")}${totals}</tbody></table></div>`;
+}
+function hierBar(v,st,leafLabel){ const leaf=!!st.leafOnly;
+  const t=`<button class="sm" style="${leaf?'background:var(--teal);color:#fff;border-color:var(--teal)':''}" onclick="tblLeafOnly('${v.id}')" title="Ver solo el nivel más profundo (${esc(leafLabel)})">${leaf?'▣':'▢'} Solo ${esc(leafLabel)}</button>`;
+  if(leaf) return `<div style="display:flex;gap:6px;margin-bottom:6px">${t}</div>`;
+  return `<div style="display:flex;gap:6px;margin-bottom:6px"><button class="sm" onclick="tblExpandAll('${v.id}')">⊞ Expandir todo</button><button class="sm" onclick="tblCollapseAll('${v.id}')">⊟ Colapsar todo</button><button class="sm" onclick="tblExpandNext('${v.id}')">▸ Siguiente nivel</button>${t}</div>`; }
+window.tblLeafOnly=id=>{ const st=TBL_STATE[id]=TBL_STATE[id]||{}; st.leafOnly=!st.leafOnly; const v=CP().visuals.find(x=>x.id===id); if(v)renderTable(v); };
+function renderHierLeafOnly(v,rows,cfg,st,el,isNum,fmtOf,leafLabel,valueCols){
+  const m=new Map(); rows.forEach(r=>{ const k=r[leafLabel]==null?"∅":String(r[leafLabel]); if(!m.has(k))m.set(k,[]); m.get(k).push(r); });
+  let leaves=[...m.entries()].map(([k,rs])=>({key:k,rows:rs}));
+  const valOf=(n,c)=>_subtot(n.rows,c,isNum,cfg[c]||{});
+  if(st.sortCol&&valueCols.includes(st.sortCol)){ const d=st.sortDir==="asc"?1:-1; leaves.sort((a,b)=>{ const x=valOf(a,st.sortCol),y=valOf(b,st.sortCol); if(x==null)return 1; if(y==null)return -1; return (x>y?1:x<y?-1:0)*d; }); }
+  const lstats={}; valueCols.forEach(c=>{ if(isNum(c)){ const vs=leaves.map(n=>valOf(n,c)).filter(x=>typeof x==="number"); if(vs.length)lstats[c]={mn:Math.min(...vs),mx:Math.max(...vs)}; }});
+  const th=c=>`<th class="${isNum(c)?'num':''}" ${v.sortable!==false?`onclick="tblSort('${v.id}','${escA(c)}')" style="cursor:pointer"`:""}>${esc(c)}${st.sortCol===c?(st.sortDir==="asc"?" ▲":" ▼"):""}</th>`;
+  const head=`<tr><th ${v.sortable!==false?`onclick="tblSort('${v.id}','${escA(leafLabel)}')" style="cursor:pointer"`:""}>${esc(leafLabel)}</th>${valueCols.map(th).join("")}</tr>`;
+  const cfRow=cfEmits(v,"row");
+  const body=leaves.map(n=>{ const cfA=cfRow?` data-k="${escA(n.key)}" onclick="cfCellClick('${v.id}','row',this.dataset.k,event)" style="cursor:pointer"`:"";
+    const cells=valueCols.map(c=>{ const cc=cfg[c]||{}; const s=valOf(n,c); const num=isNum(c)&&typeof s==="number"; let style="",inner;
+      if(num){ const f=fmtOf(c); if(cc.arrow){const up=s>=0;inner=`<span style="color:${up?'#2F7A34':'#b4322a'}">${up?'▲':'▼'} ${fmtCell(Math.abs(s),f)}</span>`;} else inner=fmtCell(s,f); if(cc.heat&&lstats[c])style+=condStyle(s,lstats[c].mn,lstats[c].mx,cc.heat); if(cc.bar&&lstats[c])inner=condBar(inner,s,lstats[c].mn,lstats[c].mx,cc.bar); }
+      else inner = s==null?"":esc(s);
+      return `<td class="${isNum(c)?'num':''}" style="${style}">${inner}</td>`; }).join("");
+    return `<tr${cfA}><td>${esc(n.key)}</td>${cells}</tr>`; }).join("");
+  let totals=""; if(v.totals){ totals=`<tr class="tbl-tot"><td>Total</td>${valueCols.map(c=>{ const s=_subtot(rows,c,isNum,cfg[c]||{}); return `<td class="num">${s==null?"":fmtCell(s,fmtOf(c))}</td>`; }).join("")}</tr>`; }
+  el.innerHTML=tableFxCSS(v.id,buildFx(v))+hierBar(v,st,leafLabel)+`<div class="tbl-wrap${v.sticky?' sticky':''}${v.zebra?' zebra':''}"><table class="dt"${totVars(v)}><thead>${head}</thead><tbody>${body}${totals}</tbody></table></div>`;
 }
 async function renderTable(v){ const rows=await q(applyRF(applyWhere(effSQL(v),null,v),v)); const el=$("body_"+v.id); if(!rows.length){el.innerHTML=`<div class="hint">sin filas</div>`;return;}
   const allCols=Object.keys(rows[0]); const hasRK=allCols.includes("_rowkind"); const cols=allCols.filter(c=>c!=="_rowkind"); COLORDER[v.id]=cols; const isNum=c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number");
