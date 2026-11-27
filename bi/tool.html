@@ -308,6 +308,25 @@
   .cte-leg i{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:5px}
   .cte-leg i.ci-page{background:#5d8bc9}
   .cte-leg i.ci-cf{background:#1fb0a0}
+  /* #ed · toolbar + tema claro + modal del editor SQL */
+  .sqltools{display:flex;gap:6px;justify-content:flex-end;margin-bottom:5px}
+  .sqtb{font-size:11px;padding:3px 9px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--muted);cursor:pointer;font-weight:600}
+  .sqtb:hover{border-color:var(--teal);color:var(--teal-d)}
+  .sqtb.on{background:var(--teal);border-color:var(--teal);color:#fff}
+  body.sqllight .sqlwrap{background:#fff;border-color:#c6cdd4}
+  body.sqllight .sqlwrap pre{color:#1a2430}
+  body.sqllight .sqlwrap textarea{caret-color:#0a6158}
+  body.sqllight .tk-kw{color:#0b63c4} body.sqllight .tk-fn{color:#9a6a00} body.sqllight .tk-str{color:#0a7a2f}
+  body.sqllight .tk-com{color:#7a8a86} body.sqllight .tk-tok{color:#b5178e} body.sqllight .tk-num{color:#b5453c} body.sqllight .tk-key{color:#0b63c4}
+  body.sqllight .sqlro{background:#fff;color:#1a2430;border-color:#c6cdd4}
+  body.sqllight .cte-page{background:rgba(93,139,201,.22)}
+  body.sqllight .cte-cf{background:rgba(31,176,160,.24)}
+  .sqlmodal{position:fixed;inset:0;background:rgba(10,20,30,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px}
+  .sqlmbox{background:var(--surface,#fff);border-radius:12px;width:min(1100px,96vw);height:min(80vh,900px);display:flex;flex-direction:column;box-shadow:0 12px 50px rgba(0,0,0,.3);overflow:hidden}
+  .sqlmhead{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);color:var(--teal-d);font-size:13px}
+  .sqlmbox .sqlwrap{flex:1 1 auto;min-height:0;margin:10px;border-radius:8px}
+  .sqlmbox .sqlwrap textarea{height:100%;min-height:0;resize:none}
+  .sqlmbox .sqlwrap pre,.sqlmbox .sqlwrap textarea{font-size:13.5px}
   #cfbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;background:#dcf2ef;border-bottom:1px solid #0e8f82;padding:7px 14px;font-size:12px;box-shadow:0 2px 6px rgba(16,40,50,.08);z-index:5}
   #cfbar .cflab{font-weight:800;color:#0a655c;display:flex;align-items:center;gap:5px;white-space:nowrap}
   #cfbar .cfchips{display:flex;flex-wrap:wrap;gap:6px}
@@ -542,7 +561,21 @@ function hlSQL(code){ let h=esc(code);
   h=h.replace(/(--[^\n]*)/g,'\u0001$1\u0002').replace(/('(?:[^']|'')*')/g,'\u0003$1\u0004').replace(/(\{\{[^}]+\}\}|\$[A-Za-z_][A-Za-z0-9_]*|\[\[[^\]]+\]\])/g,'<span class="tk-tok">$1</span>')
     .replace(SQL_KW,m=>'<span class="tk-kw">'+m+'</span>').replace(SQL_FN,m=>'<span class="tk-fn">'+m+'</span>').replace(/\b(\d+(?:\.\d+)?)\b/g,'<span class="tk-num">$1</span>')
     .replace(/\u0003([^\u0004]*)\u0004/g,'<span class="tk-str">$1</span>').replace(/\u0001([^\u0002]*)\u0002/g,'<span class="tk-com">$1</span>'); return h+"\n"; }
-function attachHL(ta){ attachHLWith(ta,hlSQL); }
+function attachHL(ta){ attachHLWith(ta,hlSQL,true); }
+/* #ed · barra del editor SQL: wrap, tema claro/oscuro (global, persistido) y expandir a modal */
+function sqlToggleWrap(btn){ const t=btn.closest(".sqltools"); const wrap=t&&t.nextElementSibling; if(wrap&&wrap.classList.contains("sqlwrap")){ wrap.classList.toggle("wrap"); btn.classList.toggle("on"); } }
+function sqlToggleTheme(){ const on=document.body.classList.toggle("sqllight"); try{ localStorage.setItem("bd_sqllight",on?"1":"0"); }catch(e){} }
+function sqlExpand(btn){ const t=btn.closest(".sqltools"); const wrap=t&&t.nextElementSibling; const src=wrap&&wrap.querySelector("textarea"); if(!src)return;
+  const ov=document.createElement("div"); ov.className="sqlmodal";
+  ov.innerHTML=`<div class="sqlmbox"><div class="sqlmhead"><b>Editor SQL</b><div style="display:flex;gap:7px"><button type="button" class="sqtb" onclick="sqlToggleTheme()">◐ tema</button><button type="button" class="sqtb" id="sqlm_wrap">⭾ wrap</button><button type="button" class="sqtb" id="sqlm_fmt">⛭ formatear</button><button type="button" class="sqtb" onclick="this.closest('.sqlmodal').remove()">✕ cerrar</button></div></div><textarea id="sqlm_ta" spellcheck="false"></textarea></div>`;
+  document.body.appendChild(ov);
+  const mta=ov.querySelector("#sqlm_ta"); mta.value=src.value;
+  attachHLWith(mta,hlSQL,false); const mwrap=mta.closest(".sqlwrap"); if(mwrap)mwrap.classList.add("wrap");
+  mta.addEventListener("input",()=>{ src.value=mta.value; src.dispatchEvent(new Event("input",{bubbles:true})); });
+  const wb=ov.querySelector("#sqlm_wrap"); if(wb){ wb.classList.add("on"); wb.onclick=()=>{ if(mwrap){ mwrap.classList.toggle("wrap"); wb.classList.toggle("on"); } }; }
+  const fb=ov.querySelector("#sqlm_fmt"); if(fb)fb.onclick=()=>{ mta.value=formatSQL(mta.value); mta.dispatchEvent(new Event("input",{bubbles:true})); };
+  ov.addEventListener("mousedown",e=>{ if(e.target===ov)ov.remove(); });
+  setTimeout(()=>{ try{ mta.focus(); }catch(e){} },30); }
 /* Tab = indentar (2 espacios) en TODOS los editores de código, sin perder el foco.
    Con selección de varias líneas: Tab indenta el bloque, Shift+Tab lo saca. */
 function wireIndent(ta){ const U="  ";
@@ -566,7 +599,12 @@ function wireIndent(ta){ const U="  ";
     ta.dispatchEvent(new Event("input",{bubbles:true}));
   });
 }
-function attachHLWith(ta,fn){ try{ if(ta.dataset.hl)return; ta.dataset.hl="1"; const wrap=document.createElement("div"); wrap.className="sqlwrap"; const pre=document.createElement("pre");
+function attachHLWith(ta,fn,withTools){ try{ if(ta.dataset.hl)return; ta.dataset.hl="1";
+  if(withTools){ try{ if(localStorage.getItem("bd_sqllight")==="1")document.body.classList.add("sqllight"); }catch(e){}
+    const tools=document.createElement("div"); tools.className="sqltools";
+    tools.innerHTML=`<button type="button" class="sqtb" title="Ajuste de línea (wrap)" onclick="sqlToggleWrap(this)">⭾ wrap</button><button type="button" class="sqtb" title="Tema claro/oscuro del editor (afecta a todos)" onclick="sqlToggleTheme()">◐ tema</button><button type="button" class="sqtb" title="Abrir en grande" onclick="sqlExpand(this)">⤢ expandir</button>`;
+    ta.parentNode.insertBefore(tools,ta); }
+  const wrap=document.createElement("div"); wrap.className="sqlwrap"; const pre=document.createElement("pre");
   ta.parentNode.insertBefore(wrap,ta); wrap.appendChild(pre); wrap.appendChild(ta);
   const upd=()=>{pre.innerHTML=fn(ta.value);pre.scrollTop=ta.scrollTop;pre.scrollLeft=ta.scrollLeft;};
   ta.addEventListener("input",upd); ta.addEventListener("scroll",()=>{pre.scrollTop=ta.scrollTop;pre.scrollLeft=ta.scrollLeft;}); wireIndent(ta); upd(); }catch(e){ ta.style.color="#123"; } }
@@ -3347,7 +3385,7 @@ function editorFormHTML(v,id){ const def=VIS[v.type]||{};
     ${(()=>{ const aff=slicerAffects(v.slTable); return `<div class="${aff.length?"cte-note":"cte-warn"}" style="margin-top:7px">${aff.length?`Este slicer filtra <b>${aff.length}</b> visual(es) que usan <code>${esc(v.slTable||"")}</code>: ${aff.map(x=>esc(x.title||x.id)).join(", ")}.`:`⚠ Ningún visual de esta página usa <code>${esc(v.slTable||"")}</code>, así que este slicer <b>no filtra nada</b> todavía. Usa <code>FROM ${esc(v.slTable||"tabla")}</code> en algún visual.`}</div>`; })()}`:"";
   const titleFields=def.title==="none"?"":(def.title==="only"?`<div><label>Título</label><input id="e_title" type="text" value="${esc(v.title||"")}"></div>`:`<div class="row"><div><label>Título</label><input id="e_title" type="text" value="${esc(v.title||"")}"></div><div><label>Subtítulo</label><input id="e_sub" type="text" value="${esc(v.subtitle||"")}"></div></div>`);
   const boxField=boxControlsHTML(v);
-  const generalSec=`<div class="sec"><div class="sech">General</div>${dims}${slFields}${titleFields}${boxField}</div>`;
+  const generalSec=`<div class="sec collapsed"><div class="sech">General</div>${dims}${slFields}${titleFields}${boxField}</div>`;
   let fmtInner=def.formato?def.formato(v,id):"";
   if(def.effects){ const isTbl=def.engine!=="echarts"; fmtInner+=`<div style="margin-top:8px"><label>${isTbl?"Estilo / efectos":"Efectos"} <span class="hint" style="font-weight:400">(marca el checkbox; el JSON de cada uno es editable)</span></label><div class="fxlist">${fxRows(v)}</div>${isTbl?`<div class="hint">Controlan cómo se ve la tabla (ancho, fuente, densidad, alto de fila, ancho de columna, cabecera…). Se aplican como CSS; no cambian los datos.</div>`:""}</div>`;
     if(!isTbl)fmtInner+=`<details class="adv" style="margin-top:8px"><summary>ECharts avanzado (JSON) — se fusiona sobre el gráfico</summary><textarea id="e_echarts" style="min-height:120px;white-space:pre">${esc(v.echartsOption?JSON.stringify(v.echartsOption,null,2):"")}</textarea><div class="hint">Cualquier opción de ECharts, aplicada <b>encima</b> de lo generado (tus claves ganan). Ej.: <code>{"series":[{"roseType":"radius"}]}</code> (donut nightingale) · <code>{"xAxis":{"axisLabel":{"rotate":30}}}</code> · <code>{"dataZoom":[{"type":"slider"}]}</code>. Referencia: echarts.apache.org/en/option.html</div></details>`; }
@@ -3399,10 +3437,10 @@ function editorFormHTML(v,id){ const def=VIS[v.type]||{};
   const hasSQL=!!c&&c!=="text";
   const sqlBtns=hasSQL?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="sm primary" onclick="fsRunSQL()" title="Ejecuta la SQL y actualiza la vista previa de la izquierda">▶ Ejecutar SQL</button><button class="sm" onclick="fmtEditorSQL()" title="Reescribe tu SQL al estilo casa (SELECT en su línea, comas al inicio, WHERE 1=1). No cambia el resultado.">⛭ Formatear</button><button class="sm" onclick="tryQuery('${id}')" title="Ejecuta la query y muestra las columnas que devuelve">▦ Columnas</button><button class="sm" onclick="openExplorer()" title="Abre el explorador de datos a la izquierda">🔎 Explorar</button></div><div class="hint">La SQL <b>no</b> se aplica sola: pulsa <b>▶ Ejecutar SQL</b> para verla en la vista previa. Los demás formatos se aplican <b>en vivo</b>. Todo se guarda al pulsar <b>Guardar</b>.</div>`:"";
   const groupSec=(v.type==="pie"||v.type==="donut")?groupSectionHTML(v):"";
-  const sqlSec=sqlInner?`<div class="sec"><div class="sech">${secTitle}</div>${hasSQL?paramRefHTML(v):""}${hasSQL?cteBlockHTML(v):""}${sqlInner}${sqlBtns}<div id="e_prev"></div></div>${hasSQL?rfBindHTML(v):""}${groupSec}`:"";
+  const sqlSec=sqlInner?`<div class="sec collapsed"><div class="sech">${secTitle}</div>${hasSQL?paramRefHTML(v):""}${hasSQL?cteBlockHTML(v):""}${sqlInner}${sqlBtns}<div id="e_prev"></div></div>${hasSQL?rfBindHTML(v):""}${groupSec}`:"";
   const actions=`<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><button class="danger" onclick="delVisualConfirm('${id}')">🗑 Eliminar visual</button></div>`;
   const jsonSec=`<div class="sec collapsed"><div class="sech">JSON del visual (editable)</div><textarea id="e_json" style="min-height:300px;white-space:pre">${esc(JSON.stringify(v,null,2))}</textarea><button class="sm" style="margin-top:8px" onclick="applyVisualJSON('${id}')">Aplicar JSON</button></div>`;
-  const genOut=sqlInner?generalSec.replace('<div class="sec">','<div class="sec collapsed">'):generalSec;
+  const genOut=generalSec;
   return genOut+fmtSec+htmlSecExtra+sqlSec+crossfilterSecHTML(v)+jsonSec+`<div class="hint" id="e_err" style="color:#b4322a"></div>`+actions;
 }
 /* ── Editor a pantalla completa con vista previa en vivo ── */
