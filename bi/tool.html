@@ -2805,7 +2805,9 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v),
   const rtFmt=rw=>(AX0==="row"&&AF0[rw]&&AF0[rw].fmt)?AF0[rw].fmt:v.fmt;
   const ctFmt=c=>(AX0==="col"&&AF0[c]&&AF0[c].fmt)?AF0[c].fmt:v.fmt;
   const st=MX_STATE[v.id]=MX_STATE[v.id]||{}; st.rowLabels=[...new Set(rows.map(r=>r.row))]; st.colLabels=[...new Set(rows.map(r=>r.col))]; st.rowFmt=dataFmt; const clickable=v.sortable!==false;
-  const isTotCol=c=>/^total(es)?$/i.test(String(c)); const isTotRow=rw=>/^total(es)?$/i.test(String(rw));  // columna/fila "Total" venida del SQL
+  const _TR=v.totRows, _TC=v.totCols, _cfgTot=!!(_TR||_TC), _nameTot=x=>/^total(es)?$/i.test(String(x));
+  const isTotCol=c=> _TC ? (String(c) in _TC) : _nameTot(c); const isTotRow=rw=> _TR ? (String(rw) in _TR) : _nameTot(rw);
+  const totStyFor=(rw,c)=>{ let o=null; if(_TR&&(String(rw) in _TR))o=Object.assign({},_TR[String(rw)]); if(_TC&&(String(c) in _TC))o=Object.assign(o||{},_TC[String(c)]); return o; };
   if(clickable&&st.colSort&&st.colSort.by){ const by=st.colSort.by,d=st.colSort.dir==="asc"?1:-1; const kf=by==="__total__"?(c=>colTot[c]):(c=>{const k=by+"||"+c;return (k in cell)?cell[k]:-Infinity;}); colvals.sort((a,b)=>{const x=kf(a),y=kf(b);return (x>y?1:x<y?-1:0)*d;}); }
   if(clickable&&st.rowSort&&st.rowSort.by){ const by=st.rowSort.by,d=st.rowSort.dir==="asc"?1:-1; const kf=by==="__total__"?(rw=>rowTot[rw]):(rw=>{const k=rw+"||"+by;return (k in cell)?cell[k]:-Infinity;}); rowvals.sort((a,b)=>{const x=kf(a),y=kf(b);return (x>y?1:x<y?-1:0)*d;}); }
   else if(v.sortRows==="desc")rowvals.sort((a,b)=>rowTot[b]-rowTot[a]); else if(v.sortRows==="asc")rowvals.sort((a,b)=>rowTot[a]-rowTot[b]);
@@ -2826,10 +2828,11 @@ async function renderMatrix(v){ const rows=await q(applyRF(applyWhere(effSQL(v),
   else if(AX==="col")colvals.forEach(c=>{let mn=Infinity,mx=-Infinity;rowvals.forEach(rw=>{if(isTotRow(rw))return; const d=disp(rw,c);if(d!=null){if(d<mn)mn=d;if(d>mx)mx=d;}});rng["c:"+c]={mn:isFinite(mn)?mn:0,mx:isFinite(mx)?mx:1};});
   const rangeFor=(rw,c)=> AX==="row"?(rng["r:"+rw]||gR) : AX==="col"?(rng["c:"+c]||gR) : gR;
   const tcls=(rw,c)=>(isTotCol(c)?" tot totcol":"")+(isTotRow(rw)&&!isTotCol(c)?" tot":"");
-  const cellHTML=(rw,c)=>{ const key=rw+"||"+c; if(!(key in cell))return `<td class="num${tcls(rw,c)}"></td>`; const isT=isTotCol(c)||isTotRow(rw); const d=disp(rw,c); const F=fmtFor(rw,c); const R=rangeFor(rw,c); let style="",inner=fmtCell(d,F.fmt);
+  const cellHTML=(rw,c)=>{ const key=rw+"||"+c; if(!(key in cell))return `<td class="num${tcls(rw,c)}"></td>`; const isT=isTotCol(c)||isTotRow(rw); const ts=(isT&&_cfgTot)?totStyFor(rw,c):null; const d=disp(rw,c); const F=fmtFor(rw,c); const R=rangeFor(rw,c); let style="",inner=fmtCell(d,F.fmt);
     if(F.arrow){ const up=d>=0; inner=`<span style="color:${up?'#2F7A34':'#b4322a'}">${up?'▲':'▼'} ${fmtCell(Math.abs(d),F.fmt)}</span>`; }
-    if(F.heat&&!isT)style+=condStyle(d,R.mn,R.mx,F.heat);
-    if(F.bar&&!isT)inner=condBar(inner,d,R.mn,R.mx,F.bar);
+    if(F.heat && (!isT || (_cfgTot && !(ts&&ts.bg))))style+=condStyle(d,R.mn,R.mx,F.heat);
+    if(F.bar && (!isT || _cfgTot))inner=condBar(inner,d,R.mn,R.mx,F.bar);
+    if(ts){ if(ts.bg)style+="background:"+ts.bg+" !important;"; if(ts.fg)style+="color:"+ts.fg+" !important;"; style+="font-weight:"+(ts.bold!==false?"700":"500")+";"; if(ts.border)style+="border:1px solid #aab8c2;"; }
     return `<td class="num${tcls(rw,c)}" style="${style}">${inner}</td>`; };
   const arrR=by=>(st.rowSort&&st.rowSort.by===by)?(st.rowSort.dir==="asc"?" ▲":" ▼"):""; const arrC=by=>(st.colSort&&st.colSort.by===by)?(st.colSort.dir==="asc"?" ▲":" ▼"):""; const cp=s=>esc(String(s));
   const active=st.rowSort||st.colSort;
@@ -3182,6 +3185,24 @@ window.tblDetectGrid=async id=>{ const v=CP().visuals.find(x=>x.id===id); const 
     const cols=Object.keys(rows[0]); const isNum=c=>rows.every(r=>r[c]==null||typeof r[c]==="number")&&rows.some(r=>typeof r[c]==="number");
     const have=new Set([...g.querySelectorAll(".cr-name")].map(i=>i.value.trim()));
     cols.filter(c=>isNum(c)&&!have.has(c)).forEach(c=>g.insertAdjacentHTML("beforeend",colRowHTML(c,{fmt:v.fmt||"num"}))); }catch(e){ alert("No pude detectar columnas: "+e.message); } };
+function totMkRowHTML(kind,label,s,labels){ s=s||{};
+  const opts=['<option value="">(elige)</option>'].concat((labels||[]).map(l=>`<option value="${escA(l)}" ${String(l)===String(label)?"selected":""}>${esc(l)}</option>`)).join("");
+  return `<div class="totmk-row" data-kind="${kind}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:5px">
+    <select class="tm-label" style="width:150px;flex:0 0 auto">${opts}</select>
+    <label class="fxrow2" style="margin:0"><input type="checkbox" class="tm-bgon" ${s.bg?"checked":""}> fondo</label><input type="color" class="tm-bg" value="${s.bg||"#e9eff5"}" style="width:32px;height:26px;padding:1px;border:1px solid var(--border);border-radius:6px">
+    <label class="fxrow2" style="margin:0"><input type="checkbox" class="tm-fgon" ${s.fg?"checked":""}> texto</label><input type="color" class="tm-fg" value="${s.fg||"#1e3a5f"}" style="width:32px;height:26px;padding:1px;border:1px solid var(--border);border-radius:6px">
+    <label class="fxrow2" style="margin:0"><input type="checkbox" class="tm-bold" ${s.bold!==false?"checked":""}> negrita</label>
+    <label class="fxrow2" style="margin:0"><input type="checkbox" class="tm-bd" ${s.border?"checked":""}> borde</label>
+    <button type="button" class="sm" onclick="totDelMk(this)" title="Quitar">&#10005;</button>
+  </div>`; }
+function totMkGrid(kind,v){ const st=MX_STATE[v.id]||{}; const labels=(kind==="rows"?st.rowLabels:st.colLabels)||[];
+  if(!labels.length)return `<div class="hint">No hay etiquetas todav&iacute;a. Dibuja la matriz y reabre el editor.</div>`;
+  const cfg=(kind==="rows"?v.totRows:v.totCols); let entries;
+  if(cfg)entries=Object.keys(cfg).map(l=>[l,cfg[l]||{}]);
+  else entries=labels.filter(l=>/^total(es)?$/i.test(String(l))).map(l=>[l,{bold:true}]);
+  return entries.map(e=>totMkRowHTML(kind,e[0],e[1],labels)).join(""); }
+window.totAddMk=(kind)=>{ const g=$("totgrid_"+kind); if(!g||g.dataset.ready!=="1")return; const v=CP().visuals[_editIdx]; const st=MX_STATE[v.id]||{}; const labels=(kind==="rows"?st.rowLabels:st.colLabels)||[]; g.insertAdjacentHTML("beforeend",totMkRowHTML(kind,"",{bold:true},labels)); };
+window.totDelMk=(btn)=>{ const r=btn.closest(".totmk-row"); if(!r)return; r.remove(); if(LIVE){ const v=CP().visuals[_editIdx]; if(v){ readMatrix(v); renderVisual(v); } } };
 function totStyleRow(label,key,s,on){ const D=key==="tot"?{bg:"#e9eff5",fg:"#1e3a5f",bd:true}:{bg:"#f3f6f8",fg:"#55606e",bd:false};
   const bold=(s.bold!=null?s.bold:true), bd=(s.border!=null?s.border:D.bd);
   return `<div class="row" style="align-items:center;gap:8px;flex-wrap:wrap">
@@ -3250,11 +3271,16 @@ function fmtMatrix(v){ const grp=groupCtrl(v); const hbCells=grp?"":`<div><label
         <div class="row" id="e_autoh_mm" style="${v.autoHeight?'':'display:none'}"><div><label>Alto m&iacute;n (px)</label><input id="e_minh" type="text" value="${v.minH||120}"></div><div><label>Alto m&aacute;x (px, vac&iacute;o = sin tope)</label><input id="e_maxh" type="text" value="${v.maxH||''}"></div></div></div>
     </div>
     <div class="sec collapsed"><div class="sech">Totales</div>
-      <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_autototal" ${v.autoTotal!==false?"checked":""}> A&ntilde;adir Total propio. Desact&iacute;valo si el Total viene del SQL.</label>
-        <div class="hint" style="margin:4px 0 2px">La <b>regla</b> del total de fila/columna va en <b>Formato de n&uacute;mero &#8594; Por fila/columna</b> (Suma/Media/M&aacute;x/M&iacute;n/Mediana; ponderada &#8594; desde SQL).</div></div>
-      <details class="optbox" style="margin-top:8px" open><summary style="cursor:pointer;font-weight:600;font-size:13px">Estilo de totales <span class="hint" style="font-weight:400">(vac&iacute;o = azul-gris por defecto)</span></summary>
+      <div class="optbox"><label class="fxrow2"><input type="checkbox" id="e_autototal" ${v.autoTotal!==false?"checked":""}> A&ntilde;adir Total propio. Desact&iacute;valo si el Total viene del SQL.</label></div>
+      <div style="margin-top:8px"><label>Filas totales</label>
+        <div id="totgrid_rows" data-ready="${((MX_STATE[v.id]||{}).rowLabels||[]).length?"1":"0"}">${totMkGrid("rows",v)}</div>
+        <button type="button" class="sm" style="margin-top:4px" onclick="totAddMk('rows')">+ otra fila</button></div>
+      <div style="margin-top:10px"><label>Columnas totales</label>
+        <div id="totgrid_cols" data-ready="${((MX_STATE[v.id]||{}).colLabels||[]).length?"1":"0"}">${totMkGrid("cols",v)}</div>
+        <button type="button" class="sm" style="margin-top:4px" onclick="totAddMk('cols')">+ otra columna</button></div>
+      <div class="hint" style="margin-top:6px">Marca qu&eacute; filas/columnas son totales (las <code>Total&hellip;</code> del SQL salen ya puestas; qu&iacute;talas si no lo son). El <b>formato</b> de la fila/columna manda (n&uacute;mero y barras); el <b>heat</b> se mantiene salvo que pongas <b>fondo</b>. <b>Negrita</b> y <b>borde</b> se suman.</div>
+      <details class="optbox" style="margin-top:8px"><summary style="cursor:pointer;font-weight:600;font-size:13px">Estilo de subtotal <span class="hint" style="font-weight:400">(tablas jer&aacute;rquicas)</span></summary>
         <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
-          ${totStyleRow("Total general","tot",(v.totStyle&&v.totStyle.total)||{},!!(v.totStyle&&v.totStyle.total))}
           ${totStyleRow("Subtotal","sub",(v.totStyle&&v.totStyle.sub)||{},!!(v.totStyle&&v.totStyle.sub))}
         </div></details>
     </div>
@@ -3317,7 +3343,9 @@ function readMatrix(v){ readMetricFmts(); const _fb=$("e_fmtbox"); if(_fb)v.fmt=
   if($("e_autototal"))v.autoTotal=$("e_autototal").checked;
   if($("e_fmtaxis")){ const ax=$("e_fmtaxis").value; v.fmtAxis=(ax==="off")?undefined:ax;
     if(v.fmtAxis){ const af={}; document.querySelectorAll("#axgrid .axrow").forEach(r=>{ const name=r.getAttribute("data-ax"); if(name==null)return; const o={}; const sp=readFmtComposer(r); if(sp)o.fmt=sp; const h=r.querySelector(".ax-heat")?.value; if(h)o.heat=h; if(r.querySelector(".ax-bar")?.checked)o.bar=true; if(r.querySelector(".ax-arrow")?.checked)o.arrow=true; const ag=r.querySelector(".ax-agg")?.value; if(ag)o.agg=ag; if(Object.keys(o).length)af[name]=o; }); if(Object.keys(af).length)v.axisFmt=af; else delete v.axisFmt; }
-  const ts={}; if($("ts_tot_on")?.checked)ts.total={bg:$("ts_tot_bg").value,fg:$("ts_tot_fg").value,bold:$("ts_tot_bold").checked,border:$("ts_tot_bd").checked}; if($("ts_sub_on")?.checked)ts.sub={bg:$("ts_sub_bg").value,fg:$("ts_sub_fg").value,bold:$("ts_sub_bold").checked,border:$("ts_sub_bd").checked}; if(Object.keys(ts).length)v.totStyle=ts; else if($("ts_tot_on"))delete v.totStyle; }
+  const ts={}; if(v.totStyle&&v.totStyle.total)ts.total=v.totStyle.total; if($("ts_sub_on")?.checked)ts.sub={bg:$("ts_sub_bg").value,fg:$("ts_sub_fg").value,bold:$("ts_sub_bold").checked,border:$("ts_sub_bd").checked}; if(Object.keys(ts).length)v.totStyle=ts; else if($("ts_sub_on"))delete v.totStyle;
+  const readMk=(kind)=>{ const g=$("totgrid_"+kind); if(!g||g.dataset.ready!=="1")return undefined; const o={}; g.querySelectorAll(".totmk-row").forEach(r=>{ const lab=(r.querySelector(".tm-label")||{}).value; if(!lab)return; const e={}; if(r.querySelector(".tm-bgon")&&r.querySelector(".tm-bgon").checked)e.bg=r.querySelector(".tm-bg").value; if(r.querySelector(".tm-fgon")&&r.querySelector(".tm-fgon").checked)e.fg=r.querySelector(".tm-fg").value; e.bold=!!(r.querySelector(".tm-bold")&&r.querySelector(".tm-bold").checked); if(r.querySelector(".tm-bd")&&r.querySelector(".tm-bd").checked)e.border=true; o[lab]=e; }); return o; };
+  const _mr=readMk("rows"); if(_mr!==undefined)v.totRows=_mr; const _mc=readMk("cols"); if(_mc!==undefined)v.totCols=_mc; }
   if(document.querySelector(".fxlist"))readFx(v); }
 function readKpi(v){ v.label=$("e_label")?.value||v.title; v.kind=$("e_kind")?.value||"money"; v.isPct=$("e_pct")?.value==="1"; if($("e_sqlcy")&&!LIVE)v.sqlCY=$("e_sqlcy").value; if($("e_sqltgt")&&!LIVE)v.sqlTGT=$("e_sqltgt").value; }
 function readHtml(v){ if($("e_sql")&&!LIVE)v.sql=$("e_sql").value; }
@@ -3473,7 +3501,7 @@ function commitSQLText(v,txt){ if(v.group&&_editMetricId){ (v.metricSQL=v.metric
 window.mgBind=()=>{ const v=CP().visuals[_editIdx]; if(!v)return; v.group=$("e_group").value||undefined; if(v.group&&!v.metricSQL)v.metricSQL={}; _editMetricId=null; attachFsEditor(v,v.id); fsPreview(); };
 window.mgEditChip=cid=>{ const v=CP().visuals[_editIdx]; const g=metricGroupOf(v); if(!g||!(g.chips||[]).some(c=>c.id===cid))return;
   if($("e_sql"))commitSQLText(v,$("e_sql").value); _editMetricId=cid; attachFsEditor(v,v.id); fsPreview(); };
-function wireLive(){ const pane=$("fs_right"); const h=e=>{ const t=e.target; if(!t)return; if(t.id==="e_group"){ mgBind(); return; } if(/^(e_sql|e_sqlcy|e_sqltgt|e_json)$/.test(t.id))return; if(!t.id && !t.closest("#colgrid,#mgchiprows,#mfmtgrid,#e_fmtbox,#axgrid"))return;
+function wireLive(){ const pane=$("fs_right"); const h=e=>{ const t=e.target; if(!t)return; if(t.id==="e_group"){ mgBind(); return; } if(/^(e_sql|e_sqlcy|e_sqltgt|e_json)$/.test(t.id))return; if(!t.id && !t.closest("#colgrid,#mgchiprows,#mfmtgrid,#e_fmtbox,#axgrid,#totgrid_rows,#totgrid_cols"))return;
     clearTimeout(_liveT); _liveT=setTimeout(async()=>{ const v=CP().visuals[_editIdx]; if(!v)return; LIVE=true; try{ await readEditor(v); }catch(err){} LIVE=false; await fsPreview(); }, 70); };
   pane.oninput=h; pane.onchange=h; }
 window.fsRunSQL=async()=>{ const v=CP().visuals[_editIdx]; if(!v)return; if($("e_sql"))commitSQLText(v,$("e_sql").value); if($("e_sqlcy"))v.sqlCY=$("e_sqlcy").value; if($("e_sqltgt"))v.sqlTGT=$("e_sqltgt").value; if($("e_html"))v.html=$("e_html").value; await fsPreview(); };
